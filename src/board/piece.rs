@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PieceType {
     PAWN,
@@ -12,6 +14,23 @@ pub enum PieceType {
 pub enum PieceColor {
     WHITE,
     BLACK,
+}
+impl<T> Index<PieceColor> for [T] {
+    type Output = T;
+
+    fn index(&self, index: PieceColor) -> &Self::Output {
+        &self[index as usize]
+    }
+    
+}
+
+impl PieceColor {
+    pub fn opposite(&self) -> PieceColor {
+        match self {
+            PieceColor::WHITE => PieceColor::BLACK,
+            PieceColor::BLACK => PieceColor::WHITE,
+        }
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

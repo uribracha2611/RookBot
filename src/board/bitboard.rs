@@ -1,4 +1,5 @@
 use std::ops::Not;
+use crate::movegen::constants::{A_FILE, H_FILE}; // Assuming these constants are correctly imported
 use super::piece::PieceColor;
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -14,7 +15,7 @@ impl Not for Bitboard {
 
 impl Bitboard {
     /// Create a new `Bitboard` from a `u64` value.
-    pub fn new(bit: u64) -> Self {
+    pub const fn new(bit: u64) -> Self {
         Bitboard(bit)
     }
 
@@ -58,5 +59,39 @@ impl Bitboard {
             .intersection(!blockers)
             .pawn_push(color)
             .intersection(!blockers)
+    }
+
+    /// Perform a pawn attack in the specified direction for the given color.
+    pub fn pawn_attack(self, color: PieceColor, opponent: Bitboard, attack_left: bool) -> Bitboard {
+        let attack;
+
+        if color == PieceColor::WHITE {
+            // White pawns attack diagonally up and to the left and right
+            if attack_left {
+                attack = self.shift_left(9).intersection(!A_FILE); // Mask out the a-file to prevent wraparound
+            } else {
+                attack = self.shift_right(7).intersection(!H_FILE); // Mask out the h-file to prevent wraparound
+            }
+        } else {
+            // Black pawns attack diagonally down and to the left and right
+            if attack_left {
+                attack = self.shift_right(7).intersection(!A_FILE); // Mask out the a-file to prevent wraparound
+            } else {
+                attack = self.shift_left(9).intersection(!H_FILE); // Mask out the h-file to prevent wraparound
+            }
+        }
+
+        // Only include squares that are occupied by the opponent
+        attack.intersection(opponent)
+    }
+
+    /// Shift the bitboard right by `n` positions.
+    pub fn shift_right(self, n: u32) -> Bitboard {
+        Bitboard(self.0 >> n)
+    }
+
+    /// Shift the bitboard left by `n` positions.
+    pub fn shift_left(self, n: u32) -> Bitboard {
+        Bitboard(self.0 << n)
     }
 }
