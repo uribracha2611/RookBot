@@ -94,4 +94,10 @@ impl Bitboard {
     pub fn shift_left(self, n: u32) -> Bitboard {
         Bitboard(self.0 << n)
     }
+    pub fn pop_lsb(&mut self) -> u8 {
+        let lsb = self.0 & (!self.0 + 1);
+        self.0 ^= lsb;
+        lsb.trailing_zeros() as u8
+    }
+
 }

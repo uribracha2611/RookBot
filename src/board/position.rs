@@ -25,6 +25,11 @@ impl Position {
         }
     }
 
+    /// Converts a linear index (0-63) to a `Position`.
+    pub fn from_index(index: u8) -> Result<Self, &'static str> {
+        Position::from_sqr(index)
+    }
+
     /// Converts a chess notation string (e.g., "e2") to a `Position`.
     pub fn from_chess_notation(notation: &str) -> Result<Self, &'static str> {
         if notation.len() != 2 {

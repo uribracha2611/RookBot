@@ -1,4 +1,5 @@
 use std::ops::Index;
+use std::fmt;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PieceType {
@@ -15,13 +16,13 @@ pub enum PieceColor {
     WHITE,
     BLACK,
 }
+
 impl<T> Index<PieceColor> for [T] {
     type Output = T;
 
     fn index(&self, index: PieceColor) -> &Self::Output {
         &self[index as usize]
     }
-    
 }
 
 impl PieceColor {
@@ -38,22 +39,81 @@ pub struct Piece {
     pub piece_color: PieceColor,
     pub piece_type: PieceType,
 }
-impl Piece 
-{
-    pub fn new (piece_color:PieceColor,piece_type:PieceType) -> Self {
-        return Piece{piece_color,piece_type}
+
+impl Piece {
+    pub fn new(piece_color: PieceColor, piece_type: PieceType) -> Self {
+        Piece { piece_color, piece_type }
     }
-    pub fn is_color(&self,piece_color:PieceColor) -> bool {
-        return self.piece_color == piece_color
+
+    pub fn is_color(&self, piece_color: PieceColor) -> bool {
+        self.piece_color == piece_color
     }
-    pub fn is_type(&self,piece_type:PieceType) -> bool {
-        return self.piece_type == piece_type
+
+    pub fn is_type(&self, piece_type: PieceType) -> bool {
+        self.piece_type == piece_type
     }
+
     pub fn is_diag(&self) -> bool {
-        return self.piece_type == PieceType::BISHOP || self.piece_type == PieceType::QUEEN
-    
+        matches!(self.piece_type, PieceType::BISHOP | PieceType::QUEEN)
+    }
+
+    pub fn is_ortho(&self) -> bool {
+        matches!(self.piece_type, PieceType::ROOK | PieceType::QUEEN)
+    }
 }
-pub fn is_ortho(&self) -> bool {
-    return self.piece_type == PieceType::ROOK || self.piece_type == PieceType::QUEEN
+
+impl fmt::Debug for Piece {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}{}", self.piece_color.to_string(), self.piece_type.to_string())
+    }
 }
+
+impl fmt::Debug for PieceType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
+impl fmt::Debug for PieceColor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.to_string())
+    }
+}
+
+
+
+impl fmt::Display for PieceType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            PieceType::PAWN => "P",
+            PieceType::KNIGHT => "N",
+            PieceType::BISHOP => "B",
+            PieceType::ROOK => "R",
+            PieceType::QUEEN => "Q",
+            PieceType::KING => "K",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl fmt::Display for PieceColor {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let s = match self {
+            PieceColor::WHITE => "w",
+            PieceColor::BLACK => "b",
+        };
+        write!(f, "{}", s)
+    }
+}
+
+impl fmt::Display for Piece {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let piece_str = self.piece_type.to_string();
+        let s = if self.piece_color == PieceColor::BLACK {
+            piece_str.to_lowercase()
+        } else {
+            piece_str
+        };
+        write!(f, "{}", s)
+    }
 }
