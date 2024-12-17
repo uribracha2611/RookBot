@@ -38,7 +38,9 @@ impl Bitboard {
     pub fn set(&mut self, bit: u64) {
         self.0 |= bit;
     }
-
+    pub fn set_square(&mut self, square: u8) {
+        self.set(1 << square);
+    }
     /// Clear a specific bit on the bitboard.
     pub fn clear(&mut self, bit: u64) {
         self.0 &= !bit;

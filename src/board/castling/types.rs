@@ -103,5 +103,36 @@ pub enum CastlingSide {
              
          }
        }
+
+       pub fn from_fen(fen: &str, color: PieceColor) -> Self {
+        let kingside = match color {
+            PieceColor::WHITE => fen.contains('K'),
+            PieceColor::BLACK => fen.contains('k'),
+        };
+        let queenside = match color {
+            PieceColor::WHITE => fen.contains('Q'),
+            PieceColor::BLACK => fen.contains('q'),
+        };
+
+        match (kingside, queenside) {
+            (true, true) => AllowedCastling::Both,
+            (true, false) => AllowedCastling::Kingside,
+            (false, true) => AllowedCastling::Queenside,
+            (false, false) => AllowedCastling::None,
+        }
+    }
+
+    pub fn to_fen(&self, color: PieceColor) -> String {
+        match (self, color) {
+            (AllowedCastling::Kingside, PieceColor::WHITE) => "K".to_string(),
+            (AllowedCastling::Queenside, PieceColor::WHITE) => "Q".to_string(),
+            (AllowedCastling::Both, PieceColor::WHITE) => "KQ".to_string(),
+            (AllowedCastling::None, PieceColor::WHITE) => "".to_string(),
+            (AllowedCastling::Kingside, PieceColor::BLACK) => "k".to_string(),
+            (AllowedCastling::Queenside, PieceColor::BLACK) => "q".to_string(),
+            (AllowedCastling::Both, PieceColor::BLACK) => "kq".to_string(),
+            (AllowedCastling::None, PieceColor::BLACK) => "".to_string(),
+        }
+    }
     }
 

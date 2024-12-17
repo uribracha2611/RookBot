@@ -60,6 +60,35 @@ impl Piece {
     pub fn is_ortho(&self) -> bool {
         matches!(self.piece_type, PieceType::ROOK | PieceType::QUEEN)
     }
+
+    pub fn from_fen(fen: &str) -> Option<Self> {
+        let piece_color = if fen.chars().next()?.is_uppercase() {
+            PieceColor::WHITE
+        } else {
+            PieceColor::BLACK
+        };
+
+        let piece_type = match fen.to_ascii_uppercase().as_str() {
+            "P" => PieceType::PAWN,
+            "N" => PieceType::KNIGHT,
+            "B" => PieceType::BISHOP,
+            "R" => PieceType::ROOK,
+            "Q" => PieceType::QUEEN,
+            "K" => PieceType::KING,
+            _ => return None,
+        };
+
+        Some(Piece::new(piece_color, piece_type))
+    }
+
+    pub fn to_fen(&self) -> String {
+        let piece_str = self.piece_type.to_string();
+        if self.piece_color == PieceColor::BLACK {
+            piece_str.to_lowercase()
+        } else {
+            piece_str
+        }
+    }
 }
 
 impl fmt::Debug for Piece {
