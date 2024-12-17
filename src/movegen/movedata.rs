@@ -1,6 +1,7 @@
 use crate::board::{castling::types::CastlingSide, piece::{Piece, PieceColor, PieceType}};
 use crate::board::position::Position;
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub enum MoveType {
     Normal,
     Capture(Piece),
@@ -10,16 +11,19 @@ pub enum MoveType {
     EnPassant(Piece, u8),  // Piece and the file of the captured pawn
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct CastlingMove {
     pub side: CastlingSide,
     pub color: PieceColor,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct PromotionCapture {
     pub captured_piece: Piece,
     pub promoted_piece: Piece,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct MoveData {
     pub from: u8,
     pub to: u8,
