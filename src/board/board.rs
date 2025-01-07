@@ -1,8 +1,8 @@
 use super::{bitboard::Bitboard, gamestate::GameState, piece::{Piece, PieceColor}};
 
 pub struct Board {
-    squares: [Option<Piece>; 64],
-    turn: PieceColor,
+    pub squares: [Option<Piece>; 64],
+    pub turn: PieceColor,
     pub color_bitboards: [Bitboard; 2],
     pub piece_bitboards: [[Bitboard; 6]; 2],
     pub all_pieces_bitboard: Bitboard,
@@ -16,14 +16,23 @@ pub struct Board {
 impl Board {
     pub fn from_fen(fen: &str) -> Self {
         let parts: Vec<&str> = fen.split_whitespace().collect();
+        
+
+        // Validate that the FEN has the minimum required parts
+        if parts.len() < 6 {
+            panic!("Invalid FEN string: insufficient parts");
+        }
+
+        // Parse piece placement string (first field of FEN)
         let piece_placement = parts[0];
-        let active_color = parts[1];
-        let game_state_fen = parts[2..].join(" ");
+        let active_color = parts[1]; // Second field (active color)
+        let game_state_fen = parts[2..].join(" "); // Remaining fields (castling, en passant, clocks)
 
         let mut squares = [None; 64];
         let mut rank = 7;
         let mut file = 0;
 
+        // Parse piece placement into the board squares
         for c in piece_placement.chars() {
             match c {
                 '/' => {
@@ -40,14 +49,17 @@ impl Board {
             }
         }
 
+        // Parse the game state using the updated GameState::from_fen
         let game_state = GameState::from_fen(&game_state_fen);
 
+        // Set the side to move
         let turn = if active_color == "w" {
             PieceColor::WHITE
         } else {
             PieceColor::BLACK
         };
 
+        // Initialize bitboards (color and piece-specific)
         let mut color_bitboards = [Bitboard::new(0), Bitboard::new(0)];
         let mut piece_bitboards = [[Bitboard::new(0); 6]; 2];
         let mut all_pieces_bitboard = Bitboard::new(0);
@@ -63,13 +75,17 @@ impl Board {
             }
         }
 
+        // Set en passant based on the game state
+        let en_passant = game_state.en_passant_square.map(|sq| sq as usize);
+
+        // Return a fully initialized Board
         Board {
             squares,
             turn,
             color_bitboards,
             piece_bitboards,
             all_pieces_bitboard,
-            en_passant: None,
+            en_passant,
             game_state,
             is_check: false,
             is_double_check: false,
