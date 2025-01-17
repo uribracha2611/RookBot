@@ -1,113 +1,103 @@
-use std::ops::{Add, Sub, Index, IndexMut};
+use std::ops::{Add, Sub, Mul};
+use std::fmt;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Position {
-    pub x: u8,
-    pub y: u8,
+    pub x: i8,
+    pub y: i8,
 }
 
 impl Position {
-    /// Creates a new `Position` with bounds checking.
-    pub fn new(x: u8, y: u8) -> Result<Self, &'static str> {
-        if x < 8 && y < 8 {
-            Ok(Position { x, y })
+    /// Creates a new `Position` without bounds checking.
+    pub fn new(x: i8, y: i8) -> Self {
+        Position { x, y }
+    }
+
+    /// Converts a linear index (0-63) to a `Position`. Returns `None` if invalid square.
+    pub fn from_sqr(sqr: i8) -> Option<Self> {
+        if sqr >= 0 && sqr < 64 {
+            Some(Position::new(sqr % 8, sqr / 8))
         } else {
-            Err("Position out of bounds")
+            None
         }
     }
 
-    /// Converts a linear index (0-63) to a `Position`.
-    pub fn from_sqr(sqr: u8) -> Result<Self, &'static str> {
-        if sqr < 64 {
-            Ok(Position::new(sqr % 8, sqr / 8).unwrap())
-        } else {
-            Err("Square index out of bounds")
-        }
-    }
+    /// Converts a chess notation string (e.g., "e2") to a `Position`. Panics if invalid notation.
 
-    /// Converts a linear index (0-63) to a `Position`.
-    pub fn from_index(index: u8) -> Result<Self, &'static str> {
+    /// Converts a linear index (0-63) to a `Position`. Alias for `from_sqr`.
+    pub fn from_index(index: i8) -> Option<Self> {
         Position::from_sqr(index)
     }
 
-    /// Converts a chess notation string (e.g., "e2") to a `Position`.
-    pub fn from_chess_notation(notation: &str) -> Result<Self, &'static str> {
+    /// Converts a `Position` to a linear index (0-63). Returns `None` if out of bounds.
+    pub fn to_sqr(&self) -> Option<i8> {
+        if self.x >= 0 && self.x < 8 && self.y >= 0 && self.y < 8 {
+            Some(self.y * 8 + self.x)
+        } else {
+            None
+        }
+    }
+
+    pub fn from_chess_notation(notation: &str) -> Option<Self> {
         if notation.len() != 2 {
-            return Err("Notation must be exactly two characters");
+            return None;
         }
         let chars: Vec<char> = notation.chars().collect();
         let file = chars[0].to_ascii_lowercase();
         let rank = chars[1];
         if file < 'a' || file > 'h' || rank < '1' || rank > '8' {
-            return Err("Invalid chess notation: must be between 'a1' and 'h8'");
+            return None;
         }
-        let x = (file as u8) - b'a';
-        let y = (rank as u8) - b'1';
-        Position::new(x, y)
+        let x = (file as i8) - b'a' as i8;
+        let y = (rank as i8) - b'1' as i8;
+        Some(Position::new(x, y))
     }
 
-    /// Converts a `Position` to a linear index (0-63).
-    pub fn to_sqr(&self) -> u8 {
-        self.y * 8 + self.x
+    /// Converts a `Position` to chess notation, e.g., "e2". Returns `None` if out of bounds.
+    pub fn to_chess_notation(&self) -> Option<String> {
+        if self.x < 0 || self.x >= 8 || self.y < 0 || self.y >= 8 {
+            return None;
+        }
+        let file = (b'a' as i8 + self.x) as u8 as char;
+        let rank = (self.y + 1).to_string();
+        Some(format!("{}{}", file, rank))
     }
 
-    /// Converts a `Position` to chess notation (e.g., "e2").
-    pub fn to_chess_notation(&self) -> Result<String, &'static str> {
-        if self.x < 8 && self.y < 8 {
-            let file = (b'a' + self.x) as char;
-            let rank = (self.y + 1).to_string();
-            Ok(format!("{}{}", file, rank))
-        } else {
-            Err("Position out of bounds for chess notation")
-        }
-    }
 
     /// Checks if another `Position` is adjacent to the current one.
     pub fn is_adjacent(&self, other: &Self) -> bool {
-        let dx = (self.x as i8 - other.x as i8).abs();
-        let dy = (self.y as i8 - other.y as i8).abs();
+        let dx = (self.x - other.x).abs();
+        let dy = (self.y - other.y).abs();
         dx <= 1 && dy <= 1 && !(dx == 0 && dy == 0)
     }
 }
 
 impl Add for Position {
-    type Output = Result<Self, &'static str>;
+    type Output = Self;
 
     fn add(self, rhs: Self) -> Self::Output {
-        let x = self.x.checked_add(rhs.x).ok_or("Addition overflow for x")?;
-        let y = self.y.checked_add(rhs.y).ok_or("Addition overflow for y")?;
-        Position::new(x, y)
+        Position::new(self.x + rhs.x, self.y + rhs.y)
     }
 }
 
 impl Sub for Position {
-    type Output = Result<Self, &'static str>;
+    type Output = Self;
 
     fn sub(self, rhs: Self) -> Self::Output {
-        let x = self.x.checked_sub(rhs.x).ok_or("Subtraction underflow for x")?;
-        let y = self.y.checked_sub(rhs.y).ok_or("Subtraction underflow for y")?;
-        Position::new(x, y)
+        Position::new(self.x - rhs.x, self.y - rhs.y)
     }
 }
 
-impl std::fmt::Debug for Position {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl Mul<i8> for Position {
+    type Output = Self;
+
+    fn mul(self, rhs: i8) -> Self::Output {
+        Position::new(self.x * rhs, self.y * rhs)
+    }
+}
+
+impl fmt::Debug for Position {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
-    }
-}
-
-// Implement Index for Position to index slices
-impl<T> Index<Position> for [T] {
-    type Output = T;
-
-    fn index(&self, index: Position) -> &Self::Output {
-        &self[index.to_sqr() as usize]
-    }
-}
-
-// Implement IndexMut for Position to index slices mutably
-impl<T> IndexMut<Position> for [T] {
-    fn index_mut(&mut self, index: Position) -> &mut Self::Output {
-        &mut self[index.to_sqr() as usize]
     }
 }

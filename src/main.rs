@@ -1,8 +1,13 @@
+use crate::board::board::Board;
+use crate::movegen::generate::generate_knight_move;
 
-pub mod  board;
+pub mod board;
 pub mod movegen;
-pub  mod board_tests;
-fn main() {
-   print!("Hello, world!");
 
+#[cfg(test)]
+pub mod board_tests;
+
+
+pub fn main() {
+    let board=Board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 }

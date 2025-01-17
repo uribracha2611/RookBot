@@ -1,5 +1,5 @@
-use std::ops::Index;
 use std::fmt;
+use std::ops::Index;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub enum PieceType {
@@ -42,7 +42,10 @@ pub struct Piece {
 
 impl Piece {
     pub fn new(piece_color: PieceColor, piece_type: PieceType) -> Self {
-        Piece { piece_color, piece_type }
+        Piece {
+            piece_color,
+            piece_type,
+        }
     }
 
     pub fn is_color(&self, piece_color: PieceColor) -> bool {
@@ -93,7 +96,12 @@ impl Piece {
 
 impl fmt::Debug for Piece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}{}", self.piece_color.to_string(), self.piece_type.to_string())
+        write!(
+            f,
+            "{}{}",
+            self.piece_color.to_string(),
+            self.piece_type.to_string()
+        )
     }
 }
 
@@ -108,8 +116,6 @@ impl fmt::Debug for PieceColor {
         write!(f, "{}", self.to_string())
     }
 }
-
-
 
 impl fmt::Display for PieceType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

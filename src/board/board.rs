@@ -1,22 +1,24 @@
-use super::{bitboard::Bitboard, gamestate::GameState, piece::{Piece, PieceColor}};
+use crate::board::piece::PieceType;
+use super::{
+    bitboard::Bitboard,
+    gamestate::GameState,
+    piece::{Piece, PieceColor},
+};
 
 pub struct Board {
     pub squares: [Option<Piece>; 64],
     pub turn: PieceColor,
-    pub color_bitboards: [Bitboard; 2],
-    pub piece_bitboards: [[Bitboard; 6]; 2],
-    pub all_pieces_bitboard: Bitboard,
-    pub en_passant: Option<usize>,
+     color_bitboards: [Bitboard; 2],
+     piece_bitboards: [[Bitboard; 6]; 2],
+     all_pieces_bitboard: Bitboard,
     pub game_state: GameState,
     pub is_check: bool,
     pub is_double_check: bool,
-   
 }
 
 impl Board {
     pub fn from_fen(fen: &str) -> Self {
         let parts: Vec<&str> = fen.split_whitespace().collect();
-        
 
         // Validate that the FEN has the minimum required parts
         if parts.len() < 6 {
@@ -85,7 +87,6 @@ impl Board {
             color_bitboards,
             piece_bitboards,
             all_pieces_bitboard,
-            en_passant,
             game_state,
             is_check: false,
             is_double_check: false,
@@ -142,5 +143,14 @@ impl Board {
 
         stockfish_str.push_str(&self.game_state.to_stockfish_string());
         stockfish_str
+    }
+    pub  fn get_piece_bitboard(&self, color: PieceColor, piece: PieceType) -> Bitboard {
+        self.piece_bitboards[color as usize][piece as usize]
+    }
+    pub fn get_color_bitboard(&self, color: PieceColor) -> Bitboard {
+        self.color_bitboards[color as usize]
+    }
+    pub fn get_all_pieces_bitboard(&self) -> Bitboard {
+        self.all_pieces_bitboard
     }
 }

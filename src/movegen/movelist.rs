@@ -6,6 +6,12 @@ pub struct MoveList {
     count: usize,
 }
 
+impl Default for MoveList {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl MoveList {
     pub fn new() -> Self {
         MoveList {
@@ -34,7 +40,10 @@ impl MoveList {
     }
 
     pub fn is_move_in_list(&self, mv: &MoveData) -> bool {
-        self.moves.iter().take(self.count).any(|m| m.as_ref() == Some(mv))
+        self.moves
+            .iter()
+            .take(self.count)
+            .any(|m| m.as_ref() == Some(mv))
     }
 }
 
