@@ -14,6 +14,10 @@ pub struct Board {
     pub game_state: GameState,
     pub is_check: bool,
     pub is_double_check: bool,
+    pub attacked_square:Bitboard,
+    pub curr_king:u8,
+    pub check_ray:Bitboard,
+    pub pinned_ray:Bitboard,
 }
 
 impl Board {
@@ -90,6 +94,10 @@ impl Board {
             game_state,
             is_check: false,
             is_double_check: false,
+            attacked_square:Bitboard::new(0),
+            curr_king:0,
+            check_ray:Bitboard::new(u64::MAX),
+            pinned_ray:Bitboard::new(0),
         }
     }
 

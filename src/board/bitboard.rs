@@ -79,6 +79,13 @@ impl Bitboard {
             .pawn_push(color)
             .bitand(!blockers)
     }
+    pub fn get_single_set_bit(self) -> u8 {
+          self.0.trailing_zeros() as u8
+    }
+    pub fn pop_count(self) -> u8 {
+        self.0.count_ones() as u8
+    }
+
 
     /// Perform a pawn attack in the specified direction for the given color.
     pub fn pawn_attack(self, color: PieceColor, opponent: Bitboard, attack_left: bool) -> Bitboard {
