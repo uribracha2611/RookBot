@@ -1,5 +1,4 @@
 use crate::board::board::Board;
-use crate::movegen::generate::generate_knight_move;
 
 pub mod board;
 pub mod movegen;

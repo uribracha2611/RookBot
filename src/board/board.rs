@@ -82,7 +82,7 @@ impl Board {
         }
 
         // Set en passant based on the game state
-        let en_passant = game_state.en_passant_square.map(|sq| sq as usize);
+        ru
 
         // Return a fully initialized Board
         Board {

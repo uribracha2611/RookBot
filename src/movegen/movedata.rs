@@ -1,7 +1,7 @@
 use crate::board::position::Position;
 use crate::board::{
     castling::types::CastlingSide,
-    piece::{Piece, PieceColor, PieceType},
+    piece::{Piece, PieceColor},
 };
 
 #[derive(Clone, Copy, PartialEq, Eq)]

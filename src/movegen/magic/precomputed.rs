@@ -1,8 +1,6 @@
 use std::sync::LazyLock;
 use crate::board::bitboard::Bitboard;
-use crate::board::position::Position;
-use crate::movegen::constants::{BISHOP_OFFSETS, ROOK_OFFSETS};
-use crate::movegen::magic::functions::{build_mask_square, build_blocker_bitboards, legal_move_bitboard_from_blockers, create_table};
+use crate::movegen::magic::functions::{build_mask_square, create_table};
 use crate::movegen::magic::constants::{BISHOP_MAGICS, BISHOP_SHIFTS, ROOK_MAGICS, ROOK_SHIFTS};
 
 pub static ROOK_MASK: LazyLock<[Bitboard; 64]> = LazyLock::new(|| {
