@@ -82,7 +82,7 @@ impl Board {
         }
 
         // Set en passant based on the game state
-        ru
+        
 
         // Return a fully initialized Board
         Board {
