@@ -11,7 +11,7 @@ pub enum MoveType {
     Castling(CastlingMove), // Using struct for castling
     Promotion(Piece),
     PromotionCapture(PromotionCapture),
-    EnPassant(Piece, u8), // Piece and the file of the captured pawn
+    EnPassant(Piece, u8), // Piece and the square of the captured pawn
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -84,12 +84,44 @@ impl MoveData {
             MoveType::Promotion(_) | MoveType::PromotionCapture(_)
         )
     }
+    pub fn is_double_push(&self) -> bool {
+        let from_pos = Position::from_sqr(self.from as i8).unwrap();
+        let to_pos = Position::from_sqr(self.to as i8).unwrap();
+        let from_rank = from_pos.y;
+        let to_rank = to_pos.y;
+        let diff = (to_rank  - from_rank ).abs();
+        diff == 2
+    }
 
     // Check if the move is an en passant
     pub fn is_en_passant(&self) -> bool {
         matches!(self.move_type, MoveType::EnPassant(_, _))
     }
-
+    pub fn get_capture_square(&self) -> Option<u8> {
+        match &self.move_type {
+            MoveType::Capture(_) => Some(self.to),
+            MoveType::EnPassant(_, square) => Some(*square),
+            _ => None,
+        }
+    }
+    pub fn get_rook_start(&self) -> Option<u8> {
+        match &self.move_type {
+            MoveType::Castling(castling) => Some(castling.get_rook_start()),
+            _ => None,
+        }
+    }
+    pub fn get_castling_side(&self) -> Option<CastlingSide> {
+        match &self.move_type {
+            MoveType::Castling(castling) => Some(castling.side),
+            _ => None,
+        }
+    }
+    pub fn get_rook_end(&self) -> Option<u8> {
+        match &self.move_type {
+            MoveType::Castling(castling) => Some(castling.get_rook_end()),
+            _ => None,
+        }
+    }
     // Convert the move to algebraic notation
     pub fn to_algebraic(&self) -> String {
         let from_pos = Position::from_sqr(self.from as i8).unwrap();

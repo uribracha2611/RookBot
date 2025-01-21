@@ -58,6 +58,9 @@ impl Bitboard {
     pub fn clear(&mut self, bit: u64) {
         self.0 &= !bit;
     }
+    pub fn clear_square(&mut self, square: u8) {
+        self.clear(1 << square);
+    }
 
     /// Perform a pawn push in the specified direction for the given color.
     pub fn pawn_push(self, color: &PieceColor) -> Bitboard {

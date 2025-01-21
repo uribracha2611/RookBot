@@ -1,4 +1,6 @@
+use crate::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::board::piece::PieceType;
+use crate::movegen::movedata::MoveData;
 use super::{
     bitboard::Bitboard,
     gamestate::GameState,
@@ -18,9 +20,28 @@ pub struct Board {
     pub curr_king:u8,
     pub check_ray:Bitboard,
     pub pinned_ray:Bitboard,
+    history:Vec<GameState>
 }
 
 impl Board {
+
+
+    fn remove_piece(&mut self, square: u8, piece: Piece) {
+        self.squares[square as usize] = None;
+        self.get_color_bitboard_mut(piece.piece_color).clear_square(square);
+        self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type).clear_square(square);
+        self.all_pieces_bitboard.clear_square(square);
+    }
+    fn add_piece(&mut self, square: u8, piece: Piece) {
+      
+
+        self.squares[square as usize] = Some(piece);
+        self.get_color_bitboard_mut(piece.piece_color).set_square(square);
+        self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type).set_square(square);
+        self.all_pieces_bitboard.set_square(square);
+    }
+
+
     pub fn from_fen(fen: &str) -> Self {
         let parts: Vec<&str> = fen.split_whitespace().collect();
 
@@ -35,6 +56,22 @@ impl Board {
         let game_state_fen = parts[2..].join(" "); // Remaining fields (castling, en passant, clocks)
 
         let mut squares = [None; 64];
+        let mut board = Board {
+            squares,
+            turn: if active_color == "w" { PieceColor::WHITE } else { PieceColor::BLACK },
+            color_bitboards: [Bitboard::new(0), Bitboard::new(0)],
+            piece_bitboards: [[Bitboard::new(0); 6]; 2],
+            all_pieces_bitboard: Bitboard::new(0),
+            game_state: GameState::from_fen(&game_state_fen),
+            is_check: false,
+            is_double_check: false,
+            attacked_square: Bitboard::new(0),
+            curr_king: 0,
+            check_ray: Bitboard::new(u64::MAX),
+            pinned_ray: Bitboard::new(0),
+            history:Vec::new()
+        };
+
         let mut rank = 7;
         let mut file = 0;
 
@@ -49,56 +86,15 @@ impl Board {
                     file += c.to_digit(10).unwrap() as usize;
                 }
                 _ => {
-                    squares[rank * 8 + file] = Piece::from_fen(&c.to_string());
+                    if let Some(piece) = Piece::from_fen(&c.to_string()) {
+                        board.add_piece((rank * 8 + file) as u8, piece);
+                    }
                     file += 1;
                 }
             }
         }
 
-        // Parse the game state using the updated GameState::from_fen
-        let game_state = GameState::from_fen(&game_state_fen);
-
-        // Set the side to move
-        let turn = if active_color == "w" {
-            PieceColor::WHITE
-        } else {
-            PieceColor::BLACK
-        };
-
-        // Initialize bitboards (color and piece-specific)
-        let mut color_bitboards = [Bitboard::new(0), Bitboard::new(0)];
-        let mut piece_bitboards = [[Bitboard::new(0); 6]; 2];
-        let mut all_pieces_bitboard = Bitboard::new(0);
-
-        for (i, square) in squares.iter().enumerate() {
-            if let Some(piece) = square {
-                let color_index = piece.piece_color as usize;
-                let piece_index = piece.piece_type as usize;
-
-                color_bitboards[color_index].set_square(i as u8);
-                piece_bitboards[color_index][piece_index].set_square(i as u8);
-                all_pieces_bitboard.set_square(i as u8);
-            }
-        }
-
-        // Set en passant based on the game state
-        
-
-        // Return a fully initialized Board
-        Board {
-            squares,
-            turn,
-            color_bitboards,
-            piece_bitboards,
-            all_pieces_bitboard,
-            game_state,
-            is_check: false,
-            is_double_check: false,
-            attacked_square:Bitboard::new(0),
-            curr_king:0,
-            check_ray:Bitboard::new(u64::MAX),
-            pinned_ray:Bitboard::new(0),
-        }
+        board
     }
 
     pub fn to_fen(&self) -> String {
@@ -134,6 +130,108 @@ impl Board {
         fen.push_str(&format!(" {} {}", active_color, self.game_state.to_fen()));
         fen
     }
+    pub fn make_move(&mut self, mv:&MoveData)
+    {
+        let mut new_game_state =self.game_state;
+        let moved_piece = mv.piece_to_move;
+        if mv.is_capture() {
+            self.remove_piece(mv.get_capture_square().unwrap(),mv.get_captured_piece().unwrap());
+        } 
+        if(mv.is_promotion()){
+            self.remove_piece(mv.from,moved_piece);
+            self.add_piece(mv.to,mv.get_promoted_piece().unwrap());
+        }
+        else{
+            self.remove_piece(mv.from,moved_piece);
+            self.add_piece(mv.to,moved_piece);
+        }
+        if mv.is_castling(){
+            let rook_start = mv.get_rook_start().unwrap();
+            let rook_end = mv.get_rook_end().unwrap();
+            let rook = self.squares[rook_start as usize].unwrap();
+            self.remove_piece(rook_start,rook);
+            self.add_piece(rook_end,rook);
+            
+            
+        }
+        if(moved_piece.piece_type==PieceType::KING)
+        {
+            new_game_state.disallow_castling_both(moved_piece.piece_color);
+         
+        }
+        if (moved_piece.piece_type == PieceType::ROOK)
+        {
+            if( mv.from == 0 && moved_piece.piece_color == PieceColor::WHITE)
+            {
+                new_game_state.disallow_castling(AllowedCastling::from(CastlingSide::Queenside), moved_piece.piece_color);
+            }
+            else if(mv.from == 7 && moved_piece.piece_color == PieceColor::WHITE)
+            {
+                new_game_state.disallow_castling(AllowedCastling::from(CastlingSide::Kingside), moved_piece.piece_color);
+            }
+            else if(mv.from == 56 && moved_piece.piece_color == PieceColor::BLACK)
+            {
+                new_game_state.disallow_castling(AllowedCastling::from(CastlingSide::Queenside), moved_piece.piece_color);
+            }
+            else if(mv.from == 63 && moved_piece.piece_color == PieceColor::BLACK)
+            {
+                new_game_state.disallow_castling(AllowedCastling::from(CastlingSide::Kingside), moved_piece.piece_color);
+            }
+            
+           
+        }
+        if (moved_piece.piece_type == PieceType::PAWN) {
+            if (mv.is_double_push()) {
+                new_game_state.en_passant_file = Some(mv.to % 8);
+                new_game_state.en_passant_square = Some(mv.to);
+            } else {
+                new_game_state.en_passant_file = None;
+                new_game_state.en_passant_square = None;
+            }
+        } 
+        
+        
+        self.turn = self.turn.opposite();
+        self.history.push(self.game_state);
+        self.game_state = new_game_state;
+        
+        
+        
+    }
+
+    pub fn unmake_move(&mut self, mv: &MoveData) {
+        let moved_piece = mv.piece_to_move;
+
+        // Restore the piece to its original position
+        self.remove_piece(mv.to, moved_piece);
+        self.add_piece(mv.from, moved_piece);
+
+        // Restore captured piece if it was a capture move
+        if mv.is_capture() {
+            self.add_piece(mv.get_capture_square().unwrap(), mv.get_captured_piece().unwrap());
+        }
+
+        // Handle promotion
+        if mv.is_promotion() {
+            self.remove_piece(mv.to, mv.get_promoted_piece().unwrap());
+            self.add_piece(mv.from, moved_piece);
+        }
+
+        // Handle castling
+        if mv.is_castling() {
+            let rook_start = mv.get_rook_start().unwrap();
+            let rook_end = mv.get_rook_end().unwrap();
+            let rook = self.squares[rook_end as usize].unwrap();
+            self.remove_piece(rook_end, rook);
+            self.add_piece(rook_start, rook);
+        }
+
+        // Restore game state
+        self.game_state = self.history.pop().unwrap();
+        self.turn = self.turn.opposite();
+    }
+
+
 
     pub fn to_stockfish_string(&self) -> String {
         let mut stockfish_str = String::new();
@@ -158,6 +256,13 @@ impl Board {
     pub fn get_color_bitboard(&self, color: PieceColor) -> Bitboard {
         self.color_bitboards[color as usize]
     }
+    fn get_piece_bitboard_mut(&mut self, color: PieceColor, piece: PieceType) -> &mut Bitboard {
+    &mut self.piece_bitboards[color as usize][piece as usize]
+}
+
+fn get_color_bitboard_mut(&mut self, color: PieceColor) -> &mut Bitboard {
+    &mut self.color_bitboards[color as usize]
+}
     pub fn get_all_pieces_bitboard(&self) -> Bitboard {
         self.all_pieces_bitboard
     }
