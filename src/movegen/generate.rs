@@ -337,7 +337,12 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList) {
             let end_sq = attacks.pop_lsb();
             let start_sq = (end_sq as i8 - (get_pawn_attack_dir(board.turn, *left))) as u8;
             if !is_pinned(board, start_sq) || ALIGN_MASK[start_sq as usize][board.curr_king as usize] == ALIGN_MASK[end_sq as usize][board.curr_king as usize] {
-                let curr_move = MoveData::new(start_sq, end_sq, board.squares[start_sq as usize].unwrap(), MoveType::Capture(board.squares[end_sq as usize].unwrap()));
+               let curr_move = MoveData::new(
+    start_sq,
+    end_sq,
+    board.squares[start_sq as usize].unwrap(),
+    MoveType::Capture(board.squares[end_sq as usize].unwrap())
+);
                 move_list.add_move(curr_move);
             }
         }
@@ -353,7 +358,7 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList) {
     if let Some(en_passant_square) = board.game_state.en_passant_square
     {
         let en_passant_target = (en_passant_square as i8 - (8 * get_pawn_dir(board.turn))) as u8;
-        let mut pawns_can_capture = pawns.pawn_attack(board.turn.opposite(), Bitboard::new(en_passant_target as u64), true) | pawns.pawn_attack(board.turn.opposite(), Bitboard::new(en_passant_target as u64), false);
+        let mut pawns_can_capture = (pawns.pawn_attack(board.turn.opposite(), Bitboard::new(en_passant_target as u64), true) | pawns.pawn_attack(board.turn.opposite(), Bitboard::new(en_passant_target as u64), false)) & *pawns;
         while pawns_can_capture != 0
         {
             let start_sq = pawns_can_capture.pop_lsb();
@@ -384,9 +389,10 @@ pub fn get_rook_moves(board: &Board, move_list: &mut MoveList) {
     let rooks = &mut board.get_piece_bitboard(board.turn, PieceType::ROOK);
     let opp_pieces = board.get_color_bitboard(board.turn.opposite());
     let blockers = board.get_all_pieces_bitboard();
+    
     while *rooks != 0 {
         let from_sqr = rooks.pop_lsb();
-        let mut moves = get_rook_attacks(from_sqr as usize, blockers) & board.check_ray;
+        let mut moves = get_rook_attacks(from_sqr as usize, blockers) & board.check_ray & !board.get_color_bitboard(board.turn);
         if is_pinned(board, from_sqr) {
             moves &= ALIGN_MASK[from_sqr as usize][board.curr_king as usize];
         }
@@ -408,9 +414,10 @@ pub fn get_bishop_moves(board: &Board, move_list: &mut MoveList) {
     let bishops = &mut board.get_piece_bitboard(board.turn, PieceType::BISHOP);
     let opp_pieces = board.get_color_bitboard(board.turn.opposite());
     let blockers = board.get_all_pieces_bitboard();
+    let our_pieces=board.get_color_bitboard(board.turn);
     while *bishops != 0 {
         let from_sqr = bishops.pop_lsb();
-        let mut moves = get_bishop_attacks(from_sqr as usize, blockers) & board.check_ray;
+        let mut moves = get_bishop_attacks(from_sqr as usize, blockers) & board.check_ray & !our_pieces;
         if is_pinned(board, from_sqr) {
             moves &= ALIGN_MASK[from_sqr as usize][board.curr_king as usize];
         }
@@ -432,9 +439,11 @@ pub fn get_queen_moves(board: &Board, move_list: &mut MoveList) {
     let queens = &mut board.get_piece_bitboard(board.turn, PieceType::QUEEN);
     let opp_pieces = board.get_color_bitboard(board.turn.opposite());
     let blockers = board.get_all_pieces_bitboard();
+    let our_pieces=board.get_color_bitboard(board.turn);
     while *queens != 0 {
         let from_sqr = queens.pop_lsb();
-        let mut moves = get_bishop_attacks(from_sqr as usize, blockers) | get_rook_attacks(from_sqr as usize, blockers) & board.check_ray;
+        let mut moves = (get_bishop_attacks(from_sqr as usize, blockers) | get_rook_attacks(from_sqr as usize, blockers)) & board.check_ray;
+        moves &=!our_pieces;
         if is_pinned(board, from_sqr) {
             moves &= ALIGN_MASK[from_sqr as usize][board.curr_king as usize];
         }

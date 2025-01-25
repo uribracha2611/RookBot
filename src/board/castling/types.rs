@@ -3,7 +3,7 @@ use crate::board::piece::PieceColor;
 
 use super::constants::*;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq,Debug)]
 pub enum CastlingSide {
     Kingside,
     Queenside,

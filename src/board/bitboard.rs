@@ -20,6 +20,7 @@ use derive_more::{Add, AddAssign, BitAnd, BitOr, BitAndAssign, BitOrAssign, BitX
     Mul,
     Default,
 )]
+#[derive(Debug)]
 pub struct Bitboard(u64);
 
 impl PartialEq<u64> for Bitboard {
@@ -97,21 +98,21 @@ impl Bitboard {
         if color == PieceColor::WHITE {
             // White pawns attack diagonally up and to the left and right
             if attack_left {
-                attack = Bitboard(self.0 << 9).bitand(!A_FILE); // Mask out the a-file to prevent wraparound
+                attack = Bitboard(self.0 << 7) & !A_FILE; // Mask out the a-file to prevent wraparound
             } else {
-                attack = Bitboard(self.0 >> 7).bitand(!H_FILE); // Mask out the h-file to prevent wraparound
+                attack = Bitboard(self.0 << 9) & !H_FILE; // Mask out the h-file to prevent wraparound
             }
         } else {
             // Black pawns attack diagonally down and to the left and right
             if attack_left {
-                attack = Bitboard(self.0 >> 7).bitand(!A_FILE); // Mask out the a-file to prevent wraparound
+                attack = Bitboard(self.0 >> 9) & !H_FILE; // Mask out the h-file to prevent wraparound
             } else {
-                attack = Bitboard(self.0 << 9).bitand(!H_FILE); // Mask out the h-file to prevent wraparound
+                attack = Bitboard(self.0 >> 7) & !A_FILE; // Mask out the a-file to prevent wraparound
             }
         }
 
         // Only include squares that are occupied by the opponent
-        attack.bitand(opponent)
+        attack & opponent
     }
 
     pub fn pop_lsb(&mut self) -> u8 {

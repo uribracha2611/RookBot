@@ -13,6 +13,12 @@ impl Default for MoveList {
 }
 
 impl MoveList {
+    pub fn iter(&self) -> MoveListIterator {
+        MoveListIterator {
+            movelist: self,
+            index: 0,
+        }
+    }
     pub fn new() -> Self {
         MoveList {
             moves: [None; MAX_MOVES],

@@ -12,8 +12,10 @@ pub fn build_mask_square(start_square:u8, is_rook:bool) ->Bitboard{
     {
         for i in 1..8 {
             let new_square = start_square_coord + (coord * i);
-            if let Some(new_square) = new_square.to_sqr() {
-                mask.set_square(new_square as u8);
+            let new_square_check=start_square_coord+(coord*(i+1));
+    
+            if(new_square_check.to_sqr().is_some()){
+                mask.set_square(new_square.to_sqr().unwrap() as u8);
             } else {
                 break;
             }
@@ -33,7 +35,7 @@ pub fn build_blocker_bitboards(mask: Bitboard)->Vec<Bitboard>{
 
     let mask_set_vec = mask.bitboard_to_set_vec();
     let blocker_count=(1<<mask_set_vec.len()) as usize;
-    let mut blocker_bitboards:Vec<Bitboard>=Vec::with_capacity(blocker_count);
+    let mut blocker_bitboards:Vec<Bitboard>=vec![Bitboard::new(0);blocker_count];
     for pattern_index in 0..blocker_count{
         for  bit_index in 0..mask_set_vec.len(){
             let bit=(pattern_index>>bit_index)&1;
@@ -75,19 +77,22 @@ pub fn create_table(square: u8, rook: bool, magic: u64, left_shift: u8) -> Vec<B
     let blocker_patterns = build_blocker_bitboards(movement_mask);
 
     for pattern in blocker_patterns {
-        let index = (pattern.get_bitboard() * magic) >> left_shift;
+        let index = (pattern.get_bitboard().wrapping_mul(magic)) >> left_shift; // Use wrapping_mul to handle overflow
         let moves = legal_move_bitboard_from_blockers(square, pattern, rook);
-        table[index as usize] = moves;
+        table[index as usize] = moves; // Store the calculated moves in the table
     }
+    
 
     table
 }
 pub fn get_rook_attacks(square: usize, blockers: Bitboard) -> Bitboard {
-    let key = ((blockers & ROOK_MASK[square]).get_bitboard() * ROOK_MAGICS[square]) >> ROOK_SHIFTS[square];
-    ROOK_ATTACKS[square][key as usize]
+    let masked_blockers = blockers & ROOK_MASK[square]; // Apply the blocker mask
+    let key = (masked_blockers.get_bitboard().wrapping_mul(ROOK_MAGICS[square])) >> ROOK_SHIFTS[square]; // Wrapping multiplication and shift
+    ROOK_ATTACKS[square][key as usize] // Use the resulting key to index the attack table
 }
 
 pub fn get_bishop_attacks(square: usize, blockers: Bitboard) -> Bitboard {
-    let key = ((blockers & BISHOP_MASK[square]).get_bitboard() * BISHOP_MAGICS[square]) >> BISHOP_SHIFTS[square];
-    BISHOP_ATTACKS[square][key as usize]
+    let masked_blockers = blockers & BISHOP_MASK[square]; // Apply the blocker mask
+    let key = (masked_blockers.get_bitboard().wrapping_mul(BISHOP_MAGICS[square])) >> BISHOP_SHIFTS[square]; // Wrapping multiplication and shift
+    BISHOP_ATTACKS[square][key as usize] // Use the resulting key to index the attack table
 }
