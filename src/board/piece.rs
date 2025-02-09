@@ -25,6 +25,7 @@ impl<T> Index<PieceColor> for [T] {
     }
 }
 
+
 impl PieceColor {
     pub fn opposite(&self) -> PieceColor {
         match self {

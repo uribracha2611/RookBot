@@ -1,6 +1,7 @@
 use crate::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::board::piece::PieceType;
 use crate::movegen::movedata::MoveData;
+use crate::search::zobrist::constants::{ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE};
 use super::{
     bitboard::Bitboard,
     gamestate::GameState,
@@ -28,13 +29,18 @@ impl Board {
 
 
     fn remove_piece(&mut self, square: u8, piece: Piece) {
+        // Update Zobrist hash before removing the piece
+        self.game_state.zobrist_hash ^= ZOBRIST_KEYS[piece.piece_type as usize][square as usize];
+
         self.squares[square as usize] = None;
         self.get_color_bitboard_mut(piece.piece_color).clear_square(square);
         self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type).clear_square(square);
         self.all_pieces_bitboard.clear_square(square);
     }
+
     fn add_piece(&mut self, square: u8, piece: Piece) {
-      
+        // Update Zobrist hash before adding the piece
+        self.game_state.zobrist_hash ^= ZOBRIST_KEYS[piece.piece_type as usize][square as usize];
 
         self.squares[square as usize] = Some(piece);
         self.get_color_bitboard_mut(piece.piece_color).set_square(square);
@@ -164,29 +170,40 @@ impl Board {
          
         }
        self.disallow_castling_if_needed(mv.from, moved_piece, &mut new_game_state);
-        if (moved_piece.piece_type == PieceType::PAWN && mv.is_double_push()) {
-                let new_en_passent_square= if moved_piece.piece_color == PieceColor::WHITE {
-                    mv.to - 8
-                } else {
-                    mv.to + 8
-                };
-                new_game_state.en_passant_file = Some(mv.to % 8);
-                new_game_state.en_passant_square = Some(new_en_passent_square );
-            } else {
-                new_game_state.en_passant_file = None;
-                new_game_state.en_passant_square = None;
-            }
+        self.handle_en_passant(mv, &mut new_game_state);
 
         
         
         self.turn = self.turn.opposite();
+        new_game_state.zobrist_hash^=ZOBRIST_SIDE_TO_MOVE;
+
         self.history.push(self.game_state);
         self.game_state = new_game_state;
         
         
         
     }
+    fn handle_en_passant(&mut self, mv: &MoveData, new_game_state: &mut GameState) {
+        if mv.piece_to_move.piece_type == PieceType::PAWN && mv.is_double_push() {
+            let new_en_passant_square = if mv.piece_to_move.piece_color == PieceColor::WHITE {
+                mv.to - 8
+            } else {
+                mv.to + 8
+            };
+            new_game_state.en_passant_file = Some(mv.to % 8);
+            new_game_state.en_passant_square = Some(new_en_passant_square);
 
+            // Update Zobrist hash for en passant
+            self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[mv.to as usize % 8];
+        } else {
+            if let Some(file) = new_game_state.en_passant_file {
+                // Remove old en passant from Zobrist hash
+                self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[file as usize];
+            }
+            new_game_state.en_passant_file = None;
+            new_game_state.en_passant_square = None;
+        }
+    }
     pub fn unmake_move(&mut self, mv: &MoveData) {
         let moved_piece = mv.piece_to_move;
         if mv.is_promotion() {

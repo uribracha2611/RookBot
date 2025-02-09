@@ -1,5 +1,7 @@
+use crate::board::castling::types::CastlingSide;
 use super::{castling::types::AllowedCastling, piece::PieceColor};
 use crate::board::position::Position;
+use crate::search::zobrist::constants::{ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct GameState {
@@ -9,6 +11,7 @@ pub struct GameState {
     pub fullmove_clock: u8,
     pub en_passant_file: Option<u8>,
     pub en_passant_square: Option<u8>,
+    pub zobrist_hash: u64,
 }
 impl GameState {
     pub fn new(
@@ -18,6 +21,7 @@ impl GameState {
         fullmove_clock: u8,
         en_passant_file: Option<u8>,
         en_passant_square: Option<u8>,
+        zobrist_hash: u64,
     ) -> GameState {
         GameState {
             castle_white,
@@ -26,20 +30,78 @@ impl GameState {
             fullmove_clock,
             en_passant_file,
             en_passant_square,
+            zobrist_hash,
         }
     }
-    pub fn disallow_castling(&mut self, side: AllowedCastling, color: PieceColor) {
-        if color == PieceColor::WHITE {
-            self.castle_white = self.castle_white.disallow_castling(side);
-        } else {
-            self.castle_black = self.castle_black.disallow_castling(side);
+
+       pub fn disallow_castling(&mut self, side: AllowedCastling, color: PieceColor) {
+           let old_hash = self.zobrist_hash;
+           let castling_index = match (color, side) {
+               (PieceColor::WHITE, AllowedCastling::Kingside) => 0,
+               (PieceColor::WHITE, AllowedCastling::Queenside) => 1,
+               (PieceColor::BLACK, AllowedCastling::Kingside) => 2,
+               (PieceColor::BLACK, AllowedCastling::Queenside) => 3,
+               _ => return,
+           };
+
+           // Remove the old castling right from the hash
+           self.zobrist_hash ^= ZOBRIST_CASTLING[castling_index];
+
+           if color == PieceColor::WHITE {
+               self.castle_white = self.castle_white.disallow_castling(side);
+           } else {
+               self.castle_black = self.castle_black.disallow_castling(side);
+           }
+
+           // Add the new castling right to the hash
+           self.zobrist_hash ^= ZOBRIST_CASTLING[castling_index];
+
+       }
+
+pub fn disallow_castling_both(&mut self, color: PieceColor) {
+    let old_hash = self.zobrist_hash;
+
+    if color == PieceColor::WHITE {
+        if self.castle_white.is_allowed(&CastlingSide::Kingside) {
+            self.zobrist_hash ^= ZOBRIST_CASTLING[0];
         }
+        if self.castle_white.is_allowed(&CastlingSide::Queenside) {
+            self.zobrist_hash ^= ZOBRIST_CASTLING[1];
+        }
+        self.castle_white = AllowedCastling::None;
+    } else {
+        if self.castle_black.is_allowed(&CastlingSide::Kingside) {
+            self.zobrist_hash ^= ZOBRIST_CASTLING[2];
+        }
+        if self.castle_black.is_allowed(&CastlingSide::Queenside) {
+            self.zobrist_hash ^= ZOBRIST_CASTLING[3];
+        }
+        self.castle_black = AllowedCastling::None;
     }
-    pub fn disallow_castling_both(&mut self, color: PieceColor) {
-        if color == PieceColor::WHITE {
-            self.castle_white = AllowedCastling::None;
-        } else {
-            self.castle_black = AllowedCastling::None;
+
+
+}
+
+    pub fn init_zobrist_hash(&mut self) {
+        self.zobrist_hash = 0;
+
+        // Add castling rights to the hash
+        if self.castle_white.is_allowed(&CastlingSide::Kingside) {
+            self.zobrist_hash ^= ZOBRIST_CASTLING[0];
+        }
+        if self.castle_white.is_allowed(&CastlingSide::Queenside) {
+            self.zobrist_hash ^= ZOBRIST_CASTLING[1];
+        }
+        if self.castle_black.is_allowed(&CastlingSide::Kingside) {
+            self.zobrist_hash ^= ZOBRIST_CASTLING[2];
+        }
+        if self.castle_black.is_allowed(&CastlingSide::Queenside) {
+            self.zobrist_hash ^= ZOBRIST_CASTLING[3];
+        }
+
+        // Add en passant square to the hash
+        if let Some(file) = self.en_passant_file {
+            self.zobrist_hash ^= ZOBRIST_EN_PASSANT[file as usize];
         }
     }
 
@@ -65,7 +127,7 @@ impl GameState {
             panic!("Invalid en passant field in FEN string");
         };
 
-        GameState {
+        let mut game_state = GameState {
             castle_white: AllowedCastling::from_fen(castle_rights, PieceColor::WHITE),
             castle_black: AllowedCastling::from_fen(castle_rights, PieceColor::BLACK),
             halfmove_clock: parts[2]
@@ -76,7 +138,11 @@ impl GameState {
                 .unwrap_or_else(|_| panic!("Invalid fullmove clock in FEN string")),
             en_passant_file,
             en_passant_square,
-        }
+            zobrist_hash: 0,
+        };
+
+        game_state.init_zobrist_hash();
+        game_state
     }
     pub fn to_fen(&self) -> String {
         // Convert GameState to FEN string
