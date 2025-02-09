@@ -34,7 +34,7 @@ pub fn build_mask(is_rook:bool)->[Bitboard;64]{
 pub fn build_blocker_bitboards(mask: Bitboard)->Vec<Bitboard>{
 
     let mask_set_vec = mask.bitboard_to_set_vec();
-    let blocker_count=(1<<mask_set_vec.len()) as usize;
+    let blocker_count=(1u64<<mask_set_vec.len()) as usize;
     let mut blocker_bitboards:Vec<Bitboard>=vec![Bitboard::new(0);blocker_count];
     for pattern_index in 0..blocker_count{
         for  bit_index in 0..mask_set_vec.len(){
@@ -70,8 +70,8 @@ pub fn legal_move_bitboard_from_blockers(start_square: u8, blocker_bitboard: Bit
 
 pub fn create_table(square: u8, rook: bool, magic: u64, left_shift: u8) -> Vec<Bitboard> {
     let num_bits = 64 - left_shift;
-    let lookup_size = 1 << num_bits;
-    let mut table = vec![Bitboard::new(0); lookup_size];
+    let lookup_size = 1u64 << num_bits;
+    let mut table = vec![Bitboard::new(0); lookup_size as usize];
 
     let movement_mask = build_mask_square(square, rook);
     let blocker_patterns = build_blocker_bitboards(movement_mask);

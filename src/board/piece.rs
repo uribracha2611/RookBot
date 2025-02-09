@@ -130,6 +130,18 @@ impl fmt::Display for PieceType {
         write!(f, "{}", s)
     }
 }
+impl PieceType {
+    pub fn to_char(&self) -> char {
+        match self {
+            PieceType::KING => 'K',
+            PieceType::QUEEN => 'Q',
+            PieceType::ROOK => 'R',
+            PieceType::BISHOP => 'B',
+            PieceType::KNIGHT => 'N',
+            PieceType::PAWN => 'P',
+        }
+    }
+}
 
 impl fmt::Display for PieceColor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

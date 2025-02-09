@@ -1,5 +1,6 @@
 use std::ops::{Add, Sub, Mul};
 use std::fmt;
+use num_traits::AsPrimitive;
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Position {
@@ -88,11 +89,15 @@ impl Sub for Position {
     }
 }
 
-impl Mul<i8> for Position {
+impl<T: AsPrimitive<i8>> Mul<T> for Position {
     type Output = Self;
 
-    fn mul(self, rhs: i8) -> Self::Output {
-        Position::new(self.x * rhs, self.y * rhs)
+    fn mul(self, rhs: T) -> Self::Output {
+        let factor: i8 = rhs.as_(); // Convert to i8
+        Self {
+            x: self.x * factor,
+            y: self.y * factor,
+        }
     }
 }
 

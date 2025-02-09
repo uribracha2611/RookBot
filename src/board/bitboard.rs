@@ -35,6 +35,14 @@ impl PartialEq<Bitboard> for u64 {
     }
 }
 
+impl Shl<i32> for Bitboard {
+    type Output = Bitboard;
+
+    fn shl(self, rhs: i32) -> Self::Output {
+        Bitboard(self.0 << rhs)
+    }
+}
+
 impl Bitboard {
     /// Create a new `Bitboard` from a `u64` value.
     pub const fn new(bit: u64) -> Self {
@@ -52,7 +60,8 @@ impl Bitboard {
     }
 
     pub fn set_square(&mut self, square: u8) {
-        self.set(1 << square);
+        let bit:u64 = 1u64 << square;
+        self.set(bit);
     }
 
     /// Clear a specific bit on the bitboard.
@@ -60,7 +69,8 @@ impl Bitboard {
         self.0 &= !bit;
     }
     pub fn clear_square(&mut self, square: u8) {
-        self.clear(1 << square);
+        let bit:u64 = 1u64 << square;
+        self.clear(bit);
     }
 
     /// Perform a pawn push in the specified direction for the given color.
@@ -72,7 +82,8 @@ impl Bitboard {
         }
     }
     pub fn create_from_square(square: u8) -> Bitboard {
-        Bitboard(1 << square)
+        let bit:u64=(1u64<<square) ;
+        Bitboard(bit)
     }
     /// Perform a double pawn push, ensuring there are no blockers.
     pub fn pawn_double_push(self, color: &PieceColor, blockers: Bitboard) -> Bitboard {
@@ -93,26 +104,19 @@ impl Bitboard {
 
     /// Perform a pawn attack in the specified direction for the given color.
     pub fn pawn_attack(self, color: PieceColor, opponent: Bitboard, attack_left: bool) -> Bitboard {
-        let attack;
-
-        if color == PieceColor::WHITE {
-            // White pawns attack diagonally up and to the left and right
-            if attack_left {
-                attack = Bitboard(self.0 << 7) & !A_FILE; // Mask out the a-file to prevent wraparound
-            } else {
-                attack = Bitboard(self.0 << 9) & !H_FILE; // Mask out the h-file to prevent wraparound
-            }
-        } else {
-            // Black pawns attack diagonally down and to the left and right
-            if attack_left {
-                attack = Bitboard(self.0 >> 9) & !H_FILE; // Mask out the h-file to prevent wraparound
-            } else {
-                attack = Bitboard(self.0 >> 7) & !A_FILE; // Mask out the a-file to prevent wraparound
-            }
-        }
-
-        // Only include squares that are occupied by the opponent
-        attack & opponent
+        let pawn_mask=self & match(color,attack_left){
+            (PieceColor::WHITE,true)=> !A_FILE,
+            (PieceColor::WHITE,false)=>!H_FILE,
+            (PieceColor::BLACK,true)=>!H_FILE,
+            (PieceColor::BLACK,false)=>!A_FILE,
+        };
+        let attacks=match(color,attack_left){
+            (PieceColor::WHITE,true)=>(pawn_mask << 7) & opponent,
+            (PieceColor::WHITE,false)=>(pawn_mask << 9) & opponent,
+            (PieceColor::BLACK,true)=>(pawn_mask >> 7) & opponent,
+            (PieceColor::BLACK,false)=>(pawn_mask >> 9) & opponent,
+        };
+        attacks
     }
 
     pub fn pop_lsb(&mut self) -> u8 {
@@ -131,7 +135,7 @@ impl Bitboard {
         set_vec
     }
     pub fn contains_square(&self, square: u8) -> bool {
-        self.0 & (1 << square) != 0
+        self.0 & (1u64 << square) != 0
     }
 
     pub fn get_bitboard(self) -> u64 {
@@ -140,7 +144,7 @@ impl Bitboard {
 }
 
 use std::fmt;
-
+use std::ops::Shl;
 
 impl fmt::Display for Bitboard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

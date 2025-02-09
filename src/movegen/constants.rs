@@ -36,7 +36,16 @@ pub const BISHOP_OFFSETS: [Position; 4] = [
     Position { x: -1, y: 1 }, // Up-Left
     Position { x: -1, y: -1 }, // Down-Left
 ];
-
+pub const ALL_OFSET: [Position; 8] = [
+    Position { x: 1, y: 0 },  // Right
+    Position { x: -1, y: 0 }, // Left
+    Position { x: 0, y: 1 },  // Up
+    Position { x: 0, y: -1 }, // Down
+    Position { x: 1, y: 1 },  // Up-Right
+    Position { x: 1, y: -1 }, // Down-Right
+    Position { x: -1, y: 1 }, // Up-Left
+    Position { x: -1, y: -1 }, // Down-Left
+];
 
 pub(crate) const RANK_1: Bitboard = Bitboard::new(0x00000000000000FF);
 pub(crate) const RANK_2: Bitboard = Bitboard::new(0x000000000000FF00);

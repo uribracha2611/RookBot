@@ -53,6 +53,14 @@ impl CastlingSide {
             (PieceColor::BLACK, CastlingSide::Queenside) => BLACK_QUEENSIDE_REQUIRED_EMPTY,
         }
     }
+    pub const fn king_moves_trough(&self, color: PieceColor) -> Bitboard {
+        match (color, self) {
+            (PieceColor::WHITE, CastlingSide::Kingside) => WHITE_KINGSIDE_KING_MOVES_TROUGH,
+            (PieceColor::WHITE, CastlingSide::Queenside) => WHITE_QUEENSIDE_KING_MOVES_TROUGH,
+            (PieceColor::BLACK, CastlingSide::Kingside) => BLACK_KINGSIDE_KING_MOVES_TROUGH,
+            (PieceColor::BLACK, CastlingSide::Queenside) => BLACK_QUEENSIDE_KING_MOVES_TROUGH,
+        }
+    }
 }
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum AllowedCastling {

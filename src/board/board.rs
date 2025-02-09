@@ -7,6 +7,7 @@ use super::{
     piece::{Piece, PieceColor},
 };
 
+#[derive( Clone)]
 pub struct Board {
     pub squares: [Option<Piece>; 64],
     pub turn: PieceColor,
@@ -136,6 +137,8 @@ impl Board {
         let moved_piece = mv.piece_to_move;
         if mv.is_capture() {
             self.remove_piece(mv.get_capture_square().unwrap(),mv.get_captured_piece().unwrap());
+            self.disallow_castling_if_needed(mv.get_capture_square().unwrap(), mv.get_captured_piece().unwrap(), &mut new_game_state);
+
         } 
         if(mv.is_promotion()){
             self.remove_piece(mv.from,moved_piece);
@@ -151,6 +154,7 @@ impl Board {
             let rook = self.squares[rook_start as usize].unwrap();
             self.remove_piece(rook_start,rook);
             self.add_piece(rook_end,rook);
+            new_game_state.disallow_castling_both(moved_piece.piece_color);
             
             
         }
@@ -159,36 +163,20 @@ impl Board {
             new_game_state.disallow_castling_both(moved_piece.piece_color);
          
         }
-        if (moved_piece.piece_type == PieceType::ROOK)
-        {
-            if( mv.from == 0 && moved_piece.piece_color == PieceColor::WHITE)
-            {
-                new_game_state.disallow_castling(AllowedCastling::from(CastlingSide::Queenside), moved_piece.piece_color);
-            }
-            else if(mv.from == 7 && moved_piece.piece_color == PieceColor::WHITE)
-            {
-                new_game_state.disallow_castling(AllowedCastling::from(CastlingSide::Kingside), moved_piece.piece_color);
-            }
-            else if(mv.from == 56 && moved_piece.piece_color == PieceColor::BLACK)
-            {
-                new_game_state.disallow_castling(AllowedCastling::from(CastlingSide::Queenside), moved_piece.piece_color);
-            }
-            else if(mv.from == 63 && moved_piece.piece_color == PieceColor::BLACK)
-            {
-                new_game_state.disallow_castling(AllowedCastling::from(CastlingSide::Kingside), moved_piece.piece_color);
-            }
-            
-           
-        }
-        if (moved_piece.piece_type == PieceType::PAWN) {
-            if (mv.is_double_push()) {
+       self.disallow_castling_if_needed(mv.from, moved_piece, &mut new_game_state);
+        if (moved_piece.piece_type == PieceType::PAWN && mv.is_double_push()) {
+                let new_en_passent_square= if moved_piece.piece_color == PieceColor::WHITE {
+                    mv.to - 8
+                } else {
+                    mv.to + 8
+                };
                 new_game_state.en_passant_file = Some(mv.to % 8);
-                new_game_state.en_passant_square = Some(mv.to);
+                new_game_state.en_passant_square = Some(new_en_passent_square );
             } else {
                 new_game_state.en_passant_file = None;
                 new_game_state.en_passant_square = None;
             }
-        } 
+
         
         
         self.turn = self.turn.opposite();
@@ -201,10 +189,15 @@ impl Board {
 
     pub fn unmake_move(&mut self, mv: &MoveData) {
         let moved_piece = mv.piece_to_move;
-
-        // Restore the piece to its original position
-        self.remove_piece(mv.to, moved_piece);
-        self.add_piece(mv.from, moved_piece);
+        if mv.is_promotion() {
+            self.remove_piece(mv.to, mv.get_promoted_piece().unwrap());
+            self.add_piece(mv.from, moved_piece);
+        }
+        else {
+            // Restore the piece to its original position
+            self.remove_piece(mv.to, moved_piece);
+            self.add_piece(mv.from, moved_piece);
+        }
 
         // Restore captured piece if it was a capture move
         if mv.is_capture() {
@@ -212,10 +205,7 @@ impl Board {
         }
 
         // Handle promotion
-        if mv.is_promotion() {
-            self.remove_piece(mv.to, mv.get_promoted_piece().unwrap());
-            self.add_piece(mv.from, moved_piece);
-        }
+
 
         // Handle castling
         if mv.is_castling() {
@@ -224,6 +214,7 @@ impl Board {
             let rook = self.squares[rook_end as usize].unwrap();
             self.remove_piece(rook_end, rook);
             self.add_piece(rook_start, rook);
+
         }
 
         // Restore game state
@@ -231,7 +222,26 @@ impl Board {
         self.turn = self.turn.opposite();
     }
 
-
+    fn disallow_castling_if_needed(&mut self, square: u8, piece: Piece, game_state: &mut GameState) {
+        if piece.piece_type != PieceType::ROOK {
+            return;
+        }
+        match (square, piece.piece_color) {
+            (0, PieceColor::WHITE) if game_state.castle_white.is_allowed(&CastlingSide::Queenside) => {
+                game_state.disallow_castling(AllowedCastling::from(CastlingSide::Queenside), piece.piece_color);
+            }
+            (7, PieceColor::WHITE) if game_state.castle_white.is_allowed(&CastlingSide::Kingside) => {
+                game_state.disallow_castling(AllowedCastling::from(CastlingSide::Kingside), piece.piece_color);
+            }
+            (56, PieceColor::BLACK) if game_state.castle_black.is_allowed(&CastlingSide::Queenside) => {
+                game_state.disallow_castling(AllowedCastling::from(CastlingSide::Queenside), piece.piece_color);
+            }
+            (63, PieceColor::BLACK) if game_state.castle_black.is_allowed(&CastlingSide::Kingside) => {
+                game_state.disallow_castling(AllowedCastling::from(CastlingSide::Kingside), piece.piece_color);
+            }
+            _ => {}
+        }
+    }
 
     pub fn to_stockfish_string(&self) -> String {
         let mut stockfish_str = String::new();

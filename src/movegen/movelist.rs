@@ -19,6 +19,9 @@ impl MoveList {
             index: 0,
         }
     }
+    pub fn len(&self) -> usize {
+        self.count
+    }
     pub fn new() -> Self {
         MoveList {
             moves: [None; MAX_MOVES],
@@ -50,6 +53,16 @@ impl MoveList {
             .iter()
             .take(self.count)
             .any(|m| m.as_ref() == Some(mv))
+    }
+    pub fn find_move_by_start_end_square(self,from:u8,to:u8)->Option<MoveData>{
+        for i in 0..MAX_MOVES{
+            if let Some(mv)=self.moves[i]{
+                if mv.from==from && mv.to==to{
+                    return Some(mv);
+                }
+            }
+        }
+        None
     }
 }
 
@@ -83,6 +96,7 @@ pub struct MoveListIterator<'a> {
     movelist: &'a MoveList,
     index: usize,
 }
+
 
 impl<'a> Iterator for MoveListIterator<'a> {
     type Item = &'a MoveData;

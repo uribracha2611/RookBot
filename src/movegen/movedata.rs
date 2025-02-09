@@ -68,7 +68,7 @@ impl MoveData {
     pub fn is_capture(&self) -> bool {
         matches!(
             self.move_type,
-            MoveType::Capture(_) | MoveType::EnPassant(_, _)
+            MoveType::Capture(_) | MoveType::EnPassant(_, _) | MoveType::PromotionCapture(_)
         )
     }
 
@@ -101,6 +101,7 @@ impl MoveData {
         match &self.move_type {
             MoveType::Capture(_) => Some(self.to),
             MoveType::EnPassant(_, square) => Some(*square),
+            MoveType::PromotionCapture(promo_capture) => Some(self.to),
             _ => None,
         }
     }
@@ -131,21 +132,18 @@ impl MoveData {
         let to_notation = to_pos.to_chess_notation().unwrap();
 
         match &self.move_type {
-            MoveType::Capture(_) => format!("{}x{}", from_notation, to_notation),
             MoveType::Promotion(piece) => {
-                format!("{}{}={:?}", from_notation, to_notation, piece.piece_type)
+                format!("{}{}={}", from_notation, to_notation, piece.piece_type.to_char())
             }
             MoveType::PromotionCapture(promo) => {
                 format!(
-                    "{}x{}={:?}",
-                    from_notation, to_notation, promo.promoted_piece.piece_type
+                    "{}{}={}",
+                    from_notation, to_notation, promo.promoted_piece.piece_type.to_char()
                 )
             }
-            MoveType::EnPassant(_, _) => format!("{}x{} e.p.", from_notation, to_notation),
             _ => format!("{}{}", from_notation, to_notation),
         }
     }
-
     // Get the captured piece if it's a capture move
     pub fn get_captured_piece(&self) -> Option<Piece> {
         match &self.move_type {
