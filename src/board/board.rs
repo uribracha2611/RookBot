@@ -1,12 +1,17 @@
 use crate::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::board::piece::PieceType;
 use crate::movegen::movedata::MoveData;
-use crate::search::zobrist::constants::{ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE};
+use crate::search::psqt::constants::GAMEPHASE_INC;
+use crate::search::psqt::function;
+use crate::search::psqt::function::get_psqt;
+use crate::search::psqt::weight::W;
 use super::{
     bitboard::Bitboard,
     gamestate::GameState,
     piece::{Piece, PieceColor},
 };
+
+use crate::search::Zobrist::constants::{ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE};
 
 #[derive( Clone)]
 pub struct Board {
@@ -22,6 +27,9 @@ pub struct Board {
     pub curr_king:u8,
     pub check_ray:Bitboard,
     pub pinned_ray:Bitboard,
+    pub psqt_white:W,
+    pub psqt_black:W,
+    pub game_phase:i32,
     history:Vec<GameState>
 }
 
@@ -31,7 +39,14 @@ impl Board {
     fn remove_piece(&mut self, square: u8, piece: Piece) {
         // Update Zobrist hash before removing the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[piece.piece_type as usize][square as usize];
-
+        if piece.piece_color==PieceColor::WHITE {
+            self.psqt_white-=get_psqt(square as usize,piece);
+            self.game_phase-=GAMEPHASE_INC[piece.piece_type as usize];
+        }
+        else{
+            self.psqt_black-=get_psqt(square as usize,piece);
+            self.game_phase-=GAMEPHASE_INC[piece.piece_type as usize];
+        }
         self.squares[square as usize] = None;
         self.get_color_bitboard_mut(piece.piece_color).clear_square(square);
         self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type).clear_square(square);
@@ -41,7 +56,14 @@ impl Board {
     fn add_piece(&mut self, square: u8, piece: Piece) {
         // Update Zobrist hash before adding the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[piece.piece_type as usize][square as usize];
-
+        if piece.piece_color==PieceColor::WHITE {
+            self.psqt_white+=get_psqt(square as usize,piece);
+            self.game_phase+=GAMEPHASE_INC[piece.piece_type as usize];
+        }
+        else{
+            self.psqt_black+=get_psqt(square as usize,piece);
+            self.game_phase+=GAMEPHASE_INC[piece.piece_type as usize];
+        }
         self.squares[square as usize] = Some(piece);
         self.get_color_bitboard_mut(piece.piece_color).set_square(square);
         self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type).set_square(square);
@@ -76,6 +98,9 @@ impl Board {
             curr_king: 0,
             check_ray: Bitboard::new(u64::MAX),
             pinned_ray: Bitboard::new(0),
+            psqt_white: W(0,0),
+            psqt_black: W(0,0),
+            game_phase: 0,
             history:Vec::new()
         };
 
