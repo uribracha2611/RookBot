@@ -3,6 +3,7 @@ use crate::board::{
     castling::types::CastlingSide,
     piece::{Piece, PieceColor},
 };
+use crate::board::piece::PieceType;
 
 #[derive(Clone, Copy, PartialEq, Eq,Debug)]
 pub enum MoveType {
@@ -46,6 +47,14 @@ pub struct MoveData {
 }
 
 impl MoveData {
+    pub fn defualt() -> MoveData {
+        MoveData {
+            from: 0,
+            to: 0,
+            piece_to_move: Piece::new(PieceColor::WHITE, PieceType::PAWN),
+            move_type: MoveType::Normal,
+        }
+    }
     // Constructor to create a new MoveData instance from algebraic notation
     pub fn new(
         from: u8,

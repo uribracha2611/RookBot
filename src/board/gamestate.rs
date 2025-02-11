@@ -1,7 +1,7 @@
 use crate::board::castling::types::CastlingSide;
 use super::{castling::types::AllowedCastling, piece::PieceColor};
 use crate::board::position::Position;
-use crate::search::zobrist::constants::{ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT};
+use crate::search::Zobrist::constants::{ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct GameState {

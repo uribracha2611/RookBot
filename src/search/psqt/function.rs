@@ -8,9 +8,9 @@ pub fn flip_sqr(sqr:usize) ->usize{
 }
 pub fn get_psqt(sqr:usize,piece: Piece)-> W{
     let index = if piece.piece_color == PieceColor::BLACK {
-        flip_sqr(sqr)
+       sqr
     } else {
-        sqr
+        flip_sqr(sqr)
     };
     match piece.piece_type{
         PieceType::PAWN=>PAWN_TABLE[index],

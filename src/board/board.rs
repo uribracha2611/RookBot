@@ -58,12 +58,12 @@ impl Board {
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[piece.piece_type as usize][square as usize];
         if piece.piece_color==PieceColor::WHITE {
             self.psqt_white+=get_psqt(square as usize,piece);
-            self.game_phase+=GAMEPHASE_INC[piece.piece_type as usize];
         }
         else{
             self.psqt_black+=get_psqt(square as usize,piece);
-            self.game_phase+=GAMEPHASE_INC[piece.piece_type as usize];
+
         }
+        self.game_phase+=GAMEPHASE_INC[piece.piece_type as usize];
         self.squares[square as usize] = Some(piece);
         self.get_color_bitboard_mut(piece.piece_color).set_square(square);
         self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type).set_square(square);
