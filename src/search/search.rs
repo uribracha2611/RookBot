@@ -2,7 +2,8 @@ use crate::board::board::Board;
 use crate::board::piece::PieceColor;
 use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
-use crate::search::types::ChosenMove;
+use crate::search::constants::INFINITY;
+use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
 
 pub fn eval(board: &Board) ->i32{
     let mg_phase=board.game_phase.min(24);
@@ -10,6 +11,7 @@ pub fn eval(board: &Board) ->i32{
     let mg_score=board.psqt_white.get_middle_game()-board.psqt_black.get_middle_game();
     let eg_score=board.psqt_white.get_end_game()-board.psqt_black.get_end_game();
     let score=(mg_score*mg_phase+eg_score*eg_phase)/24;
+    
      if board.turn==PieceColor::WHITE{
         score
     }
@@ -18,23 +20,49 @@ pub fn eval(board: &Board) ->i32{
     }
 
 }
-pub fn search(mut board: &mut Board, depth:u8) ->ChosenMove{
-    if depth==0 {
-        let curr_eval=eval(board);
-        return  ChosenMove::new(MoveData::defualt(),curr_eval);
-    }
-    let mut best_move=ChosenMove::new(MoveData::defualt(),-10000);
-  let moves=generate_moves(&mut board);
-
-    for mov in moves.iter(){
-        board.make_move(mov);
-        let curr_move=-search(&mut board,depth-1);
-        board.unmake_move(mov);
-        if curr_move.get_eval()>best_move.get_eval(){
-            best_move=ChosenMove::new(*mov, curr_move.get_eval());
+pub fn search(mut board: &mut Board, input: SearchInput) -> SearchOutput {
+    fn search_internal(board: &mut Board, depth: u8, alpha: &mut i32, beta: &mut i32, nodes_evaluated: &mut i32, pv: &mut Vec<MoveData>) -> i32 {
+        if depth == 0 {
+            return eval(board);
         }
+
+        let mut best_eval = -INFINITY;
+        let mut local_pv = Vec::new();
+        let moves = generate_moves(board);
+
+        for mov in moves.iter() {
+            *nodes_evaluated += 1;
+            board.make_move(mov);
+            let curr_eval = -search_internal(board, depth - 1, &mut -(*beta), &mut -(*alpha), nodes_evaluated, &mut local_pv);
+            board.unmake_move(mov);
+
+            if curr_eval > best_eval {
+                best_eval = curr_eval;
+                *pv = local_pv.clone();
+                pv.push(*mov);
+            }
+
+            if best_eval > *alpha {
+                *alpha = best_eval;
+            }
+
+            if *alpha >= *beta {
+                break;
+            }
+        }
+        best_eval
     }
-    best_move
 
-
+    let mut nodes_evaluated = 0;
+    let mut alpha = -INFINITY;
+    let mut beta = INFINITY;
+    let mut principal_variation = Vec::new();
+    let eval=search_internal(board, input.depth, &mut alpha, &mut beta, &mut nodes_evaluated, &mut principal_variation);
+    principal_variation.reverse();
+    SearchOutput {
+        nodes_evaluated,
+        principal_variation,
+        eval
+        
+    }
 }

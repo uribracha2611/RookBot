@@ -3,6 +3,7 @@ use std::time::Instant;
 use crate::board::board::Board;
 use crate::perft::run_epd_file;
 use crate::search::search::search;
+use crate::search::types::SearchInput;
 
 pub mod board;
 pub mod movegen;
@@ -14,9 +15,17 @@ fn main() {
     let mut board = Board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
 
     let start = Instant::now();
-    let mv = search(&mut board, 6);
+
+    let result = search(&mut board, SearchInput { depth: 8 });
     let duration = start.elapsed();
 
-    println!("Best move: {:?} and score is {:?}", mv.get_move(), mv.get_eval());
-    println!("Search took: {:?}", duration.as_millis());
+    let principal_variation: Vec<String> = result.get_principal_variation().iter().map(|mv| mv.to_algebraic()).collect();
+    let pv_string = principal_variation.join(" ");
+
+    println!("info depth {} nodes {} time {} score {}  pv {}",
+             8,
+             result.get_nodes_evaluated(),
+             duration.as_millis(),
+        result.eval,
+             pv_string);
 }

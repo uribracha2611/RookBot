@@ -1,10 +1,13 @@
 use std::ops::Neg;
+use crate::board::board::Board;
 use crate::movegen::movedata::MoveData;
 
+#[derive(Clone, Copy)]
 pub struct ChosenMove{
      mv: MoveData,
     eval: i32
 }
+
 impl ChosenMove {
     pub(crate) fn new(mv: MoveData, eval: i32) -> ChosenMove {
         ChosenMove {
@@ -30,3 +33,33 @@ impl Neg for ChosenMove {
         }
     }
 }
+pub struct SearchOutput {
+    pub(crate) nodes_evaluated: i32,
+    pub(crate) principal_variation: Vec<MoveData>,
+    pub(crate) eval: i32,
+}
+
+impl SearchOutput {
+    pub fn new(nodes_evaluated: i32, principal_variation: Vec<MoveData>,eval:i32) -> SearchOutput {
+        SearchOutput {
+            nodes_evaluated,
+            principal_variation,
+            eval
+            
+        }
+    }
+
+    pub fn get_nodes_evaluated(&self) -> i32 {
+        self.nodes_evaluated
+    }
+
+    pub fn get_principal_variation(&self) -> &Vec<MoveData> {
+        &self.principal_variation
+    }
+}
+pub struct SearchInput{
+    pub(crate) depth:u8,
+
+}
+
+
