@@ -1,6 +1,7 @@
 use crate::movegen::constants::MAX_MOVES;
 use crate::movegen::movedata::MoveData;
 
+#[derive(Copy, Clone)]
 pub struct MoveList {
     moves: [Option<MoveData>; MAX_MOVES],
     count: usize,
@@ -28,6 +29,14 @@ impl MoveList {
             count: 0,
         }
     }
+    pub fn swap(&mut self, index1: usize, index2: usize) {
+        if index1 < self.count && index2 < self.count {
+            self.moves.swap(index1, index2);
+        } else {
+            panic!("Index out of bounds");
+        }
+    }
+
 
     pub fn add_move(&mut self, mv: MoveData) {
         if self.count < MAX_MOVES {
@@ -111,3 +120,6 @@ impl<'a> Iterator for MoveListIterator<'a> {
         }
     }
 }
+
+    
+

@@ -2,7 +2,9 @@ use crate::board::board::Board;
 use crate::board::piece::PieceColor;
 use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
+use crate::movegen::movelist::MoveList;
 use crate::search::constants::INFINITY;
+use crate::search::move_ordering::get_move_score;
 use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
 
 pub fn eval(board: &Board) ->i32{
@@ -20,6 +22,13 @@ pub fn eval(board: &Board) ->i32{
     }
 
 }
+pub fn pick_move(ml: &mut MoveList, start_index: u8) {
+    for i in (start_index + 1)..(ml.len() as u8) {
+        if get_move_score(ml.get_move(i as usize).unwrap()) > get_move_score(ml.get_move(start_index as usize).unwrap()) {
+            ml.swap(start_index as usize, i as usize);
+        }
+    }
+}
 pub fn search(mut board: &mut Board, input: SearchInput) -> SearchOutput {
     fn search_internal(board: &mut Board, depth: u8, alpha: &mut i32, beta: &mut i32, nodes_evaluated: &mut i32, pv: &mut Vec<MoveData>) -> i32 {
         if depth == 0 {
@@ -28,9 +37,11 @@ pub fn search(mut board: &mut Board, input: SearchInput) -> SearchOutput {
 
         let mut best_eval = -INFINITY;
         let mut local_pv = Vec::new();
-        let moves = generate_moves(board);
-
-        for mov in moves.iter() {
+        let mut moves = generate_moves(board);
+        
+        for i in 0..moves.len() {
+            pick_move(&mut moves, i as u8);
+            let mov=&moves[i];
             *nodes_evaluated += 1;
             board.make_move(mov);
             let curr_eval = -search_internal(board, depth - 1, &mut -(*beta), &mut -(*alpha), nodes_evaluated, &mut local_pv);
