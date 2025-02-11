@@ -3,7 +3,7 @@ use crate::movegen::movedata::MoveData;
 
 #[derive(Copy, Clone)]
 pub struct MoveList {
-    moves: [Option<MoveData>; MAX_MOVES],
+    moves: [MoveData; MAX_MOVES],
     count: usize,
 }
 
@@ -25,7 +25,7 @@ impl MoveList {
     }
     pub fn new() -> Self {
         MoveList {
-            moves: [None; MAX_MOVES],
+            moves: [MoveData::defualt(); MAX_MOVES],
             count: 0,
         }
     }
@@ -40,16 +40,16 @@ impl MoveList {
 
     pub fn add_move(&mut self, mv: MoveData) {
         if self.count < MAX_MOVES {
-            self.moves[self.count] = Some(mv);
+            self.moves[self.count] = mv;
             self.count += 1;
         }
     }
 
-    pub fn get_move(&self, index: usize) -> Option<&MoveData> {
+    pub fn get_move(&self, index: usize) -> &MoveData {
         if index < self.count {
-            self.moves[index].as_ref()
+            &self.moves[index]
         } else {
-            None
+            panic!("Index out of bounds");
         }
     }
 
@@ -61,11 +61,11 @@ impl MoveList {
         self.moves
             .iter()
             .take(self.count)
-            .any(|m| m.as_ref() == Some(mv))
+            .any(|m| *m == *mv)
     }
     pub fn find_move_by_start_end_square(self,from:u8,to:u8)->Option<MoveData>{
         for i in 0..MAX_MOVES{
-            if let Some(mv)=self.moves[i]{
+            if let mv=self.moves[i]{
                 if mv.from==from && mv.to==to{
                     return Some(mv);
                 }
@@ -79,13 +79,13 @@ impl std::ops::Index<usize> for MoveList {
     type Output = MoveData;
 
     fn index(&self, index: usize) -> &Self::Output {
-        self.moves[index].as_ref().expect("Index out of bounds")
+        &self.moves[index]
     }
 }
 
 impl std::ops::IndexMut<usize> for MoveList {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        self.moves[index].as_mut().expect("Index out of bounds")
+        &mut self.moves[index]
     }
 }
 
@@ -114,7 +114,7 @@ impl<'a> Iterator for MoveListIterator<'a> {
         if self.index < self.movelist.count {
             let result = self.movelist.get_move(self.index);
             self.index += 1;
-            result
+            Option::from(result)
         } else {
             None
         }

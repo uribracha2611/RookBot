@@ -24,7 +24,7 @@ pub fn eval(board: &Board) ->i32{
 }
 pub fn pick_move(ml: &mut MoveList, start_index: u8) {
     for i in (start_index + 1)..(ml.len() as u8) {
-        if get_move_score(ml.get_move(i as usize).unwrap()) > get_move_score(ml.get_move(start_index as usize).unwrap()) {
+        if get_move_score(ml.get_move(i as usize)) > get_move_score(ml.get_move(start_index as usize)) {
             ml.swap(start_index as usize, i as usize);
         }
     }
