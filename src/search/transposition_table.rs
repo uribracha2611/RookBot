@@ -12,8 +12,8 @@ pub(crate) enum EntryType {
 
 #[derive(Clone, Copy,Eq, PartialEq)]
 pub(crate) struct Entry {
-    hash: u64,
-    depth: u8,
+    pub(crate) hash: u64,
+    pub(crate) depth: u8,
     pub(crate) eval: i32,
     pub(crate) entry_type: EntryType,
     pub(crate) best_move: MoveData,
