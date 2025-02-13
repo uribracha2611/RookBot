@@ -27,9 +27,10 @@ pub fn eval(board: &Board) ->i32{
     }
 
 }
-pub fn pick_move(ml: &mut MoveList, start_index: u8) {
+pub fn pick_move(ml: &mut MoveList, start_index: u8,tt_move:&MoveData) {
+   
     for i in (start_index + 1)..(ml.len() as u8) {
-        if get_move_score(ml.get_move(i as usize)) > get_move_score(ml.get_move(start_index as usize)) {
+        if get_move_score(ml.get_move(i as usize),tt_move) > get_move_score(ml.get_move(start_index as usize),tt_move) {
             ml.swap(start_index as usize, i as usize);
         }
     }
@@ -79,10 +80,10 @@ fn search_internal(
     let mut entry_type = EntryType::UpperBound;
     let mut move_list = generate_moves(board);
     let mut local_pv = vec![MoveData::defualt(); pv.len()];  // Store a local PV
-
+     let tt_move =TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
     for i in 0..move_list.len() {
         *nodes_evaluated += 1;
-        pick_move(&mut move_list, i as u8);
+        pick_move(&mut move_list, i as u8,&tt_move);
         let curr_move = move_list.get_move(i);
 
         board.make_move(curr_move);

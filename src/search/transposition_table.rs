@@ -32,6 +32,12 @@ impl TranspositionTable {
 
     pub fn store(&mut self, hash: u64, depth: u8, eval: i32, entry_type: EntryType, best_move: MoveData) {
         let index = (hash as usize) % self.table.len();
+
+        if let Some(existing_entry) = &self.table[index] {
+            if existing_entry.depth >= depth {
+                return; // Do not store if the existing entry has a greater or equal depth
+            }
+        }
         self.table[index] = Some(Entry {
             hash,
             depth,

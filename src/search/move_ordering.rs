@@ -9,8 +9,11 @@ pub const MVV_LVA: [[u8; 6]; 6] = [
     [0,    0,    0,    0,    0,    0],   // Victim: KING
 ];
 pub const BASE_CAPTURE: u8 =100;
-pub fn get_move_score(mv: &MoveData) -> u8 {
-    if mv.is_capture() {
+pub fn get_move_score(mv: &MoveData,tt_move:&MoveData) -> u8 {
+    if mv==tt_move{
+        return u8::MAX;
+    }
+    else if mv.is_capture() {
         return BASE_CAPTURE + MVV_LVA[mv.get_captured_piece().unwrap().piece_type as usize][mv.piece_to_move.piece_type as usize];
     }
     0

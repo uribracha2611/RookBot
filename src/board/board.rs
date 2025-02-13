@@ -164,11 +164,11 @@ impl Board {
     }
     pub fn make_move(&mut self, mv:&MoveData)
     {
-        let mut new_game_state =self.game_state;
+        let  old_game_state =self.game_state.clone();
         let moved_piece = mv.piece_to_move;
         if mv.is_capture() {
             self.remove_piece(mv.get_capture_square().unwrap(),mv.get_captured_piece().unwrap());
-            self.disallow_castling_if_needed(mv.get_capture_square().unwrap(), mv.get_captured_piece().unwrap(), &mut new_game_state);
+            self.disallow_castling_if_needed(mv.get_capture_square().unwrap(), mv.get_captured_piece().unwrap());
 
         } 
         if(mv.is_promotion()){
@@ -185,48 +185,48 @@ impl Board {
             let rook = self.squares[rook_start as usize].unwrap();
             self.remove_piece(rook_start,rook);
             self.add_piece(rook_end,rook);
-            new_game_state.disallow_castling_both(moved_piece.piece_color);
+            self.game_state.disallow_castling_both(moved_piece.piece_color);
             
             
         }
         if(moved_piece.piece_type==PieceType::KING)
         {
-            new_game_state.disallow_castling_both(moved_piece.piece_color);
+            self.game_state.disallow_castling_both(moved_piece.piece_color);
          
         }
-       self.disallow_castling_if_needed(mv.from, moved_piece, &mut new_game_state);
-        self.handle_en_passant(mv, &mut new_game_state);
+       self.disallow_castling_if_needed(mv.from, moved_piece);
+        self.handle_en_passant(mv);
 
         
         
         self.turn = self.turn.opposite();
-        new_game_state.zobrist_hash^=ZOBRIST_SIDE_TO_MOVE;
+        self.game_state.zobrist_hash^=ZOBRIST_SIDE_TO_MOVE;
 
-        self.history.push(self.game_state);
-        self.game_state = new_game_state;
+        self.history.push(old_game_state);
+        
         
         
         
     }
-    fn handle_en_passant(&mut self, mv: &MoveData, new_game_state: &mut GameState) {
+    fn handle_en_passant(&mut self, mv: &MoveData) {
         if mv.piece_to_move.piece_type == PieceType::PAWN && mv.is_double_push() {
             let new_en_passant_square = if mv.piece_to_move.piece_color == PieceColor::WHITE {
                 mv.to - 8
             } else {
                 mv.to + 8
             };
-            new_game_state.en_passant_file = Some(mv.to % 8);
-            new_game_state.en_passant_square = Some(new_en_passant_square);
+            self.game_state.en_passant_file = Some(mv.to % 8);
+            self.game_state.en_passant_square = Some(new_en_passant_square);
 
             // Update Zobrist hash for en passant
             self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[mv.to as usize % 8];
         } else {
-            if let Some(file) = new_game_state.en_passant_file {
+            if let Some(file) = self.game_state.en_passant_file {
                 // Remove old en passant from Zobrist hash
                 self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[file as usize];
             }
-            new_game_state.en_passant_file = None;
-            new_game_state.en_passant_square = None;
+            self.game_state.en_passant_file = None;
+            self.game_state.en_passant_square = None;
         }
     }
     pub fn unmake_move(&mut self, mv: &MoveData) {
@@ -264,22 +264,22 @@ impl Board {
         self.turn = self.turn.opposite();
     }
 
-    fn disallow_castling_if_needed(&mut self, square: u8, piece: Piece, game_state: &mut GameState) {
+    fn disallow_castling_if_needed(&mut self, square: u8, piece: Piece) {
         if piece.piece_type != PieceType::ROOK {
             return;
         }
         match (square, piece.piece_color) {
-            (0, PieceColor::WHITE) if game_state.castle_white.is_allowed(&CastlingSide::Queenside) => {
-                game_state.disallow_castling(AllowedCastling::from(CastlingSide::Queenside), piece.piece_color);
+            (0, PieceColor::WHITE) if self.game_state.castle_white.is_allowed(&CastlingSide::Queenside) => {
+                self.game_state.disallow_castling(AllowedCastling::from(CastlingSide::Queenside), piece.piece_color);
             }
-            (7, PieceColor::WHITE) if game_state.castle_white.is_allowed(&CastlingSide::Kingside) => {
-                game_state.disallow_castling(AllowedCastling::from(CastlingSide::Kingside), piece.piece_color);
+            (7, PieceColor::WHITE) if self.game_state.castle_white.is_allowed(&CastlingSide::Kingside) => {
+                self.game_state.disallow_castling(AllowedCastling::from(CastlingSide::Kingside), piece.piece_color);
             }
-            (56, PieceColor::BLACK) if game_state.castle_black.is_allowed(&CastlingSide::Queenside) => {
-                game_state.disallow_castling(AllowedCastling::from(CastlingSide::Queenside), piece.piece_color);
+            (56, PieceColor::BLACK) if self.game_state.castle_black.is_allowed(&CastlingSide::Queenside) => {
+                self.game_state.disallow_castling(AllowedCastling::from(CastlingSide::Queenside), piece.piece_color);
             }
-            (63, PieceColor::BLACK) if game_state.castle_black.is_allowed(&CastlingSide::Kingside) => {
-                game_state.disallow_castling(AllowedCastling::from(CastlingSide::Kingside), piece.piece_color);
+            (63, PieceColor::BLACK) if self.game_state.castle_black.is_allowed(&CastlingSide::Kingside) => {
+                self.game_state.disallow_castling(AllowedCastling::from(CastlingSide::Kingside), piece.piece_color);
             }
             _ => {}
         }

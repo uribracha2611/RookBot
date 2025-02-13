@@ -123,10 +123,12 @@ pub fn run_epd_file(file_path: &str) -> Result<(), io::Error> {
     let file = File::open(file_path)?;
     let reader = io::BufReader::new(file);
 
-    for line in reader.lines() {
+    for (i,line) in reader.lines().enumerate() {
         let line = line?;
         match check_epd_line(&line) {
-            Ok(_) => {},
+            Ok(_) => {
+                println!("Line {}: OK", i + 1);
+            },
             Err(e) => {Err(io::Error::new(io::ErrorKind::InvalidData, e))?},
         }
     }
