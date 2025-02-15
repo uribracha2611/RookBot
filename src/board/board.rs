@@ -285,6 +285,31 @@ impl Board {
         }
     }
 
+    pub fn make_null_move(&mut self) {
+        let old_game_state = self.game_state;
+        self.history.push(old_game_state);
+
+        // Clear en passant square before flipping the turn
+        if let Some(file) = self.game_state.en_passant_file {
+            self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[file as usize];
+            self.game_state.en_passant_file = None;
+            self.game_state.en_passant_square = None;
+        }
+
+        self.turn = self.turn.opposite();
+        self.game_state.zobrist_hash ^= ZOBRIST_SIDE_TO_MOVE;
+    }
+
+    pub fn unmake_null_move(&mut self) {
+        if let Some(previous_state) = self.history.pop() {
+            self.game_state = previous_state;
+            self.turn = self.turn.opposite();
+        } else {
+            panic!("No previous game state to unmake null move");
+        }
+    }
+
+
     pub fn to_stockfish_string(&self) -> String {
         let mut stockfish_str = String::new();
 

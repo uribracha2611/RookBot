@@ -107,6 +107,8 @@ fn generate_piece_attack_bitboard(board: &Board, piece_color: &PieceColor, piece
 pub fn update_check_status(board: &mut Board) {
     board.is_double_check = false;
     let king_square = board.curr_king;
+   
+  
     board.is_check = board.attacked_square.contains_square(king_square);
     if board.is_check {
         let attackers = get_attacking_pieces(board, king_square, board.turn);

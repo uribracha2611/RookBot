@@ -15,7 +15,8 @@ pub mod perft;
 
 fn main() {
     setup_transposition_table();
-    let mut board = Board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
+    let mut board = Board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
+");
     let search_input=SearchInput { depth:8};
     
     let start = Instant::now();

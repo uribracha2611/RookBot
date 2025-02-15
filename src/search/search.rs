@@ -5,13 +5,13 @@ use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::movelist::MoveList;
 use crate::search::constants::INFINITY;
-use crate::search::move_ordering::{get_capture_score, get_move_score, get_moves_score, store_killers, KillerMoves};
+use crate::search::move_ordering::{get_capture_score, get_move_score, get_moves_score, store_killers, KillerMoves, BASE_KILLER};
 use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
 use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
 
 use std::sync::MutexGuard;
 
-pub fn quiescence_search(board: &mut Board, mut alpha:i32, beta:i32) ->i32
+pub fn quiescence_search(board: &mut Board, mut alpha:i32, beta:i32,nodes_evaluated: &mut i32) ->i32
 {
     let stand_pat = eval(board);
     let mut best_val = stand_pat;
@@ -26,10 +26,11 @@ pub fn quiescence_search(board: &mut Board, mut alpha:i32, beta:i32) ->i32
     let TT_Move = TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
     let scores = get_capture_score(moves, TT_Move);
     for i in 0..moves.len() {
+        *nodes_evaluated += 1;
         pick_move(&mut moves, i as u8, &scores);
         let mv = moves.get_move(i);
         board.make_move(mv);
-        let score = -quiescence_search(board, -beta, -alpha);
+        let score = -quiescence_search(board, -beta, -alpha, nodes_evaluated);
         board.unmake_move(mv);
         if score >= beta {
             return beta;
@@ -80,8 +81,8 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
     for current_depth in 1..=input.depth {
         let alpha = -INFINITY;
         let beta = INFINITY;
+        
     
-
     let eval = search_internal(&mut board, current_depth as i32, 0, alpha, beta, &mut nodes_evaluated, &mut principal_variation, &mut killer_moves, &mut history_table);
         best_eval = eval;
     }
@@ -103,10 +104,10 @@ fn search_internal(
     nodes_evaluated: &mut i32,
     pv: &mut Vec<MoveData>,
     killer_moves: &mut KillerMoves,
-    history_table: &mut [[[i32;64];64];2]
+    history_table: &mut [[[u8;64];64];2]
 ) -> i32 {
     if depth == 0 {
-        return quiescence_search(board, alpha, beta);
+        return quiescence_search(board, alpha, beta, nodes_evaluated);
     }
 
     if let Some(entry) = TRANSPOSITION_TABLE.lock().unwrap().retrieve(board.game_state.zobrist_hash, depth as u8, alpha, beta) {
@@ -115,10 +116,19 @@ fn search_internal(
         }
         return entry.eval;
     }
+    let mut move_list = generate_moves(board,false);
+    if (depth>=3 && !board.is_check){
+        board.make_null_move();
+        let null_move_score=-search_internal(board,depth-3,ply+1,-beta,-beta+1,nodes_evaluated,pv,killer_moves,history_table);
+        board.unmake_null_move();
+        if null_move_score>=beta{
+            return beta;
+        }
+    }
 
     let mut best_move = MoveData::defualt();
     let mut entry_type = EntryType::UpperBound;
-    let mut move_list = generate_moves(board,false);
+    
     // Store a local PV
      let tt_move =TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
     let move_score=get_moves_score(&move_list, &tt_move, *killer_moves, ply as usize,*history_table);
@@ -127,8 +137,9 @@ fn search_internal(
         *nodes_evaluated += 1;
         pick_move(&mut move_list, i as u8,&move_score);
         let curr_move = move_list.get_move(i);
-
+     
         board.make_move(curr_move);
+       
         let score_mv = -search_internal(board, depth - 1, ply + 1, -beta,-alpha, nodes_evaluated, &mut node_pv, killer_moves, history_table);
         board.unmake_move(curr_move);
 
@@ -139,7 +150,9 @@ fn search_internal(
             TRANSPOSITION_TABLE.lock().unwrap().store(board.game_state.zobrist_hash, depth as u8, score_mv, entry_type, best_move);
             if !curr_move.is_capture() {
                 store_killers(killer_moves, *curr_move, ply as usize);
-                //history_table[curr_move.piece_to_move.piece_color as usize][curr_move.from as usize][curr_move.to as usize]+=depth*depth;
+              // history_table[curr_move.piece_to_move.piece_color as usize][curr_move.from as usize][curr_move.to as usize]+=(depth as u8 *depth as u8);
+              //   history_table[curr_move.piece_to_move.piece_color as usize][curr_move.from as usize][curr_move.to as usize]= history_table[curr_move.piece_to_move.piece_color as usize][curr_move.from as usize][curr_move.to as usize].min(BASE_KILLER-2);
+                
             }
             return beta;
         }
