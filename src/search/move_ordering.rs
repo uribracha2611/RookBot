@@ -47,3 +47,21 @@ pub fn get_move_score(mv: &MoveData, tt_move:&MoveData, killer_moves: KillerMove
     
     
 }
+pub fn get_capture_score_only(move_data: MoveData, tt_move:MoveData) -> u8 {
+    if move_data==tt_move{
+        u8::MAX
+    }
+    else {
+        
+         BASE_CAPTURE + MVV_LVA[move_data.get_captured_piece().unwrap().piece_type as usize][move_data.piece_to_move.piece_type as usize]
+    }
+    
+}
+pub fn get_capture_score(mv_list:MoveList, tt_move:MoveData) -> Vec<u8> {
+    let mut scores = Vec::with_capacity(mv_list.len());
+    for mv in mv_list.iter() {
+        scores.push(get_capture_score_only(*mv, tt_move));
+    }
+    scores
+}
+

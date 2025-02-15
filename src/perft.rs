@@ -11,7 +11,7 @@ pub fn perft(board: &mut Board, depth: u32) -> String {
     let mut result = String::new();
     let mut total_nodes = 0;
 
-    let move_list= generate_moves(board);
+    let move_list= generate_moves(board,false);
     for mv in move_list.iter(){
 
         board.make_move(mv);
@@ -31,7 +31,7 @@ fn perft_recursive(board: &mut Board, depth: u32) -> u32 {
         return 1;
     }
 
-     let  move_list = generate_moves(board);
+     let  move_list = generate_moves(board,false);
 
     let mut nodes = 0;
     for mv in move_list.iter() {
@@ -47,7 +47,7 @@ pub fn perft_bulk(board: &mut Board, depth: u32) -> u32 {
         return 1;
     }
 
-    let move_list = generate_moves(board);
+    let move_list = generate_moves(board,false);
     let mut nodes = 0;
 
     for mv in move_list.iter() {

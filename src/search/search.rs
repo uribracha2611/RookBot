@@ -5,11 +5,46 @@ use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::movelist::MoveList;
 use crate::search::constants::INFINITY;
-use crate::search::move_ordering::{get_move_score, get_moves_score, store_killers, KillerMoves};
+use crate::search::move_ordering::{get_capture_score, get_move_score, get_moves_score, store_killers, KillerMoves};
 use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
 use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
 
 use std::sync::MutexGuard;
+
+pub fn quiescence_search(board: &mut Board, mut alpha:i32, beta:i32) ->i32
+{
+    let stand_pat = eval(board);
+    let mut best_val = stand_pat;
+    if (stand_pat >= beta) {
+        return beta;
+    }
+    if (alpha < stand_pat) {
+        alpha = stand_pat;
+    }
+
+    let mut moves = generate_moves(board, true);
+    let TT_Move = TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
+    let scores = get_capture_score(moves, TT_Move);
+    for i in 0..moves.len() {
+        pick_move(&mut moves, i as u8, &scores);
+        let mv = moves.get_move(i);
+        board.make_move(mv);
+        let score = -quiescence_search(board, -beta, -alpha);
+        board.unmake_move(mv);
+        if score >= beta {
+            return beta;
+        }
+        if score > best_val {
+            best_val = score;
+        }
+        if score > alpha {
+            alpha = score;
+        }
+    }
+    best_val
+}
+
+
 
 
 pub fn eval(board: &Board) ->i32{
@@ -36,7 +71,7 @@ pub fn pick_move(ml: &mut MoveList, start_index: u8,scores:&Vec<u8>) {
     }
 }
 
-pub fn search(mut board: &mut Board, input: SearchInput) -> SearchOutput {
+pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
     let mut nodes_evaluated = 0;
     let mut  history_table=[[[0;64];64];2];
     let mut principal_variation:Vec<MoveData>=Vec::new();
@@ -45,9 +80,7 @@ pub fn search(mut board: &mut Board, input: SearchInput) -> SearchOutput {
     for current_depth in 1..=input.depth {
         let alpha = -INFINITY;
         let beta = INFINITY;
-        if (current_depth == input.depth){
-        println!("debug here",)
-    }
+    
 
     let eval = search_internal(&mut board, current_depth as i32, 0, alpha, beta, &mut nodes_evaluated, &mut principal_variation, &mut killer_moves, &mut history_table);
         best_eval = eval;
@@ -59,6 +92,7 @@ pub fn search(mut board: &mut Board, input: SearchInput) -> SearchOutput {
         eval: best_eval,
     }
 }
+
 
 fn search_internal(
     board: &mut Board,
@@ -72,7 +106,7 @@ fn search_internal(
     history_table: &mut [[[i32;64];64];2]
 ) -> i32 {
     if depth == 0 {
-        return eval(board);
+        return quiescence_search(board, alpha, beta);
     }
 
     if let Some(entry) = TRANSPOSITION_TABLE.lock().unwrap().retrieve(board.game_state.zobrist_hash, depth as u8, alpha, beta) {
@@ -84,7 +118,7 @@ fn search_internal(
 
     let mut best_move = MoveData::defualt();
     let mut entry_type = EntryType::UpperBound;
-    let mut move_list = generate_moves(board);
+    let mut move_list = generate_moves(board,false);
     // Store a local PV
      let tt_move =TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
     let move_score=get_moves_score(&move_list, &tt_move, *killer_moves, ply as usize,*history_table);
@@ -101,7 +135,7 @@ fn search_internal(
         if score_mv >= beta {
             entry_type = EntryType::LowerBound;
             best_move = *curr_move;
-           
+
             TRANSPOSITION_TABLE.lock().unwrap().store(board.game_state.zobrist_hash, depth as u8, score_mv, entry_type, best_move);
             if !curr_move.is_capture() {
                 store_killers(killer_moves, *curr_move, ply as usize);
@@ -109,7 +143,7 @@ fn search_internal(
             }
             return beta;
         }
-            
+
         if score_mv > alpha {
             alpha = score_mv;
             best_move = *curr_move;
@@ -121,7 +155,7 @@ fn search_internal(
             pv.append(&mut node_pv);
         }
 
-      
+
     }
 
     TRANSPOSITION_TABLE.lock().unwrap().store(board.game_state.zobrist_hash, depth as u8, alpha, entry_type, best_move);
