@@ -16,15 +16,15 @@ pub mod perft;
 fn main() {
     setup_transposition_table();
     let mut board = Board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1");
-    
+
     let start = Instant::now();
-    
+
     let result = search(&mut board, SearchInput { depth:8});
     let duration = start.elapsed();
-    
+
     let principal_variation: Vec<String> = result.get_principal_variation().iter().map(|mv| mv.to_algebraic()).collect();
     let pv_string = principal_variation.join(" ");
-    
+
     println!("info depth {} nodes {} time {} score {}  pv {}",
             8,
              result.get_nodes_evaluated(),
@@ -41,11 +41,11 @@ fn main() {
     // let r=run_epd_file("src/standard.epd");
     // if r.is_err(){
     //     println!("Error running epd file, error: {}",r.err().unwrap());
-    //     
+    //
     // }
     // else {
     //     print!("Success running epd file");
     // }
-    // 
-    // 
+    //
+    //
 }

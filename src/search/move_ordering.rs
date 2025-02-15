@@ -16,16 +16,16 @@ pub fn store_killers(killer_moves: &mut KillerMoves, mv: MoveData, ply: usize) {
     killer_moves[ply][1] = killer_moves[ply][0];
     killer_moves[ply][0] = mv;
 }
-pub fn get_moves_score(moves:&MoveList,tt_move:&MoveData,killer_moves: KillerMoves,ply:usize) -> Vec<u8> {
+pub fn get_moves_score(moves:&MoveList, tt_move:&MoveData, killer_moves: KillerMoves, ply:usize, history_table: [[[i32; 64]; 64]; 2]) -> Vec<u8> {
     let mut scores = Vec::with_capacity(moves.len());
     for mv in moves.iter() {
-        scores.push(get_move_score(mv,tt_move,killer_moves,ply));
+        scores.push(get_move_score(mv,tt_move,killer_moves,ply,history_table));
     }
     scores
 }
-pub fn get_move_score(mv: &MoveData,tt_move:&MoveData,killer_moves: KillerMoves,ply:usize) -> u8 {
+pub fn get_move_score(mv: &MoveData, tt_move:&MoveData, killer_moves: KillerMoves, ply:usize, history_table: [[[i32; 64]; 64]; 2]) -> u8 {
     if mv==tt_move{
-        return u8::MAX;
+        u8::MAX
     }
     else if mv.is_capture() {
         return BASE_CAPTURE + MVV_LVA[mv.get_captured_piece().unwrap().piece_type as usize][mv.piece_to_move.piece_type as usize];
@@ -39,5 +39,11 @@ pub fn get_move_score(mv: &MoveData,tt_move:&MoveData,killer_moves: KillerMoves,
 
         return BASE_KILLER - 1;
     }
-    0
+    else   { 
+        let history_val= history_table[mv.piece_to_move.piece_color as usize][mv.from as usize][mv.to as usize].min((BASE_KILLER - 2) as i32) as u8;
+        return history_val;
+        
+    }
+    
+    
 }
