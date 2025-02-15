@@ -10,8 +10,9 @@ use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
 use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
 
 use std::sync::MutexGuard;
+use crate::search::late_move_reduction::reduce_depth;
 
-pub fn quiescence_search(board: &mut Board, mut alpha:i32, beta:i32,nodes_evaluated: &mut i32) ->i32
+pub fn quiescence_search(board: &mut Board, mut alpha:i32, beta:i32, nodes_evaluated: &mut i32) ->i32
 {
     let stand_pat = eval(board);
     let mut best_val = stand_pat;
@@ -128,7 +129,7 @@ fn search_internal(
 
     let mut best_move = MoveData::defualt();
     let mut entry_type = EntryType::UpperBound;
-    
+    let mut is_pvs =false;
     // Store a local PV
      let tt_move =TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
     let move_score=get_moves_score(&move_list, &tt_move, *killer_moves, ply as usize,*history_table);
@@ -139,8 +140,22 @@ fn search_internal(
         let curr_move = move_list.get_move(i);
      
         board.make_move(curr_move);
+        let mut score_mv =0;
+        if depth>=3 && is_pvs {
+            let new_depth = reduce_depth(board, curr_move, depth as f64, i as f64) as i32;
+            score_mv = -search_internal(board, new_depth, ply + 1, -alpha - 1, -alpha, nodes_evaluated, &mut node_pv, killer_moves, history_table);
+            if score_mv > alpha {
+                score_mv = -search_internal(board, depth - 1, ply + 1, -alpha - 1, -alpha, nodes_evaluated, &mut node_pv, killer_moves, history_table);
+
+                if score_mv > alpha {
+                    score_mv = -search_internal(board, depth - 1, ply + 1, -beta, -alpha, nodes_evaluated, &mut node_pv, killer_moves, history_table);
+                }
+            }
+        } else {
+            score_mv = -search_internal(board, depth - 1, ply + 1, -beta,-alpha, nodes_evaluated, &mut node_pv, killer_moves, history_table);
+        }
        
-        let score_mv = -search_internal(board, depth - 1, ply + 1, -beta,-alpha, nodes_evaluated, &mut node_pv, killer_moves, history_table);
+        
         board.unmake_move(curr_move);
 
         if score_mv >= beta {
@@ -158,6 +173,7 @@ fn search_internal(
         }
 
         if score_mv > alpha {
+            is_pvs=true;
             alpha = score_mv;
             best_move = *curr_move;
             entry_type = EntryType::Exact;
