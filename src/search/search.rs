@@ -4,7 +4,7 @@ use crate::board::piece::PieceColor;
 use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::movelist::MoveList;
-use crate::search::constants::{INFINITY, VAL_WINDOW};
+use crate::search::constants::{FUTILITY_MARGIN, FUTILITY_MARGIN_2, INFINITY, VAL_WINDOW};
 use crate::search::move_ordering::{get_capture_score, get_move_score, get_moves_score, store_killers, KillerMoves, BASE_KILLER};
 use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
 use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
@@ -144,16 +144,23 @@ fn search_internal(
     let mut best_move = MoveData::defualt();
     let mut entry_type = EntryType::UpperBound;
     let mut is_pvs =false;
+    let curr_eval= if depth==1 || depth==2 {eval(board)} else { INFINITY };
+    let do_futile_prune=  !board.is_check && ((curr_eval<alpha-FUTILITY_MARGIN && depth==1) || (curr_eval<alpha-FUTILITY_MARGIN_2 && depth==2));  
     // Store a local PV
      let tt_move =TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
     let move_score=get_moves_score(&move_list, &tt_move, *killer_moves, ply as usize,*history_table,board.turn);
     for i in 0..move_list.len() {
         let mut node_pv:Vec<MoveData>=Vec::new();
-        *nodes_evaluated += 1;
+       
         pick_move(&mut move_list, i as u8,&move_score);
         let curr_move = move_list.get_move(i);
      
         board.make_move(curr_move);
+        if !board.is_check && !curr_move.is_capture() && do_futile_prune{
+            board.unmake_move(curr_move);
+            continue;
+        }
+        *nodes_evaluated += 1;
         let mut score_mv =0;
         if depth>=3 && is_pvs {
             let new_depth = reduce_depth(board, curr_move, depth as f64, i as f64) as i32;
