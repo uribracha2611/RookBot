@@ -64,7 +64,7 @@ pub fn eval(board: &Board) ->i32{
     }
 
 }
-pub fn pick_move(ml: &mut MoveList, start_index: u8,scores:&Vec<u8>) {
+pub fn pick_move(ml: &mut MoveList, start_index: u8,scores: &Vec<u32>) {
 
     for i in (start_index + 1)..(ml.len() as u8) {
         if scores[i as usize] > scores[start_index as usize] {
@@ -105,7 +105,7 @@ fn search_internal(
     nodes_evaluated: &mut i32,
     pv: &mut Vec<MoveData>,
     killer_moves: &mut KillerMoves,
-    history_table: &mut [[[u8;64];64];2]
+    history_table: &mut [[[u32;64];64];2]
 ) -> i32 {
     if depth == 0 {
         return quiescence_search(board, alpha, beta, nodes_evaluated);
@@ -132,7 +132,7 @@ fn search_internal(
     let mut is_pvs =false;
     // Store a local PV
      let tt_move =TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
-    let move_score=get_moves_score(&move_list, &tt_move, *killer_moves, ply as usize,*history_table);
+    let move_score=get_moves_score(&move_list, &tt_move, *killer_moves, ply as usize,*history_table,board.turn);
     for i in 0..move_list.len() {
         let mut node_pv:Vec<MoveData>=Vec::new();
         *nodes_evaluated += 1;
@@ -163,10 +163,10 @@ fn search_internal(
             best_move = *curr_move;
 
             TRANSPOSITION_TABLE.lock().unwrap().store(board.game_state.zobrist_hash, depth as u8, score_mv, entry_type, best_move);
-            if !curr_move.is_capture() {
+            if !curr_move.is_capture() && !curr_move.is_promotion() {
                 store_killers(killer_moves, *curr_move, ply as usize);
-              // history_table[curr_move.piece_to_move.piece_color as usize][curr_move.from as usize][curr_move.to as usize]+=(depth as u8 *depth as u8);
-              //   history_table[curr_move.piece_to_move.piece_color as usize][curr_move.from as usize][curr_move.to as usize]= history_table[curr_move.piece_to_move.piece_color as usize][curr_move.from as usize][curr_move.to as usize].min(BASE_KILLER-2);
+                //history_table[board.turn as usize][curr_move.from as usize][curr_move.to as usize] += depth as u32*depth as u32;
+                 
                 
             }
             return beta;
