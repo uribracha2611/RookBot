@@ -4,7 +4,7 @@ use crate::board::piece::PieceColor;
 use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::movelist::MoveList;
-use crate::search::constants::INFINITY;
+use crate::search::constants::{INFINITY, VAL_WINDOW};
 use crate::search::move_ordering::{get_capture_score, get_move_score, get_moves_score, store_killers, KillerMoves, BASE_KILLER};
 use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
 use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
@@ -74,18 +74,32 @@ pub fn pick_move(ml: &mut MoveList, start_index: u8,scores: &Vec<u32>) {
 }
 
 pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
+    let mut current_depth=0;
     let mut nodes_evaluated = 0;
     let mut  history_table=[[[0;64];64];2];
     let mut principal_variation:Vec<MoveData>=Vec::new();
     let mut best_eval = -INFINITY;
     let mut  killer_moves = [[MoveData::defualt(); 2]; 256];
-    for current_depth in 1..=input.depth {
-        let alpha = -INFINITY;
-        let beta = INFINITY;
+    let mut alpha = -INFINITY;
+    let mut beta = INFINITY;
+    while current_depth<= input.depth {
+     {
+   
         
     
     let eval = search_internal(&mut board, current_depth as i32, 0, alpha, beta, &mut nodes_evaluated, &mut principal_variation, &mut killer_moves, &mut history_table);
         best_eval = eval;
+         if (eval<=alpha || eval>=beta){
+             alpha=-INFINITY;
+             beta=INFINITY;
+             continue
+         }
+         else { 
+             alpha=eval-VAL_WINDOW;
+                beta=eval+VAL_WINDOW;
+             current_depth+=1
+         }
+     }
     }
 
     SearchOutput {
@@ -166,7 +180,7 @@ fn search_internal(
             if !curr_move.is_capture() && !curr_move.is_promotion() {
                 store_killers(killer_moves, *curr_move, ply as usize);
                 //history_table[board.turn as usize][curr_move.from as usize][curr_move.to as usize] += depth as u32*depth as u32;
-                 
+
                 
             }
             return beta;

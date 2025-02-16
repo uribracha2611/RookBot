@@ -22,7 +22,7 @@ fn main() {
     
     let mut board = Board::from_fen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1
 ");
-    let search_input=SearchInput { depth:8};
+    let search_input=SearchInput { depth:10};
     
     let start = Instant::now();
     
