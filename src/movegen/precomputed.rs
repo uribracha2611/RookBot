@@ -124,5 +124,14 @@ pub static NUM_SQUARES_FROM_SQUARE: LazyLock<[[u8; 64]; 8]> = LazyLock::new(|| {
             num_squares_from_square[dir_index][square as usize] = count;
         }
     }
+    
     num_squares_from_square
     });
+pub fn precompute_movegen() {
+    LazyLock::force(&KNIGHT_MOVES);
+    LazyLock::force(&KING_MOVES);
+    LazyLock::force(&DIR_RAY_MASK);
+    LazyLock::force(&ALIGN_MASK);
+    LazyLock::force(&SQR_A_B_MASK);
+    LazyLock::force(&NUM_SQUARES_FROM_SQUARE);
+}

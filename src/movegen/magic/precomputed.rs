@@ -35,3 +35,10 @@ pub static BISHOP_ATTACKS: LazyLock<Vec<Vec<Bitboard>>> = LazyLock::new(|| {
     attacks
 });
 
+
+pub fn precompute_magics() {
+    LazyLock::force(&ROOK_MASK);
+    LazyLock::force(&BISHOP_MASK);
+    LazyLock::force(&ROOK_ATTACKS);
+    LazyLock::force(&BISHOP_ATTACKS);
+}
