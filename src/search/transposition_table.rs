@@ -79,6 +79,10 @@ impl TranspositionTable {
         None
     }
 }
+pub fn reset_transposition_table() {
+    let mut table = TRANSPOSITION_TABLE.lock().unwrap();
+    *table = TranspositionTable::new(MB_SIZE / std::mem::size_of::<Entry>());
+}
 
 pub static TRANSPOSITION_TABLE: LazyLock<Mutex<TranspositionTable>> = LazyLock::new(|| {
     Mutex::new(TranspositionTable::new(MB_SIZE / std::mem::size_of::<Entry>()))

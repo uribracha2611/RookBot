@@ -3,6 +3,7 @@ use crate::board::{
     castling::types::CastlingSide,
     piece::{Piece, PieceColor},
 };
+use crate::board::board::Board;
 use crate::board::piece::PieceType;
 
 #[derive(Clone, Copy, PartialEq, Eq,Debug)]
@@ -55,16 +56,7 @@ impl MoveData {
             move_type: MoveType::Normal,
         }
     }
-    // Constructor to create a new MoveData instance from algebraic notation
-    pub fn new(
-        from: u8,
-        to: u8,
-        piece_to_move: Piece,
-        move_type: MoveType,
-    ) ->  MoveData{
-        // Convert algebraic notation to board indices
-
-
+    pub fn new (from: u8, to: u8, piece_to_move: Piece, move_type: MoveType) -> MoveData {
         MoveData {
             from,
             to,
@@ -72,6 +64,86 @@ impl MoveData {
             move_type,
         }
     }
+
+
+
+    pub fn from_algebraic(algebraic: &str, board: &Board) -> Self {
+        let notation = algebraic.to_uppercase();
+        // 1) Detect castling
+        if notation == "O-O" {
+            let color = board.turn;
+            let (from_sq, to_sq) = match color {
+                PieceColor::WHITE => (4, 6),
+                PieceColor::BLACK => (60, 62),
+            };
+            let king_piece = board.squares[from_sq].unwrap();
+            let side = if from_sq == 4 { CastlingSide::Kingside } else { CastlingSide::Queenside };
+            return MoveData {
+                from: from_sq as u8,
+                to: to_sq as u8,
+                piece_to_move: king_piece,
+                move_type: MoveType::Castling(CastlingMove::new(side, color)),
+            };
+        } else if notation == "O-O-O" {
+            let color = board.turn;
+            let (from_sq, to_sq) = match color {
+                PieceColor::WHITE => (4, 2),
+                PieceColor::BLACK => (60, 58),
+            };
+            let king_piece = board.squares[from_sq].unwrap();
+            let side = if from_sq == 4 { CastlingSide::Queenside } else { CastlingSide::Kingside };
+            return MoveData {
+                from: from_sq as u8,
+                to: to_sq as u8,
+                piece_to_move: king_piece,
+                move_type: MoveType::Castling(CastlingMove::new(side, color)),
+            };
+        }
+
+        // 2) Parse normal moves
+        let from_pos = Position::from_chess_notation(&algebraic[0..2]).expect("\\Invalid from-square");
+        let to_pos = Position::from_chess_notation(&algebraic[2..4]).expect("\\Invalid to-square");
+        let from_sq = from_pos.to_sqr().unwrap() as usize;
+        let to_sq = to_pos.to_sqr().unwrap() as usize;
+        let moving_piece = board.squares[from_sq].unwrap();
+        let promotion_part = if algebraic.len() > 4 { &algebraic[4..] } else { "" };
+
+        // 3) Check promotion
+        let mut move_type = if promotion_part.starts_with('=') {
+            let promo_char = promotion_part.chars().nth(1).unwrap_or('Q');
+            let promo_type = match promo_char.to_ascii_uppercase() {
+                'N' => PieceType::KNIGHT,
+                'B' => PieceType::BISHOP,
+                'R' => PieceType::ROOK,
+                _ => PieceType::QUEEN,
+            };
+            MoveType::Promotion(Piece::new(moving_piece.piece_color, promo_type))
+        } else {
+            MoveType::Normal
+        };
+
+        // 4) Check en passant (pawns capturing diagonally on empty square)
+        if moving_piece.piece_type == PieceType::PAWN {
+            let file_diff = (from_sq % 8) as i8 - (to_sq % 8) as i8;
+            if file_diff.abs() == 1 && board.squares[to_sq].is_none() {
+                if let Some(ep_square) = board.game_state.en_passant_square {
+                    if ep_square as usize == to_sq {
+                        let captured_color = moving_piece.piece_color.opposite();
+                        let captured_piece = Piece::new(captured_color, PieceType::PAWN);
+                        move_type = MoveType::EnPassant(captured_piece, ep_square);
+                    }
+                }
+            }
+        }
+
+        MoveData {
+            from: from_sq as u8,
+            to: to_sq as u8,
+            piece_to_move: moving_piece,
+            move_type,
+        }
+    }
+  
 
     // Check if the move is a capture
     pub fn is_capture(&self) -> bool {

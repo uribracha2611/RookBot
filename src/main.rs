@@ -13,7 +13,8 @@ pub mod board;
 pub mod movegen;
 mod search;
 pub mod perft;
-
+mod uci;
+pub mod constants;
 
 fn main() {
     setup_transposition_table();
