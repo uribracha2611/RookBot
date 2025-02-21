@@ -325,6 +325,8 @@ impl Board {
         }
 
         stockfish_str.push_str(&self.game_state.to_stockfish_string());
+        stockfish_str.push_str(&format!("fen: {}\n", self.to_fen()));
+        
         stockfish_str
     }
     pub  fn get_piece_bitboard(&self, color: PieceColor, piece: PieceType) -> Bitboard {

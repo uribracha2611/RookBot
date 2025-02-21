@@ -1,12 +1,17 @@
+use std::thread;
+use std::time::Duration;
 use crate::board::board::Board;
+use crate::board::piece::PieceColor;
 use crate::constants::STARTPOS_FEN;
 use crate::movegen::magic::precomputed::precompute_magics;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::precomputed::precompute_movegen;
+use crate::perft::perft;
+use crate::search::search::{search, timed_search};
 use crate::search::transposition_table::reset_transposition_table;
+use crate::search::types::SearchInput;
 
-
-pub fn handle_command(command:&str,board: &mut Board)
+pub fn handle_command(command:&str, board: &mut Board)
 {
     let first_word=command.split(" ").collect::<Vec<&str>>()[0];
     match first_word {
@@ -34,6 +39,22 @@ pub fn handle_command(command:&str,board: &mut Board)
         "position"=>{
             let remaining_string=command.split(" ").collect::<Vec<&str>>()[1..].join(" ");
             handle_position(remaining_string,board)
+        },
+        "go"=>{
+            handle_go(command,board);
+        },
+        "perft" => {
+            let parts: Vec<&str> = command.split_whitespace().collect();
+            if parts.len() > 1 {
+                if let Ok(depth) = parts[1].parse::<u32>() {
+                    let result = perft(board, depth);
+                    println!("{}", result);
+                } else {
+                    eprintln!("Invalid depth for perft command");
+                }
+            } else {
+                eprintln!("Depth not specified for perft command");
+            }
         }
 
         _ => {
@@ -83,6 +104,85 @@ fn handle_position(command: String, board: &mut Board) {
 
 fn apply_moves(board: &mut Board, moves: &Vec<&str>) {
     for curr_move in moves{
-        board.make_move(&MoveData::from_algebraic(curr_move, board));
+        let move_from_algebric=MoveData::from_algebraic(curr_move, board);
+        board.make_move(&move_from_algebric);
     }
+}
+pub fn handle_go(command: &str, board: &mut Board) {
+    let mut depth = None;
+    let mut movetime = None;
+    let mut wtime = None;
+    let mut btime = None;
+    let mut winc = None;
+    let mut binc = None;
+
+    let parts: Vec<&str> = command.split_whitespace().collect();
+    let mut i = 1; // Skip the "go" part
+
+    while i < parts.len() {
+        match parts[i] {
+            "depth" => {
+                if i + 1 < parts.len() {
+                    depth = Some(parts[i + 1].parse::<u32>().unwrap());
+                    i += 1;
+                }
+            }
+            "movetime" => {
+                if i + 1 < parts.len() {
+                    movetime = Some(Duration::from_millis(parts[i + 1].parse::<u64>().unwrap()));
+                    i += 1;
+                }
+            }
+            "wtime" => {
+                if i + 1 < parts.len() {
+                    wtime = Some(Duration::from_millis(parts[i + 1].parse::<u64>().unwrap()));
+                    i += 1;
+                }
+            }
+            "btime" => {
+                if i + 1 < parts.len() {
+                    btime = Some(Duration::from_millis(parts[i + 1].parse::<u64>().unwrap()));
+                    i += 1;
+                }
+            }
+            "winc" => {
+                if i + 1 < parts.len() {
+                    winc = Some(Duration::from_millis(parts[i + 1].parse::<u64>().unwrap()));
+                    i += 1;
+                }
+            }
+            "binc" => {
+                if i + 1 < parts.len() {
+                    binc = Some(Duration::from_millis(parts[i + 1].parse::<u64>().unwrap()));
+                    i += 1;
+                }
+            }
+            _ => {}
+        }
+        i += 1;
+    }
+
+    let time_limit = match board.turn {
+        PieceColor::WHITE => wtime.unwrap_or(Duration::from_secs(60)),
+        PieceColor::BLACK => btime.unwrap_or(Duration::from_secs(60)),
+    };
+
+    let increment = match board.turn {
+        PieceColor::WHITE => winc.unwrap_or(Duration::from_secs(0)),
+        PieceColor::BLACK => binc.unwrap_or(Duration::from_secs(0)),
+    };
+
+    let search_depth = depth.unwrap_or(8);
+
+    let mut board_clone = board.clone();
+    
+        let best_move = if movetime.is_some() || wtime.is_some() || btime.is_some() {
+            timed_search(&mut board_clone, time_limit, increment)
+        } else {
+            let search_input = SearchInput { depth: search_depth as u8 };
+            search(&mut board_clone, &search_input).get_principal_variation().first().cloned().unwrap()
+        };
+
+        println!("bestmove {}", best_move.to_algebraic());
+    
 }

@@ -9,8 +9,9 @@ use crate::search::move_ordering::{get_capture_score, get_move_score, get_moves_
 use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
 use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
 
-use std::sync::MutexGuard;
+use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
+
 use crate::search::late_move_reduction::reduce_depth;
 
 pub fn quiescence_search(
@@ -108,7 +109,7 @@ pub fn pick_move(ml: &mut MoveList, start_index: u8,scores: &Vec<u32>) {
 }
 
 pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
-    let mut current_depth=0;
+    let mut current_depth=1;
     let mut nodes_evaluated = 0;
     let mut  history_table=[[[0;64];64];2];
     let mut principal_variation:Vec<MoveData>=Vec::new();
@@ -118,9 +119,9 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
     let mut beta = INFINITY;
     while current_depth<= input.depth {
      {
-   
-        
-    
+
+
+
     let eval = search_internal(&mut board, current_depth as i32, 0, alpha, beta, &mut nodes_evaluated, &mut principal_variation, &mut killer_moves, &mut history_table);
         best_eval = eval;
          if (eval<=alpha || eval>=beta){
@@ -128,7 +129,7 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
              beta=INFINITY;
              continue
          }
-         else { 
+         else {
              alpha=eval-VAL_WINDOW;
                 beta=eval+VAL_WINDOW;
              current_depth+=1
@@ -148,10 +149,14 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
 
 
 
-pub fn timed_search(board: &mut Board, max_depth: u32, time_limit: Duration, increment: Duration) -> MoveData {
+pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration) -> MoveData {
+    let mut nodes_evaluated = 0;
+    let mut pv = Vec::new();
+    let mut killer_moves = [[MoveData::defualt(); 2]; 256];
+    let mut history_table = [[[0; 64]; 64]; 2];
     let start_time = Instant::now();
     let mut best_move = MoveData::defualt();
-
+    let max_depth=256;
     for depth in 1..=max_depth {
         let move_time = time_limit.mul_f64(0.0225) + increment / 2;
 
@@ -159,17 +164,14 @@ pub fn timed_search(board: &mut Board, max_depth: u32, time_limit: Duration, inc
             break;
         }
 
-        let mut nodes_evaluated = 0;
-        let mut pv = Vec::new();
-        let mut killer_moves = [[MoveData::defualt(); 2]; 256];
-        let mut history_table = [[[0; 64]; 64]; 2];
+   
 
         let eval = timed_search_internal(
             board,
             depth as i32,
             0,
-            i32::MIN,
-            i32::MAX,
+            -INFINITY,
+            INFINITY,
             &mut nodes_evaluated,
             &mut pv,
             &mut killer_moves,
@@ -221,7 +223,8 @@ fn search_common(
         .retrieve(board.game_state.zobrist_hash, depth as u8, alpha, beta)
     {
         if ply == 0 {
-            pv[ply as usize] = entry.best_move;
+            pv.clear();
+            pv.push(entry.best_move);
         }
         return entry.eval;
     }

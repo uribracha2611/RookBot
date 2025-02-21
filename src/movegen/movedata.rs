@@ -4,6 +4,7 @@ use crate::board::{
     piece::{Piece, PieceColor},
 };
 use crate::board::board::Board;
+use crate::board::castling::constants::{BLACK_KINGSIDE_KING_END, BLACK_KINGSIDE_KING_START, BLACK_QUEENSIDE_KING_END, BLACK_QUEENSIDE_KING_START, WHITE_KINGSIDE_KING_END, WHITE_KINGSIDE_KING_START, WHITE_QUEENSIDE_KING_END, WHITE_QUEENSIDE_KING_START};
 use crate::board::piece::PieceType;
 
 #[derive(Clone, Copy, PartialEq, Eq,Debug)]
@@ -69,78 +70,89 @@ impl MoveData {
 
     pub fn from_algebraic(algebraic: &str, board: &Board) -> Self {
         let notation = algebraic.to_uppercase();
-        // 1) Detect castling
-        if notation == "O-O" {
-            let color = board.turn;
-            let (from_sq, to_sq) = match color {
-                PieceColor::WHITE => (4, 6),
-                PieceColor::BLACK => (60, 62),
-            };
-            let king_piece = board.squares[from_sq].unwrap();
-            let side = if from_sq == 4 { CastlingSide::Kingside } else { CastlingSide::Queenside };
-            return MoveData {
-                from: from_sq as u8,
-                to: to_sq as u8,
-                piece_to_move: king_piece,
-                move_type: MoveType::Castling(CastlingMove::new(side, color)),
-            };
-        } else if notation == "O-O-O" {
-            let color = board.turn;
-            let (from_sq, to_sq) = match color {
-                PieceColor::WHITE => (4, 2),
-                PieceColor::BLACK => (60, 58),
-            };
-            let king_piece = board.squares[from_sq].unwrap();
-            let side = if from_sq == 4 { CastlingSide::Queenside } else { CastlingSide::Kingside };
-            return MoveData {
-                from: from_sq as u8,
-                to: to_sq as u8,
-                piece_to_move: king_piece,
-                move_type: MoveType::Castling(CastlingMove::new(side, color)),
-            };
+        if notation == "E1G1" {
+            MoveData {
+                from: WHITE_KINGSIDE_KING_START,
+                to: WHITE_KINGSIDE_KING_END,
+                piece_to_move: board.squares[4].unwrap(),
+                move_type: MoveType::Castling(CastlingMove::new(CastlingSide::Kingside, PieceColor::WHITE)),
+            }
+        } else if notation == "E1C1" {
+            MoveData {
+                from: WHITE_QUEENSIDE_KING_START,
+                to: WHITE_QUEENSIDE_KING_END,
+                piece_to_move: board.squares[4].unwrap(),
+                move_type: MoveType::Castling(CastlingMove::new(CastlingSide::Queenside, PieceColor::WHITE)),
+            }
+        } else if notation == "E8G8" {
+            MoveData {
+                from: BLACK_KINGSIDE_KING_START,
+                to: BLACK_KINGSIDE_KING_END,
+                piece_to_move: board.squares[60].unwrap(),
+                move_type: MoveType::Castling(CastlingMove::new(CastlingSide::Kingside, PieceColor::BLACK)),
+            }
+        } else if notation == "E8C8" {
+            MoveData {
+                from: BLACK_QUEENSIDE_KING_START,
+                to: BLACK_QUEENSIDE_KING_END,
+                piece_to_move: board.squares[60].unwrap(),
+                move_type: MoveType::Castling(CastlingMove::new(CastlingSide::Queenside, PieceColor::BLACK)),
+            }
         }
+         else {
 
-        // 2) Parse normal moves
-        let from_pos = Position::from_chess_notation(&algebraic[0..2]).expect("\\Invalid from-square");
-        let to_pos = Position::from_chess_notation(&algebraic[2..4]).expect("\\Invalid to-square");
-        let from_sq = from_pos.to_sqr().unwrap() as usize;
-        let to_sq = to_pos.to_sqr().unwrap() as usize;
-        let moving_piece = board.squares[from_sq].unwrap();
-        let promotion_part = if algebraic.len() > 4 { &algebraic[4..] } else { "" };
+            // 2) Parse normal moves
+            let from_pos = Position::from_chess_notation(&algebraic[0..2]).expect("\\Invalid from-square");
+            let to_pos = Position::from_chess_notation(&algebraic[2..4]).expect("\\Invalid to-square");
+            let from_sq = from_pos.to_sqr().unwrap() as usize;
+            let to_sq = to_pos.to_sqr().unwrap() as usize;
+            let moving_piece = board.squares[from_sq].unwrap();
+            let promotion_part = if algebraic.len() > 4 { &algebraic[4..] } else { "" };
 
-        // 3) Check promotion
-        let mut move_type = if promotion_part.starts_with('=') {
-            let promo_char = promotion_part.chars().nth(1).unwrap_or('Q');
-            let promo_type = match promo_char.to_ascii_uppercase() {
-                'N' => PieceType::KNIGHT,
-                'B' => PieceType::BISHOP,
-                'R' => PieceType::ROOK,
-                _ => PieceType::QUEEN,
+            // 3) Check promotion
+            let mut move_type = if promotion_part.starts_with('=') {
+                let promo_char = promotion_part.chars().nth(1).unwrap_or('Q');
+                let promo_type = match promo_char.to_ascii_uppercase() {
+                    'N' => PieceType::KNIGHT,
+                    'B' => PieceType::BISHOP,
+                    'R' => PieceType::ROOK,
+                    _ => PieceType::QUEEN,
+                };
+                if let Some(captured_piece) = board.squares[to_sq] {
+                    MoveType::PromotionCapture(PromotionCapture {
+                        captured_piece,
+                        promoted_piece: Piece::new(moving_piece.piece_color, promo_type),
+                    })
+                } else {
+                    MoveType::Promotion(Piece::new(moving_piece.piece_color, promo_type))
+                }
+            } else if board.squares[to_sq].is_some() {
+                MoveType::Capture(board.squares[to_sq].unwrap())
+            } else {
+                MoveType::Normal
             };
-            MoveType::Promotion(Piece::new(moving_piece.piece_color, promo_type))
-        } else {
-            MoveType::Normal
-        };
 
-        // 4) Check en passant (pawns capturing diagonally on empty square)
-        if moving_piece.piece_type == PieceType::PAWN {
-            let file_diff = (from_sq % 8) as i8 - (to_sq % 8) as i8;
-            if file_diff.abs() == 1 && board.squares[to_sq].is_none() {
-                if let Some(ep_square) = board.game_state.en_passant_square {
-                    if ep_square as usize == to_sq {
-                        let captured_color = moving_piece.piece_color.opposite();
-                        let captured_piece = Piece::new(captured_color, PieceType::PAWN);
-                        move_type = MoveType::EnPassant(captured_piece, ep_square);
+
+            // 4) Check en passant (pawns capturing diagonally on empty square)
+            if moving_piece.piece_type == PieceType::PAWN {
+                let file_diff = (from_sq % 8) as i8 - (to_sq % 8) as i8;
+                if file_diff.abs() == 1 && board.squares[to_sq].is_none() {
+                    if let Some(ep_square) = board.game_state.en_passant_square {
+                        if ep_square as usize == to_sq {
+                            let captured_color = moving_piece.piece_color.opposite();
+                            let captured_piece = Piece::new(captured_color, PieceType::PAWN);
+                            move_type = MoveType::EnPassant(captured_piece, ep_square);
+                        }
                     }
                 }
             }
-        }
 
-        MoveData {
-            from: from_sq as u8,
-            to: to_sq as u8,
-            piece_to_move: moving_piece,
-            move_type,
+            MoveData {
+                from: from_sq as u8,
+                to: to_sq as u8,
+                piece_to_move: moving_piece,
+                move_type,
+            }
         }
     }
   
