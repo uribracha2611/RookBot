@@ -1,5 +1,6 @@
 use std::sync::{LazyLock, Mutex};
 use crate::movegen::movedata::MoveData;
+use crate::search::constants::MATE_VALUE;
 
 const MB_SIZE: usize = 128 * 1024 * 1024; // 64 MB
 
@@ -32,7 +33,7 @@ impl TranspositionTable {
 
     pub fn store(&mut self, hash: u64, depth: u8, eval: i32, entry_type: EntryType, best_move: MoveData) {
         let index = (hash as usize) % self.table.len();
-
+        
         if let Some(existing_entry) = &self.table[index] {
             if existing_entry.depth >= depth {
                 return; // Do not store if the existing entry has a greater or equal depth
@@ -90,4 +91,25 @@ pub static TRANSPOSITION_TABLE: LazyLock<Mutex<TranspositionTable>> = LazyLock::
 
 pub fn setup_transposition_table() {
     LazyLock::force(&TRANSPOSITION_TABLE);
+}
+pub fn is_mate_score(score: i32) -> bool {
+    score.abs() > MATE_VALUE
+}
+pub fn correct_mate_score_for_storage(score: i32,ply:i32) -> i32 {
+    if(is_mate_score(score)) {
+        let sign = score.signum();
+      (score * sign + ply) * sign
+    }
+    else {
+        score
+    }
+}
+pub fn correct_mate_score_for_display(score: i32,ply:i32) -> i32 {
+    if(is_mate_score(score)) {
+        let sign = score.signum();
+        (score * sign - ply) * sign
+    }
+    else {
+        score
+    }
 }

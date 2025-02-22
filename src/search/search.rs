@@ -4,7 +4,7 @@ use crate::board::piece::PieceColor;
 use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::movelist::MoveList;
-use crate::search::constants::{FUTILITY_MARGIN, FUTILITY_MARGIN_2, INFINITY, VAL_WINDOW};
+use crate::search::constants::{FUTILITY_MARGIN, FUTILITY_MARGIN_2, INFINITY, MATE_VALUE, VAL_WINDOW};
 use crate::search::move_ordering::{get_capture_score, get_move_score, get_moves_score, store_killers, KillerMoves, BASE_KILLER};
 use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
 use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
@@ -179,14 +179,14 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
             start_time,
             move_time,
         );
-
-        if let Some(&best) = pv.first() {
-            best_move = best;
-        }
-
         if start_time.elapsed() >= time_limit {
             break;
         }
+            if let Some(&best) = pv.first() {
+            best_move = best;
+        }
+
+
     }
 
     best_move
@@ -230,7 +230,14 @@ fn search_common(
     }
 
     let mut move_list = generate_moves(board, false);
-
+    if move_list.len()==0{
+        return if board.is_check{
+            -MATE_VALUE+ply
+        }
+        else{
+            0
+        }
+    }
     if depth >= 3 && !board.is_check {
         board.make_null_move();
         let null_move_score = -search_common(

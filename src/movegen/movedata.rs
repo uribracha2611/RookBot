@@ -70,28 +70,28 @@ impl MoveData {
 
     pub fn from_algebraic(algebraic: &str, board: &Board) -> Self {
         let notation = algebraic.to_uppercase();
-        if notation == "E1G1" {
+        if notation == "E1G1" && (board.squares[4].unwrap().piece_type == PieceType::KING && board.squares[4].unwrap().piece_color == PieceColor::WHITE) && (board.squares[7].unwrap().piece_type == PieceType::ROOK && board.squares[7].unwrap().piece_color == PieceColor::WHITE) {
             MoveData {
                 from: WHITE_KINGSIDE_KING_START,
                 to: WHITE_KINGSIDE_KING_END,
                 piece_to_move: board.squares[4].unwrap(),
                 move_type: MoveType::Castling(CastlingMove::new(CastlingSide::Kingside, PieceColor::WHITE)),
             }
-        } else if notation == "E1C1" {
+        } else if notation == "E1C1" && (board.squares[4].unwrap().piece_type == PieceType::KING && board.squares[4].unwrap().piece_color == PieceColor::WHITE) && (board.squares[0].unwrap().piece_type == PieceType::ROOK && board.squares[0].unwrap().piece_color == PieceColor::WHITE) {
             MoveData {
                 from: WHITE_QUEENSIDE_KING_START,
                 to: WHITE_QUEENSIDE_KING_END,
                 piece_to_move: board.squares[4].unwrap(),
                 move_type: MoveType::Castling(CastlingMove::new(CastlingSide::Queenside, PieceColor::WHITE)),
             }
-        } else if notation == "E8G8" {
+        } else if notation == "E8G8" && (board.squares[60].unwrap().piece_type == PieceType::KING && board.squares[60].unwrap().piece_color == PieceColor::BLACK) && (board.squares[63].unwrap().piece_type == PieceType::ROOK && board.squares[63].unwrap().piece_color == PieceColor::BLACK) {
             MoveData {
                 from: BLACK_KINGSIDE_KING_START,
                 to: BLACK_KINGSIDE_KING_END,
                 piece_to_move: board.squares[60].unwrap(),
                 move_type: MoveType::Castling(CastlingMove::new(CastlingSide::Kingside, PieceColor::BLACK)),
             }
-        } else if notation == "E8C8" {
+        } else if notation == "E8C8" && (board.squares[60].unwrap().piece_type == PieceType::KING && board.squares[60].unwrap().piece_color == PieceColor::BLACK) && (board.squares[56].unwrap().piece_type == PieceType::ROOK && board.squares[56].unwrap().piece_color == PieceColor::BLACK) {
             MoveData {
                 from: BLACK_QUEENSIDE_KING_START,
                 to: BLACK_QUEENSIDE_KING_END,
@@ -110,8 +110,8 @@ impl MoveData {
             let promotion_part = if algebraic.len() > 4 { &algebraic[4..] } else { "" };
 
             // 3) Check promotion
-            let mut move_type = if promotion_part.starts_with('=') {
-                let promo_char = promotion_part.chars().nth(1).unwrap_or('Q');
+            let mut move_type = if !promotion_part.is_empty(){
+                let promo_char = promotion_part.chars().nth(0).unwrap_or('Q');
                 let promo_type = match promo_char.to_ascii_uppercase() {
                     'N' => PieceType::KNIGHT,
                     'B' => PieceType::BISHOP,

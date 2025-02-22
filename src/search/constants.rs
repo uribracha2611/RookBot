@@ -7,3 +7,4 @@ pub const INFINITY: i32 = 1000000;
 pub const VAL_WINDOW:i32=50;
 pub const FUTILITY_MARGIN:i32=100;
 pub const FUTILITY_MARGIN_2:i32=300;
+pub const MATE_VALUE:i32=10000;
