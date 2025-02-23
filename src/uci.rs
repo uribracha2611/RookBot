@@ -176,13 +176,16 @@ pub fn handle_go(command: &str, board: &mut Board) {
 
     let mut board_clone = board.clone();
     
-        let best_move = if movetime.is_some() || wtime.is_some() || btime.is_some() {
+        let result = if movetime.is_some() || wtime.is_some() || btime.is_some() {
             timed_search(&mut board_clone, time_limit, increment)
         } else {
-            let search_input = SearchInput { depth: search_depth as u8 };
-            search(&mut board_clone, &search_input).get_principal_variation().first().cloned().unwrap()
+           search(board, &SearchInput { depth: search_depth as u8 })
+            
         };
-
+    let pv=result.principal_variation.iter().map(|x| x.to_algebraic()).collect::<Vec<String>>().join(" ");
+    let best_move=result.principal_variation.first().unwrap();
+    let score=result.eval;
+    println!("info score cp {} pv {}", score,pv);
         println!("bestmove {}", best_move.to_algebraic());
     
 }

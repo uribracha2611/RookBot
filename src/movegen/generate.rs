@@ -299,7 +299,7 @@ fn is_correct_slider(slider:Piece, dir_index:usize)->bool{
         _=>slider.piece_type==PieceType::BISHOP || slider.piece_type==PieceType::QUEEN,
     }
 }
-fn get_pawn_dir(color: PieceColor) -> i8 {
+pub(crate) fn get_pawn_dir(color: PieceColor) -> i8 {
     if color == PieceColor::WHITE { 1 } else { -1 }
 }
 fn get_pawn_attack_dir(color: PieceColor, left: bool) -> i8 {

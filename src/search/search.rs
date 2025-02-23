@@ -149,12 +149,13 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
 
 
 
-pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration) -> MoveData {
+pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration) -> SearchOutput {
     let mut nodes_evaluated = 0;
     let mut pv = Vec::new();
     let mut killer_moves = [[MoveData::defualt(); 2]; 256];
     let mut history_table = [[[0; 64]; 64]; 2];
     let start_time = Instant::now();
+    let mut curr_eval =0;
     let mut best_move = MoveData::defualt();
     let max_depth=256;
     for depth in 1..=max_depth {
@@ -166,7 +167,7 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
 
    
 
-        let eval = timed_search_internal(
+         curr_eval = timed_search_internal(
             board,
             depth as i32,
             0,
@@ -189,7 +190,11 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
 
     }
 
-    best_move
+    SearchOutput {
+        nodes_evaluated,
+        principal_variation:pv,
+        eval: curr_eval,
+    }
 }
 
 

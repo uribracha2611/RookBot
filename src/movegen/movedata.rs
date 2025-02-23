@@ -138,10 +138,13 @@ impl MoveData {
                 let file_diff = (from_sq % 8) as i8 - (to_sq % 8) as i8;
                 if file_diff.abs() == 1 && board.squares[to_sq].is_none() {
                     if let Some(ep_square) = board.game_state.en_passant_square {
+                        
                         if ep_square as usize == to_sq {
+                            let en_passant_target = (ep_square as i8 - (8 * crate::movegen::generate::get_pawn_dir(board.turn))) as u8;    
                             let captured_color = moving_piece.piece_color.opposite();
                             let captured_piece = Piece::new(captured_color, PieceType::PAWN);
-                            move_type = MoveType::EnPassant(captured_piece, ep_square);
+                            move_type = MoveType::EnPassant(captured_piece, en_passant_target);
+                   
                         }
                     }
                 }
@@ -226,12 +229,12 @@ impl MoveData {
 
         match &self.move_type {
             MoveType::Promotion(piece) => {
-                format!("{}{}={}", from_notation, to_notation, piece.piece_type.to_char())
+                format!("{}{}{}", from_notation, to_notation, piece.piece_type.to_char().to_lowercase())
             }
             MoveType::PromotionCapture(promo) => {
                 format!(
-                    "{}{}={}",
-                    from_notation, to_notation, promo.promoted_piece.piece_type.to_char()
+                    "{}{}{}",
+                    from_notation, to_notation, promo.promoted_piece.piece_type.to_char().to_lowercase()
                 )
             }
             _ => format!("{}{}", from_notation, to_notation),
