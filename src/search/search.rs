@@ -141,6 +141,7 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
         nodes_evaluated,
         principal_variation,
         eval: best_eval,
+        depth: (current_depth-1) as i32
     }
 }
 
@@ -157,17 +158,19 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
     let start_time = Instant::now();
     let mut curr_eval =0;
     let mut best_move = MoveData::defualt();
+    let move_time = time_limit.mul_f64(0.0225) + increment / 2;
     let max_depth=256;
-    for depth in 1..=max_depth {
-        let move_time = time_limit.mul_f64(0.0225) + increment / 2;
+    let mut depth =1;
+    while depth<= max_depth {
+       
 
-        if start_time.elapsed() >= time_limit {
+        if start_time.elapsed() >= move_time {
             break;
         }
 
    
 
-         curr_eval = timed_search_internal(
+        let  curr_depth_eval = timed_search_internal(
             board,
             depth as i32,
             0,
@@ -180,12 +183,15 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
             start_time,
             move_time,
         );
-        if start_time.elapsed() >= time_limit {
+       
+        if start_time.elapsed() >= move_time {
             break;
         }
+        curr_eval = curr_depth_eval;
             if let Some(&best) = pv.first() {
             best_move = best;
         }
+        depth+=1;
 
 
     }
@@ -194,6 +200,7 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
         nodes_evaluated,
         principal_variation:pv,
         eval: curr_eval,
+        depth:depth-1
     }
 }
 

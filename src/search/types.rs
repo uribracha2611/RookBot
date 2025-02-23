@@ -37,14 +37,16 @@ pub struct SearchOutput {
     pub(crate) nodes_evaluated: i32,
     pub(crate) principal_variation: Vec<MoveData>,
     pub(crate) eval: i32,
+    pub (crate) depth:i32
 }
 
 impl SearchOutput {
-    pub fn new(nodes_evaluated: i32, principal_variation: Vec<MoveData>,eval:i32) -> SearchOutput {
+    pub fn new(nodes_evaluated: i32, principal_variation: Vec<MoveData>,eval:i32,depth:i32) -> SearchOutput {
         SearchOutput {
             nodes_evaluated,
             principal_variation,
-            eval
+            eval,
+            depth
             
         }
     }
