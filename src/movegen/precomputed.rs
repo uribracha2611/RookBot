@@ -79,6 +79,21 @@ pub static ALIGN_MASK: LazyLock<[[Bitboard; 64]; 64]> = LazyLock::new(|| {
 
     align_mask
 });
+pub static DIR_SQUARES:LazyLock<[[Position;64];64]>=LazyLock::new(||{
+    let mut dir_squares=[[Position::new(0,0);64];64];
+    for square_a in 0..64 {
+        for square_b in 0..64 {
+            let pos_a = Position::from_sqr(square_a).unwrap();
+            let pos_b = Position::from_sqr(square_b).unwrap();
+            let delta = pos_b - pos_a;
+            let dir = Position::new(delta.x.signum(), delta.y.signum());
+            dir_squares[square_a as usize][square_b as usize]=dir;
+            }
+        
+        }
+    dir_squares
+    }
+);
 pub static SQR_A_B_MASK: LazyLock<[[Bitboard; 64]; 64]> = LazyLock::new(|| {
     let mut align_mask = [[Bitboard::new(0); 64]; 64];
 
@@ -134,4 +149,5 @@ pub fn precompute_movegen() {
     LazyLock::force(&ALIGN_MASK);
     LazyLock::force(&SQR_A_B_MASK);
     LazyLock::force(&NUM_SQUARES_FROM_SQUARE);
+    LazyLock::force(&DIR_SQUARES);
 }

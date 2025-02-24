@@ -1,9 +1,13 @@
+use std::collections::VecDeque;
 use std::sync::atomic::AtomicU64;
+use std::vec;
 use crate::board::bitboard::Bitboard;
 use crate::board::board::Board;
 use crate::board::castling::types::CastlingSide;
 use crate::board::piece::{Piece, PieceColor, PieceType};
+use crate::board::piece::PieceType::PAWN;
 use crate::board::position::Position;
+use crate::board::see::get_piece_value;
 use crate::movegen::constants::{BISHOP_OFFSETS, RANK_1, RANK_2, RANK_7, RANK_8, ROOK_OFFSETS};
 use crate::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::movegen::movedata::{CastlingMove, MoveData, MoveType, PromotionCapture};
@@ -48,6 +52,89 @@ pub fn get_attacking_pieces(board: &Board, square: u8, piece_color: PieceColor) 
 
     attackers
 }
+pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> Vec<(Piece,u8)> {
+    let mut attackers = Vec::new();
+    let blockers = board.get_all_pieces_bitboard();
+    let opp_pawns = board.get_piece_bitboard(piece_color.opposite(), PieceType::PAWN);
+    let square_bb = Bitboard::create_from_square(square);
+
+    // Check for pawn attacks
+    let mut pawn_attackers = square_bb.pawn_attack(piece_color, opp_pawns, true) | square_bb.pawn_attack(piece_color, opp_pawns, false);
+
+    while pawn_attackers != 0 {
+        let start_square= pawn_attackers.pop_lsb();
+        attackers.push((Piece::new(piece_color,PAWN),start_square));
+    }
+
+
+    // Check for knight attacks
+    let mut knight_attackers = crate::movegen::precomputed::KNIGHT_MOVES[square as usize] & board.get_piece_bitboard(piece_color.opposite(), PieceType::KNIGHT);
+
+    while knight_attackers != 0 {
+        let start_square=knight_attackers.pop_lsb();
+        attackers.push((Piece::new(piece_color,PieceType::KNIGHT),start_square));
+        
+    }
+
+
+    // Check for bishop attacks
+    let mut bishop_attackers = get_bishop_attacks(square as usize, blockers) & board.get_piece_bitboard(piece_color.opposite(), PieceType::BISHOP);
+
+    while bishop_attackers != 0 {
+        let start_square=bishop_attackers.pop_lsb();
+        attackers.push((Piece::new(piece_color,PieceType::BISHOP),start_square));
+    }
+
+    // Check for rook attacks
+    let mut rook_attackers = get_rook_attacks(square as usize, blockers) & board.get_piece_bitboard(piece_color.opposite(), PieceType::ROOK);
+
+    while rook_attackers != 0 {
+      let start_square=rook_attackers.pop_lsb();
+        attackers.push((Piece::new(piece_color,PieceType::ROOK),start_square));
+    }
+
+    // Check for queen attacks
+    let mut queen_attackers = (get_bishop_attacks(square as usize, blockers) | get_rook_attacks(square as usize, blockers)) & board.get_piece_bitboard(piece_color.opposite(), PieceType::QUEEN);
+
+    while queen_attackers != 0 {
+        let start_square=queen_attackers.pop_lsb();
+        attackers.push((Piece::new(piece_color,PieceType::QUEEN),start_square));
+    }
+    attackers.sort_by_key(|x| get_piece_value(x.0.piece_type));
+    attackers
+
+
+
+
+
+
+}
+pub fn find_hidden_attackers(board: &Board,delta:Position,square:i32)->Option<(Piece,u8)>{
+    let delta_search=-delta;
+    let is_ortho=delta_search.is_orthogonal();
+    let initial_pos=Position::from_sqr(square as i8).unwrap();
+    let i=0;
+    loop {
+        let curr_pos=initial_pos+delta_search*i;
+        if curr_pos.to_sqr().is_none(){
+            return None
+        }
+        let curr_sqr=curr_pos.to_sqr().unwrap();
+       if  let Some(curr_piece)=board.squares[curr_sqr as usize]
+       {
+           if(curr_piece.is_diag() && !is_ortho) || (curr_piece.is_ortho() && is_ortho){
+               return Some((curr_piece, curr_sqr as u8));
+           }
+           else{
+               return None;
+           }
+           
+       }
+        
+    }
+    
+}
+
 
 fn generate_piece_attack_bitboard(board: &Board, piece_color: &PieceColor, piece_type: &PieceType) -> Bitboard {
     let blockers = board.get_all_pieces_bitboard() & !board.get_piece_bitboard(piece_color.opposite(), PieceType::KING);

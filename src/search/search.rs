@@ -5,13 +5,13 @@ use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::movelist::MoveList;
 use crate::search::constants::{FUTILITY_MARGIN, FUTILITY_MARGIN_2, INFINITY, MATE_VALUE, VAL_WINDOW};
-use crate::search::move_ordering::{get_capture_score, get_move_score, get_moves_score, store_killers, KillerMoves, BASE_KILLER};
+use crate::search::move_ordering::{get_capture_score, get_capture_score_only, get_move_score, get_moves_score, store_killers, KillerMoves, BASE_KILLER};
 use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
 use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
 
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
-
+use crate::board::see::static_exchange_evaluation;
 use crate::search::late_move_reduction::reduce_depth;
 
 pub fn quiescence_search(
@@ -41,16 +41,23 @@ pub fn quiescence_search(
     }
 
     let mut moves = generate_moves(board, true);
+    let mut moves_clone=moves.clone();
     let TT_Move = TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
-    let scores = get_capture_score(moves, TT_Move);
+    let mut scores = get_capture_score(board, moves, TT_Move);
 
     // Iterate through the moves
     for i in 0..moves.len() {
         *nodes_evaluated += 1;
 
         // Pick the move to search next
-        pick_move(&mut moves, i as u8, &scores);
+        pick_move(&mut moves, i as u8, &mut scores);
         let mv = moves.get_move(i);
+       
+      
+
+        if scores[i] < 0 {
+            continue;
+        }
 
         // Check time again before making a move
         if let (Some(start_time), Some(time_limit)) = (start_time, time_limit) {
@@ -99,11 +106,12 @@ pub fn eval(board: &Board) ->i32{
     }
 
 }
-pub fn pick_move(ml: &mut MoveList, start_index: u8,scores: &Vec<u32>) {
+pub fn pick_move(ml: &mut MoveList, start_index: u8, scores: &mut Vec<i32>) {
 
     for i in (start_index + 1)..(ml.len() as u8) {
         if scores[i as usize] > scores[start_index as usize] {
             ml.swap(start_index as usize, i as usize);
+            scores.swap(start_index as usize, i as usize);
         }
     }
 }
@@ -291,11 +299,12 @@ fn search_common(
         .get_TT_move(board.game_state.zobrist_hash)
         .unwrap_or(MoveData::defualt());
 
-    let move_score = get_moves_score(
+    let mut move_score = get_moves_score(
         &move_list,
         &tt_move,
         *killer_moves,
         ply as usize,
+        board,
         *history_table,
         board.turn,
     );
@@ -310,7 +319,7 @@ fn search_common(
 
         let mut node_pv: Vec<MoveData> = Vec::new();
 
-        pick_move(&mut move_list, i as u8, &move_score);
+        pick_move(&mut move_list, i as u8, &mut move_score);
         let curr_move = move_list.get_move(i);
 
         board.make_move(curr_move);

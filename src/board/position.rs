@@ -1,4 +1,4 @@
-use std::ops::{Add, Sub, Mul};
+use std::ops::{Add, Sub, Mul, Neg};
 use std::fmt;
 use num_traits::AsPrimitive;
 
@@ -22,6 +22,7 @@ impl Position {
             None
         }
     }
+    
 
     /// Converts a chess notation string (e.g., "e2") to a `Position`. Panics if invalid notation.
 
@@ -71,6 +72,12 @@ impl Position {
         let dy = (self.y - other.y).abs();
         dx <= 1 && dy <= 1 && !(dx == 0 && dy == 0)
     }
+    pub fn is_diagonal(&self) -> bool {
+        self.x.abs() == self.y.abs()
+    }
+    pub fn is_orthogonal(&self) -> bool {
+        self.x == 0 || self.y == 0
+    }
 }
 
 impl Add for Position {
@@ -104,5 +111,12 @@ impl<T: AsPrimitive<i8>> Mul<T> for Position {
 impl fmt::Debug for Position {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "({}, {})", self.x, self.y)
+    }
+}
+impl Neg for Position {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Position::new(-self.x, -self.y)
     }
 }

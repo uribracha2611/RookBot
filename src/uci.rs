@@ -175,7 +175,7 @@ pub fn handle_go(command: &str, board: &mut Board) {
     
 
     let mut board_clone = board.clone();
-    
+    let time_test=std::time::Instant::now();
         let result = if movetime.is_some() || wtime.is_some() || btime.is_some() {
             timed_search(&mut board_clone, time_limit, increment)
         } else {
@@ -188,7 +188,7 @@ pub fn handle_go(command: &str, board: &mut Board) {
     let score=result.eval;
     let depth=result.depth;
     let nodes=result.nodes_evaluated;
-    println!("info depth {} nodes {} score cp {} pv {}",depth,nodes,score,pv);
+    println!("info depth {} nodes {} score cp {} pv {} time {}",depth,nodes,score,pv,time_test.elapsed().as_millis());
         println!("bestmove {}", best_move.to_algebraic());
     
 }

@@ -1,1 +1,2 @@
-V1 elo:1218
+V1 elo:1218 (against stockfish capped at 1320)
+V2:1685+/-51.04
