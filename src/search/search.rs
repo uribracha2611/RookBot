@@ -52,8 +52,8 @@ pub fn quiescence_search(
         // Pick the move to search next
         pick_move(&mut moves, i as u8, &mut scores);
         let mv = moves.get_move(i);
-       
-      
+
+
 
         if scores[i] < 0 {
             continue;
@@ -222,7 +222,7 @@ fn search_common(
     nodes_evaluated: &mut i32,
     pv: &mut Vec<MoveData>,
     killer_moves: &mut KillerMoves,
-    history_table: &mut [[[u32; 64]; 64]; 2],
+    history_table: &mut [[[i32; 64]; 64]; 2],
     start_time: Option<Instant>,
     time_limit: Option<Duration>,
 ) -> i32 {
@@ -407,6 +407,7 @@ fn search_common(
 
             if !curr_move.is_capture() && !curr_move.is_promotion() {
                 store_killers(killer_moves, *curr_move, ply as usize);
+                history_table[board.turn as usize][curr_move.from as usize][curr_move.to as usize] += depth * depth;
             }
             return beta;
         }
@@ -441,7 +442,7 @@ fn search_internal(
     nodes_evaluated: &mut i32,
     pv: &mut Vec<MoveData>,
     killer_moves: &mut KillerMoves,
-    history_table: &mut [[[u32; 64]; 64]; 2],
+    history_table: &mut [[[i32; 64]; 64]; 2],
 ) -> i32 {
     search_common(
         board,
@@ -467,7 +468,7 @@ fn timed_search_internal(
     nodes_evaluated: &mut i32,
     pv: &mut Vec<MoveData>,
     killer_moves: &mut KillerMoves,
-    history_table: &mut [[[u32; 64]; 64]; 2],
+    history_table: &mut [[[i32; 64]; 64]; 2],
     start_time: Instant,
     time_limit: Duration,
 ) -> i32 {

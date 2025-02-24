@@ -30,7 +30,7 @@ pub fn store_killers(killer_moves: &mut KillerMoves, mv: MoveData, ply: usize) {
         killer_moves[ply][0] = mv;
     }
 }
-pub fn get_moves_score(moves:&MoveList, tt_move:&MoveData, killer_moves: KillerMoves, ply:usize, board: &Board, history_table: [[[u32; 64]; 64]; 2],color: PieceColor) -> Vec<i32> {
+pub fn get_moves_score(moves:&MoveList, tt_move:&MoveData, killer_moves: KillerMoves, ply:usize, board: &Board, history_table: [[[i32; 64]; 64]; 2],color: PieceColor) -> Vec<i32> {
     let mut scores = Vec::with_capacity(moves.len());
     for mv in moves.iter() {
         scores.push(get_move_score(mv, tt_move, &killer_moves, ply, &history_table,board,color));
@@ -42,7 +42,7 @@ pub fn get_move_score(
     tt_move: &MoveData,
     killer_moves: &KillerMoves,
     ply: usize,
-    history_table: &[[[u32; 64]; 64]; 2],
+    history_table: &[[[i32; 64]; 64]; 2],
     board: &Board,
     color: PieceColor
 ) -> i32 {
@@ -62,7 +62,7 @@ pub fn get_move_score(
     } else if *mv == killer_moves[ply][1] {
         return BASE_KILLER - 1;
     } else {
-       0
+        history_table[color as usize][mv.from as usize][mv.to as usize]
         
     }
 }
