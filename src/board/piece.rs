@@ -16,7 +16,28 @@ pub enum PieceColor {
     WHITE,
     BLACK,
 }
-
+impl PieceColor {
+    pub fn to_index(&self) -> usize {
+        match self {
+            PieceColor::WHITE => 0,
+            PieceColor::BLACK => 1,
+        }
+    }
+    
+}
+impl PieceType {
+    pub fn to_index(&self) -> usize {
+        match self {
+            PieceType::PAWN => 0,
+            PieceType::KNIGHT => 1,
+            PieceType::BISHOP => 2,
+            PieceType::ROOK => 3,
+            PieceType::QUEEN => 4,
+            PieceType::KING => 5,
+        }
+    }
+    
+}
 impl<T> Index<PieceColor> for [T] {
     type Output = T;
 

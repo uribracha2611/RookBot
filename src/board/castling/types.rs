@@ -1,3 +1,4 @@
+use clap::builder::styling::Color;
 use crate::board::bitboard::Bitboard;
 use crate::board::piece::PieceColor;
 
@@ -59,6 +60,15 @@ impl CastlingSide {
             (PieceColor::WHITE, CastlingSide::Queenside) => WHITE_QUEENSIDE_KING_MOVES_TROUGH,
             (PieceColor::BLACK, CastlingSide::Kingside) => BLACK_KINGSIDE_KING_MOVES_TROUGH,
             (PieceColor::BLACK, CastlingSide::Queenside) => BLACK_QUEENSIDE_KING_MOVES_TROUGH,
+        }
+    }
+    pub fn get_castling_from_squares(from:u8,to:u8,color: PieceColor)->Option<CastlingSide>{
+        match (from, to, color) {
+            (4, 6, PieceColor::WHITE) => Some(CastlingSide::Kingside),
+            (4, 2, PieceColor::WHITE) => Some(CastlingSide::Queenside),
+            (60, 62, PieceColor::BLACK) => Some(CastlingSide::Kingside),
+            (60, 58, PieceColor::BLACK) => Some(CastlingSide::Queenside),
+            _ => None,
         }
     }
 }

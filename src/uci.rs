@@ -6,6 +6,7 @@ use crate::constants::STARTPOS_FEN;
 use crate::movegen::magic::precomputed::precompute_magics;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::precomputed::precompute_movegen;
+use crate::opening_book::opening_book::{get_move_from_opening_book, init_book};
 use crate::perft::perft;
 use crate::search::search::{search, timed_search};
 use crate::search::transposition_table::reset_transposition_table;
@@ -28,6 +29,7 @@ pub fn handle_command(command:&str, board: &mut Board)
             precompute_magics();
             precompute_movegen();
             reset_transposition_table();
+            init_book();
 
 
 
@@ -115,6 +117,11 @@ pub fn handle_go(command: &str, board: &mut Board) {
     let mut btime = None;
     let mut winc = None;
     let mut binc = None;
+    if let Some(mv)=(get_move_from_opening_book(board)) {
+        println!("info string Book move {} score cp 0",mv.to_algebraic());
+        println!("bestmove {}", mv.to_algebraic());
+        return;
+    }
 
     let parts: Vec<&str> = command.split_whitespace().collect();
     let mut i = 1; // Skip the "go" part

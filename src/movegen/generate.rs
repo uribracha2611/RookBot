@@ -10,7 +10,7 @@ use crate::board::position::Position;
 use crate::board::see::get_piece_value;
 use crate::movegen::constants::{BISHOP_OFFSETS, RANK_1, RANK_2, RANK_7, RANK_8, ROOK_OFFSETS};
 use crate::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
-use crate::movegen::movedata::{CastlingMove, MoveData, MoveType, PromotionCapture};
+use crate::movegen::movedata::{CastlingMove, MoveData, MoveType, PromotionCaptureStruct};
 use crate::movegen::movelist::MoveList;
 use crate::movegen::precomputed::{ALIGN_MASK, DIR_RAY_MASK, NUM_SQUARES_FROM_SQUARE, SQR_A_B_MASK};
 
@@ -492,7 +492,7 @@ fn generate_promote_moves(board: &Board,start_square:u8, end_square:u8, move_lis
 pub fn generate_promote_captures(board:&Board,start_square:u8, end_square:u8, move_list: &mut MoveList, color: PieceColor, captured_piece: Piece) {
     let promote_pieces = [PieceType::QUEEN, PieceType::ROOK, PieceType::BISHOP, PieceType::KNIGHT];
     for piece in promote_pieces.iter() {
-        let curr_move = MoveData::new(start_square, end_square, board.squares[start_square as usize].unwrap() , MoveType::PromotionCapture(PromotionCapture { captured_piece, promoted_piece: Piece::new(color, *piece) }));
+        let curr_move = MoveData::new(start_square, end_square, board.squares[start_square as usize].unwrap() , MoveType::PromotionCapture(PromotionCaptureStruct { captured_piece, promoted_piece: Piece::new(color, *piece) }));
         move_list.add_move(curr_move);
     }
 }

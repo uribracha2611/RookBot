@@ -13,7 +13,7 @@ pub enum MoveType {
     Capture(Piece),
     Castling(CastlingMove), // Using struct for castling
     Promotion(Piece),
-    PromotionCapture(PromotionCapture),
+    PromotionCapture(PromotionCaptureStruct),
     EnPassant(Piece, u8), // Piece and the square of the captured pawn
 }
 
@@ -32,10 +32,10 @@ impl CastlingMove {
     pub fn get_rook_start(&self) -> u8 {
         self.side.rook_start(self.color)
     }
-    
+
 }
 #[derive(Clone, Copy, PartialEq, Eq,Debug)]
-pub struct PromotionCapture {
+pub struct PromotionCaptureStruct {
     pub captured_piece: Piece,
     pub promoted_piece: Piece,
 }
@@ -45,7 +45,7 @@ pub struct MoveData {
     pub from: u8,
     pub to: u8,
     pub piece_to_move: Piece,
-    move_type: MoveType,
+    pub(crate) move_type: MoveType,
 }
 
 impl MoveData {
@@ -119,7 +119,7 @@ impl MoveData {
                     _ => PieceType::QUEEN,
                 };
                 if let Some(captured_piece) = board.squares[to_sq] {
-                    MoveType::PromotionCapture(PromotionCapture {
+                    MoveType::PromotionCapture(PromotionCaptureStruct {
                         captured_piece,
                         promoted_piece: Piece::new(moving_piece.piece_color, promo_type),
                     })

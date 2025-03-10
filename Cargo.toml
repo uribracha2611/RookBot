@@ -8,3 +8,4 @@ clap = { version = "4.5.27", features = ["derive"] }
 derive_more = { version = "1", features = ["full"] }
 num-traits = "0.2.19"
 once_cell = "1.20.2"
+rand = "0.9.0"

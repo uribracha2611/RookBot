@@ -37,8 +37,9 @@ impl Board {
 
 
     fn remove_piece(&mut self, square: u8, piece: Piece) {
+        let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update Zobrist hash before removing the piece
-        self.game_state.zobrist_hash ^= ZOBRIST_KEYS[piece.piece_type as usize][square as usize];
+        self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
         if piece.piece_color==PieceColor::WHITE {
             self.psqt_white-=get_psqt(square as usize,piece);
             self.game_phase-=GAMEPHASE_INC[piece.piece_type as usize];
@@ -54,8 +55,9 @@ impl Board {
     }
 
     fn add_piece(&mut self, square: u8, piece: Piece) {
+        let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update Zobrist hash before adding the piece
-        self.game_state.zobrist_hash ^= ZOBRIST_KEYS[piece.piece_type as usize][square as usize];
+        self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
         if piece.piece_color==PieceColor::WHITE {
             self.psqt_white+=get_psqt(square as usize,piece);
         }
