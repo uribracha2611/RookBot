@@ -27,7 +27,7 @@ impl  PolyglotEntry
         (key,PolyglotEntry {
            mv: raw_move,
             weight
-            
+
         })
     }
 
@@ -54,31 +54,31 @@ pub fn decode_polyglot_move(board: &Board,raw_data: u16) -> MoveData {
     }
 
     else if let Some(capture_piece) = board.squares[to as usize] {
-            
-            if board.squares[from as usize].unwrap().piece_type==PieceType::PAWN && board.game_state.en_passant_square.is_some() && board.game_state.en_passant_square.unwrap()== to 
+
+            if board.squares[from as usize].unwrap().piece_type==PieceType::PAWN && board.game_state.en_passant_square.is_some() && board.game_state.en_passant_square.unwrap()== to
             {
                 let en_passant_target = (to as i8 - (8 * get_pawn_dir(board.turn))) as u8;
                 MoveType::EnPassant(board.squares[en_passant_target as usize].unwrap(), en_passant_target)
-             
+
             } else {
                 MoveType::Capture(capture_piece)
             }
-     
-        
+
+
     }
         else if from==board.curr_king as u8 && abs(from as i8-to as i8)==2
         {
-            
+
             MoveType::Castling(CastlingMove {side: CastlingSide::get_castling_from_squares(from, to, board.turn).unwrap(), color: board.turn})
         }
-        else { 
+        else {
             MoveType::Normal
         };
-    
+
     MoveData{from: from, to: to, move_type: move_type,piece_to_move: board.squares[from as usize].unwrap()}
-    
-    
-    
+
+
+
 }
 
 

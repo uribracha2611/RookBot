@@ -12,7 +12,7 @@ use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use crate::board::see::static_exchange_evaluation;
-use crate::search::late_move_reduction::reduce_depth;
+use crate::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 
 pub fn quiescence_search(
     board: &mut Board,
@@ -21,6 +21,10 @@ pub fn quiescence_search(
     nodes_evaluated: &mut i32,
     start_time: Option<Instant>,
     time_limit: Option<Duration>,
+    killer_moves: KillerMoves,
+    history_table: [[[i32;64];64];2],
+    
+    
 ) -> i32 {
     // Check if time has exceeded
     if let (Some(start_time), Some(time_limit)) = (start_time, time_limit) {
@@ -28,65 +32,63 @@ pub fn quiescence_search(
             return alpha; // Return the best evaluation found so far
         }
     }
+    *nodes_evaluated += 1;
+        let stand_pat = eval(board);
+        let mut best_val = stand_pat;
 
-    let stand_pat = eval(board);
-    let mut best_val = stand_pat;
-
-    // Alpha-Beta pruning
-    if stand_pat >= beta {
-        return beta;
-    }
-    if alpha < stand_pat {
-        alpha = stand_pat;
-    }
-
-    let mut moves = generate_moves(board, true);
-    let mut moves_clone=moves.clone();
-    let TT_Move = TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
-    let mut scores = get_capture_score(board, moves, TT_Move);
-
-    // Iterate through the moves
-    for i in 0..moves.len() {
-        *nodes_evaluated += 1;
-
-        // Pick the move to search next
-        pick_move(&mut moves, i as u8, &mut scores);
-        let mv = moves.get_move(i);
-
-
-
-        if scores[i] < 0 {
-            continue;
+        // Alpha-Beta pruning
+        if stand_pat >= beta {
+            return beta;
+        }
+        if alpha < stand_pat {
+            alpha = stand_pat;
         }
 
-        // Check time again before making a move
-        if let (Some(start_time), Some(time_limit)) = (start_time, time_limit) {
-            if start_time.elapsed() >= time_limit {
-                return alpha; // Return the best evaluation if time is up
+        let mut moves = generate_moves(board, true);
+        let TT_Move = TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
+        let mut scores = get_capture_score(board, moves, TT_Move);
+
+        // Iterate through the moves
+        for i in 0..moves.len() {
+            
+
+            // Pick the move to search next
+            pick_move(&mut moves, i as u8, &mut scores);
+            let mv = moves.get_move(i);
+
+
+            if scores[i] < 0 {
+                continue;
+            }
+
+            // Check time again before making a move
+            if let (Some(start_time), Some(time_limit)) = (start_time, time_limit) {
+                if start_time.elapsed() >= time_limit {
+                    return alpha; // Return the best evaluation if time is up
+                }
+            }
+
+            // Make the move and perform recursive quiescence search
+            board.make_move(mv);
+            let score = -quiescence_search(board, -beta, -alpha, nodes_evaluated, start_time, time_limit, killer_moves, history_table);
+            board.unmake_move(mv);
+
+            // Apply pruning if necessary
+            if score >= beta {
+                return beta;
+            }
+
+            if score > best_val {
+                best_val = score;
+            }
+
+            if score > alpha {
+                alpha = score;
             }
         }
 
-        // Make the move and perform recursive quiescence search
-        board.make_move(mv);
-        let score = -quiescence_search(board, -beta, -alpha, nodes_evaluated, start_time, time_limit);
-        board.unmake_move(mv);
-
-        // Apply pruning if necessary
-        if score >= beta {
-            return beta;
-        }
-
-        if score > best_val {
-            best_val = score;
-        }
-
-        if score > alpha {
-            alpha = score;
-        }
+        best_val
     }
-
-    best_val
-}
 
 
 
@@ -234,8 +236,9 @@ fn search_common(
     }
 
     if depth == 0 {
-        return quiescence_search(board, alpha, beta, nodes_evaluated, start_time, time_limit);
+        return quiescence_search(board, alpha, beta, nodes_evaluated, start_time, time_limit, *killer_moves, *history_table);
     }
+    *nodes_evaluated += 1;
 
     if let Some(entry) = TRANSPOSITION_TABLE
         .lock()
@@ -321,14 +324,16 @@ fn search_common(
 
         pick_move(&mut move_list, i as u8, &mut move_score);
         let curr_move = move_list.get_move(i);
-
+       // if should_movecount_based_pruning(board, *curr_move, depth as u32, i as i32, &move_score){
+         //   continue;
+       // }
         board.make_move(curr_move);
         if !board.is_check && !curr_move.is_capture() && do_futile_prune {
             board.unmake_move(curr_move);
             continue;
         }
 
-        *nodes_evaluated += 1;
+  
         let mut score_mv = 0;
 
         if depth >= 3 && is_pvs {

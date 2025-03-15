@@ -18,7 +18,7 @@ pub mod constants;
 pub mod opening_book;
 
 use std::io::{self, BufRead};
-use crate::opening_book::opening_book::{decode_polyglot_move, OPENING_BOOK_ENTRIES};
+//use crate::opening_book::opening_book::{decode_polyglot_move, OPENING_BOOK_ENTRIES};
 use crate::uci::handle_command;
 
 fn main() {
