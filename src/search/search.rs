@@ -250,6 +250,14 @@ fn search_common(
             0
         }
     }
+    let mut should_extend =false;
+    if board.is_check && refs.is_extension_allowed(){
+        should_extend=true;
+        refs.increment_extensions();
+    }
+    else { 
+        refs.reset_extensions();
+    }
     if depth >= 3 && !board.is_check {
         board.make_null_move();
         let null_move_score = -search_common(
@@ -319,12 +327,12 @@ fn search_common(
 
   
         let mut score_mv = 0;
-
+    let extension_adding=if should_extend {1} else { 0 };
         if depth >= 3 && is_pvs {
             let new_depth = reduce_depth(board, curr_move, depth as f64, i as f64) as i32;
             score_mv = -search_common(
                 board,
-                new_depth,
+                new_depth+ extension_adding,
                 ply + 1,
                 -alpha - 1,
                 -alpha,
@@ -336,7 +344,7 @@ fn search_common(
             if score_mv > alpha {
                 score_mv = -search_common(
                     board,
-                    depth - 1,
+                    depth - 1+ extension_adding,
                     ply + 1,
                     -alpha - 1,
                     -alpha,
@@ -348,7 +356,7 @@ fn search_common(
                 if score_mv > alpha {
                     score_mv = -search_common(
                         board,
-                        depth - 1,
+                        depth - 1+ extension_adding,
                         ply + 1,
                         -beta,
                         -alpha,

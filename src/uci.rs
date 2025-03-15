@@ -6,6 +6,7 @@ use crate::constants::STARTPOS_FEN;
 use crate::movegen::magic::precomputed::precompute_magics;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::precomputed::precompute_movegen;
+
 use crate::opening_book::opening_book::{get_move_from_opening_book, init_book};
 use crate::perft::perft;
 use crate::search::search::{search, timed_search};
@@ -84,11 +85,11 @@ fn handle_position(command: String, board: &mut Board) {
         // If the command is "fen", extract the FEN from the command and set the board.
         "fen" => {
             if parts.len() > 1 {
-                let fen = parts[1..].join(" "); // Join the rest of the parts to form the full FEN string
+                let fen = parts[1..7].join(" "); // Join the rest of the parts to form the full FEN string
                 *board = Board::from_fen(&fen); // Set the board using the FEN string
                 // If moves follow, apply them
-                if parts.len() > 2 && parts[2] == "moves" {
-                    let moves = parts[3..].to_vec(); // Collect all moves
+                if parts.len() > 2 && parts.get(7) == Some(&"moves") {
+                    let moves = parts[8..].to_vec(); // Collect all moves
                     apply_moves(board, &moves); // Apply the moves on top of the FEN
                 }
             } else {
@@ -118,10 +119,10 @@ pub fn handle_go(command: &str, board: &mut Board) {
     let mut winc = None;
     let mut binc = None;
     if let Some(mv)=(get_move_from_opening_book(board)) {
-        println!("info string Book move {} score cp 0",mv.to_algebraic());
-        println!("bestmove {}", mv.to_algebraic());
-        return;
-    }
+         println!("info string Book move {} score cp 0",mv.to_algebraic());
+         println!("bestmove {}", mv.to_algebraic());
+         return;
+     }
 
     let parts: Vec<&str> = command.split_whitespace().collect();
     let mut i = 1; // Skip the "go" part

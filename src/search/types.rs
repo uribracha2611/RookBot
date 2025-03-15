@@ -4,6 +4,7 @@ use clap::builder::styling::Color;
 use crate::board::board::Board;
 use crate::board::piece::PieceColor;
 use crate::movegen::movedata::MoveData;
+use crate::search::constants::MAX_EXTENSIONS;
 use crate::search::move_ordering::{KillerMoves, BASE_KILLER};
 
 #[derive(Clone, Copy)]
@@ -73,6 +74,7 @@ pub struct SearchRefs
     start_time: Option<Instant>,
     time_limit: Option<Duration>,
     history_table: [[[i32; 64]; 64]; 2],
+    current_extensions: i32
 }
 impl SearchRefs {
     pub fn new_timed_search(killer_moves: KillerMoves, start_time:&Instant, time_limit: &Duration, history_table: [[[i32; 64]; 64]; 2]) -> SearchRefs {
@@ -81,7 +83,8 @@ impl SearchRefs {
             nodes_evaluated: 0,
             start_time: Some(*start_time),
             time_limit: Some(*time_limit),
-            history_table
+            history_table,
+            current_extensions: 0
         }
     }
     pub fn new_depth_search(killer_moves: KillerMoves, history_table: [[[i32; 64]; 64]; 2]) -> SearchRefs {
@@ -90,7 +93,8 @@ impl SearchRefs {
             nodes_evaluated: 0,
             start_time: None,
             time_limit: None,
-            history_table
+            history_table,
+            current_extensions: 0
         }
     }
     #[inline(always)]
@@ -141,5 +145,17 @@ pub fn return_killer_move_score(&self,ply:i32,mv:MoveData)->Option<i32>{
     }
     None
 }
+    #[inline(always)]
+    pub fn increment_extensions(&mut self) {
+        self.current_extensions += 1;
+    }
+    #[inline(always)]
+    pub fn is_extension_allowed(&self) -> bool {
+        self.current_extensions <= MAX_EXTENSIONS
+    }
+    #[inline(always)]
+    pub fn reset_extensions(&mut self) {
+        self.current_extensions = 0;
+    }
     
 }
