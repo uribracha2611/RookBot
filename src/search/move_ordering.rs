@@ -4,6 +4,7 @@ use crate::board::piece::PieceColor;
 use crate::board::see::static_exchange_evaluation;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::movelist::MoveList;
+use crate::search::types::SearchRefs;
 
 pub const MVV_LVA: [[u32; 6]; 6] = [
     [10,   11,   12,   13,   14,   15],  // Victim: PAWN
@@ -30,20 +31,20 @@ pub fn store_killers(killer_moves: &mut KillerMoves, mv: MoveData, ply: usize) {
         killer_moves[ply][0] = mv;
     }
 }
-pub fn get_moves_score(moves:&MoveList, tt_move:&MoveData, killer_moves: KillerMoves, ply:usize, board: &Board, history_table: [[[i32; 64]; 64]; 2],color: PieceColor) -> Vec<i32> {
+pub fn get_moves_score(moves:&MoveList, tt_move:&MoveData,  ply:usize, board: &Board, refs:&SearchRefs,color: PieceColor) -> Vec<i32> {
     let mut scores = Vec::with_capacity(moves.len());
     for mv in moves.iter() {
-        scores.push(get_move_score(mv, tt_move, &killer_moves, ply, &history_table,board,color));
+        scores.push(get_move_score(mv, tt_move, ply, board, &refs, color));
     }
     scores
 }
 pub fn get_move_score(
     mv: &MoveData,
     tt_move: &MoveData,
-    killer_moves: &KillerMoves,
     ply: usize,
-    history_table: &[[[i32; 64]; 64]; 2],
+
     board: &Board,
+    refs:&SearchRefs,
     color: PieceColor
 ) -> i32 {
     if mv == tt_move {
@@ -56,13 +57,14 @@ pub fn get_move_score(
         else { 
             return  -BASE_CAPTURE-see_score;
         }
-        
-    } else if *mv == killer_moves[ply][0] {
-        return BASE_KILLER;
-    } else if *mv == killer_moves[ply][1] {
-        return BASE_KILLER - 1;
-    } else {
-        history_table[color as usize][mv.from as usize][mv.to as usize]
+
+    }
+        else if let Some(killer_val)= refs.return_killer_move_score(ply as i32, *mv) { 
+            return killer_val
+            
+        }
+    else {
+        refs.get_history_value(mv, color)
         
     }
 }

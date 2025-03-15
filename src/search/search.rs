@@ -7,7 +7,7 @@ use crate::movegen::movelist::MoveList;
 use crate::search::constants::{FUTILITY_MARGIN, FUTILITY_MARGIN_2, INFINITY, MATE_VALUE, VAL_WINDOW};
 use crate::search::move_ordering::{get_capture_score, get_capture_score_only, get_move_score, get_moves_score, store_killers, KillerMoves, BASE_KILLER};
 use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
-use crate::search::types::{ChosenMove, SearchInput, SearchOutput};
+use crate::search::types::{ChosenMove, SearchInput, SearchOutput, SearchRefs};
 
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
@@ -18,21 +18,15 @@ pub fn quiescence_search(
     board: &mut Board,
     mut alpha: i32,
     beta: i32,
-    nodes_evaluated: &mut i32,
-    start_time: Option<Instant>,
-    time_limit: Option<Duration>,
-    killer_moves: KillerMoves,
-    history_table: [[[i32;64];64];2],
+    refs: &mut SearchRefs,
     
     
 ) -> i32 {
     // Check if time has exceeded
-    if let (Some(start_time), Some(time_limit)) = (start_time, time_limit) {
-        if start_time.elapsed() >= time_limit {
-            return alpha; // Return the best evaluation found so far
-        }
+    if (refs.is_time_done()){
+        return 0;
     }
-    *nodes_evaluated += 1;
+    refs.increment_nodes_evaluated();
         let stand_pat = eval(board);
         let mut best_val = stand_pat;
 
@@ -62,15 +56,15 @@ pub fn quiescence_search(
             }
 
             // Check time again before making a move
-            if let (Some(start_time), Some(time_limit)) = (start_time, time_limit) {
-                if start_time.elapsed() >= time_limit {
+          
+          if (refs.is_time_done()){
                     return alpha; // Return the best evaluation if time is up
                 }
-            }
+            
 
             // Make the move and perform recursive quiescence search
             board.make_move(mv);
-            let score = -quiescence_search(board, -beta, -alpha, nodes_evaluated, start_time, time_limit, killer_moves, history_table);
+            let score = -quiescence_search(board, -beta, -alpha, refs);
             board.unmake_move(mv);
 
             // Apply pruning if necessary
@@ -120,19 +114,19 @@ pub fn pick_move(ml: &mut MoveList, start_index: u8, scores: &mut Vec<i32>) {
 
 pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
     let mut current_depth=1;
-    let mut nodes_evaluated = 0;
     let mut  history_table=[[[0;64];64];2];
     let mut principal_variation:Vec<MoveData>=Vec::new();
     let mut best_eval = -INFINITY;
     let mut  killer_moves = [[MoveData::defualt(); 2]; 256];
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
+    let mut refs=SearchRefs::new_depth_search(killer_moves,history_table);
     while current_depth<= input.depth {
      {
 
 
 
-    let eval = search_internal(&mut board, current_depth as i32, 0, alpha, beta, &mut nodes_evaluated, &mut principal_variation, &mut killer_moves, &mut history_table);
+    let eval = search_internal(&mut board, current_depth as i32, 0, alpha, beta,  &mut principal_variation, &mut refs);
         best_eval = eval;
          if (eval<=alpha || eval>=beta){
              alpha=-INFINITY;
@@ -148,7 +142,7 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
     }
 
     SearchOutput {
-        nodes_evaluated,
+        nodes_evaluated: refs.get_nodes_evaluated(),
         principal_variation,
         eval: best_eval,
         depth: (current_depth-1) as i32
@@ -165,12 +159,13 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
     let mut pv = Vec::new();
     let mut killer_moves = [[MoveData::defualt(); 2]; 256];
     let mut history_table = [[[0; 64]; 64]; 2];
-    let start_time = Instant::now();
     let mut curr_eval =0;
     let mut best_move = MoveData::defualt();
     let move_time = time_limit.mul_f64(0.0225) + increment / 2;
     let max_depth=256;
     let mut depth =1;
+    let   start_time = Instant::now();
+    let mut refs = SearchRefs::new_timed_search(killer_moves, &start_time, &time_limit, history_table);
     while depth<= max_depth {
        
 
@@ -186,12 +181,9 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
             0,
             -INFINITY,
             INFINITY,
-            &mut nodes_evaluated,
+     
             &mut pv,
-            &mut killer_moves,
-            &mut history_table,
-            start_time,
-            move_time,
+            &mut refs
         );
        
         if start_time.elapsed() >= move_time {
@@ -207,7 +199,7 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
     }
 
     SearchOutput {
-        nodes_evaluated,
+        nodes_evaluated: refs.get_nodes_evaluated(),
         principal_variation:pv,
         eval: curr_eval,
         depth:depth-1
@@ -221,24 +213,21 @@ fn search_common(
     ply: i32,
     mut alpha: i32,
     beta: i32,
-    nodes_evaluated: &mut i32,
     pv: &mut Vec<MoveData>,
-    killer_moves: &mut KillerMoves,
-    history_table: &mut [[[i32; 64]; 64]; 2],
-    start_time: Option<Instant>,
-    time_limit: Option<Duration>,
+     refs:&mut SearchRefs
+    
+    
 ) -> i32 {
     // Stop search if time has elapsed
-    if let (Some(start_time), Some(time_limit)) = (start_time, time_limit) {
-        if start_time.elapsed() >= time_limit {
+   if refs.is_time_done(){
             return 0;
         }
-    }
+    
 
     if depth == 0 {
-        return quiescence_search(board, alpha, beta, nodes_evaluated, start_time, time_limit, *killer_moves, *history_table);
+        return quiescence_search(board, alpha, beta, refs);
     }
-    *nodes_evaluated += 1;
+    refs.increment_nodes_evaluated();
 
     if let Some(entry) = TRANSPOSITION_TABLE
         .lock()
@@ -269,12 +258,9 @@ fn search_common(
             ply + 1,
             -beta,
             -beta + 1,
-            nodes_evaluated,
             pv,
-            killer_moves,
-            history_table,
-            start_time,
-            time_limit,
+            refs
+         
         );
         board.unmake_null_move();
         if null_move_score >= beta {
@@ -305,19 +291,17 @@ fn search_common(
     let mut move_score = get_moves_score(
         &move_list,
         &tt_move,
-        *killer_moves,
         ply as usize,
         board,
-        *history_table,
+        &*refs,
+
         board.turn,
     );
 
     for i in 0..move_list.len() {
         // Stop search if time has elapsed
-        if let (Some(start_time), Some(time_limit)) = (start_time, time_limit) {
-            if start_time.elapsed() >= time_limit {
-                break;
-            }
+        if refs.is_time_done(){
+            return 0;
         }
 
         let mut node_pv: Vec<MoveData> = Vec::new();
@@ -344,12 +328,9 @@ fn search_common(
                 ply + 1,
                 -alpha - 1,
                 -alpha,
-                nodes_evaluated,
                 &mut node_pv,
-                killer_moves,
-                history_table,
-                start_time,
-                time_limit,
+                refs
+          
             );
 
             if score_mv > alpha {
@@ -359,12 +340,9 @@ fn search_common(
                     ply + 1,
                     -alpha - 1,
                     -alpha,
-                    nodes_evaluated,
                     &mut node_pv,
-                    killer_moves,
-                    history_table,
-                    start_time,
-                    time_limit,
+                    refs
+                   
                 );
 
                 if score_mv > alpha {
@@ -374,12 +352,9 @@ fn search_common(
                         ply + 1,
                         -beta,
                         -alpha,
-                        nodes_evaluated,
+                       
                         &mut node_pv,
-                        killer_moves,
-                        history_table,
-                        start_time,
-                        time_limit,
+                       refs
                     );
                 }
             }
@@ -390,12 +365,9 @@ fn search_common(
                 ply + 1,
                 -beta,
                 -alpha,
-                nodes_evaluated,
+            
                 &mut node_pv,
-                killer_moves,
-                history_table,
-                start_time,
-                time_limit,
+                refs
             );
         }
 
@@ -411,8 +383,8 @@ fn search_common(
                 .store(board.game_state.zobrist_hash, depth as u8, score_mv, entry_type, best_move);
 
             if !curr_move.is_capture() && !curr_move.is_promotion() {
-                store_killers(killer_moves, *curr_move, ply as usize);
-                history_table[board.turn as usize][curr_move.from as usize][curr_move.to as usize] += depth * depth;
+                refs.store_killers(*curr_move, ply as usize);
+                refs.add_history(board.turn, *curr_move, depth);
             }
             return beta;
         }
@@ -444,23 +416,19 @@ fn search_internal(
     ply: i32,
     mut alpha: i32,
     beta: i32,
-    nodes_evaluated: &mut i32,
     pv: &mut Vec<MoveData>,
-    killer_moves: &mut KillerMoves,
-    history_table: &mut [[[i32; 64]; 64]; 2],
+    refs: &mut SearchRefs,
 ) -> i32 {
+    
     search_common(
         board,
         depth,
         ply,
         alpha,
         beta,
-        nodes_evaluated,
         pv,
-        killer_moves,
-        history_table,
-        None,
-        None,
+        refs
+     
     )
 }
 
@@ -470,12 +438,9 @@ fn timed_search_internal(
     ply: i32,
     mut alpha: i32,
     beta: i32,
-    nodes_evaluated: &mut i32,
     pv: &mut Vec<MoveData>,
-    killer_moves: &mut KillerMoves,
-    history_table: &mut [[[i32; 64]; 64]; 2],
-    start_time: Instant,
-    time_limit: Duration,
+    refs: &mut SearchRefs
+   
 ) -> i32 {
     search_common(
         board,
@@ -483,11 +448,9 @@ fn timed_search_internal(
         ply,
         alpha,
         beta,
-        nodes_evaluated,
+       
         pv,
-        killer_moves,
-        history_table,
-        Some(start_time),
-        Some(time_limit),
+        refs
+        
     )
 }
