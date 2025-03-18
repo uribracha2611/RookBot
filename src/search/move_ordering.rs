@@ -55,7 +55,7 @@ pub fn get_move_score(
             return BASE_CAPTURE+see_score;
         }
         else { 
-            return  -BASE_CAPTURE-see_score;
+            return  -BASE_CAPTURE+see_score;
         }
 
     }

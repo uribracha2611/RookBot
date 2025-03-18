@@ -71,8 +71,11 @@ impl Board {
         self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type).set_square(square);
         self.all_pieces_bitboard.set_square(square);
     }
-
-
+    
+    pub fn detect_pawns_only(&self,piece_color: PieceColor) -> bool {
+        return self.get_color_bitboard(piece_color) ^ self.get_piece_bitboard(piece_color,PieceType::PAWN) ==0;
+    }
+    
     pub fn from_fen(fen: &str) -> Self {
         let parts: Vec<&str> = fen.split_whitespace().collect();
 

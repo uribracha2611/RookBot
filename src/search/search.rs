@@ -44,7 +44,7 @@ pub fn quiescence_search(
 
         // Iterate through the moves
         for i in 0..moves.len() {
-            
+
 
             // Pick the move to search next
             pick_move(&mut moves, i as u8, &mut scores);
@@ -56,11 +56,11 @@ pub fn quiescence_search(
             }
 
             // Check time again before making a move
-          
+
           if (refs.is_time_done()){
                     return alpha; // Return the best evaluation if time is up
                 }
-            
+
 
             // Make the move and perform recursive quiescence search
             board.make_move(mv);
@@ -181,7 +181,7 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
             0,
             -INFINITY,
             INFINITY,
-     
+
             &mut pv,
             &mut refs
         );
@@ -215,14 +215,14 @@ fn search_common(
     beta: i32,
     pv: &mut Vec<MoveData>,
      refs:&mut SearchRefs
-    
-    
+
+
 ) -> i32 {
     // Stop search if time has elapsed
    if refs.is_time_done(){
             return 0;
         }
-    
+
 
     if depth == 0 {
         return quiescence_search(board, alpha, beta, refs);
@@ -255,20 +255,21 @@ fn search_common(
         should_extend=true;
         refs.increment_extensions();
     }
-    else { 
+    else {
         refs.reset_extensions();
     }
-    if depth >= 3 && !board.is_check {
+    if depth >= 3 && !board.is_check && !board.detect_pawns_only(board.turn) {
         board.make_null_move();
+        let r= depth/3;
         let null_move_score = -search_common(
             board,
-            depth - 3,
+            depth - (2+r),
             ply + 1,
             -beta,
             -beta + 1,
             pv,
             refs
-         
+
         );
         board.unmake_null_move();
         if null_move_score >= beta {
@@ -325,7 +326,7 @@ fn search_common(
             continue;
         }
 
-  
+
         let mut score_mv = 0;
     let extension_adding=if should_extend {1} else { 0 };
         if depth >= 3 && is_pvs {
@@ -338,7 +339,7 @@ fn search_common(
                 -alpha,
                 &mut node_pv,
                 refs
-          
+
             );
 
             if score_mv > alpha {
@@ -350,7 +351,7 @@ fn search_common(
                     -alpha,
                     &mut node_pv,
                     refs
-                   
+
                 );
 
                 if score_mv > alpha {
@@ -360,7 +361,7 @@ fn search_common(
                         ply + 1,
                         -beta,
                         -alpha,
-                       
+
                         &mut node_pv,
                        refs
                     );
@@ -373,7 +374,7 @@ fn search_common(
                 ply + 1,
                 -beta,
                 -alpha,
-            
+
                 &mut node_pv,
                 refs
             );
@@ -427,7 +428,7 @@ fn search_internal(
     pv: &mut Vec<MoveData>,
     refs: &mut SearchRefs,
 ) -> i32 {
-    
+
     search_common(
         board,
         depth,
@@ -436,7 +437,7 @@ fn search_internal(
         beta,
         pv,
         refs
-     
+
     )
 }
 
@@ -448,7 +449,7 @@ fn timed_search_internal(
     beta: i32,
     pv: &mut Vec<MoveData>,
     refs: &mut SearchRefs
-   
+
 ) -> i32 {
     search_common(
         board,
@@ -456,9 +457,9 @@ fn timed_search_internal(
         ply,
         alpha,
         beta,
-       
+
         pv,
         refs
-        
+
     )
 }

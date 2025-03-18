@@ -24,9 +24,9 @@ pub fn static_exchange_evaluation(board: &Board,capture_square:i32,piece_capture
     let mut scores =Vec::new();
     let mut turn =board.turn;
     let initial_turn=turn;
-    let mut curr_turn_attackers =get_attackers_vec(board, capture_square as u8, turn.opposite());
+    let mut curr_turn_attackers =get_attackers_vec(board, capture_square as u8, turn);
     let mut opp_attackers =get_attackers_vec(board, capture_square as u8, turn.opposite());
-    curr_turn_attackers.retain(|x| (x.0.piece_type!=piece_captured.piece_type || x.1!= initial_square as u8));
+    curr_turn_attackers.retain(|x| (x.0.piece_type!=piece_captures.piece_type || x.1!= initial_square as u8));
 
     let score=get_piece_value(piece_captured.piece_type);
 
@@ -45,18 +45,18 @@ pub fn static_exchange_evaluation(board: &Board,capture_square:i32,piece_capture
     let mut curr_piece_at_square =piece_captures;
     turn=turn.opposite();
     let mut score_index =1;
-    while !curr_turn_attackers.is_empty() && !opp_attackers.is_empty()  {
+    while (!curr_turn_attackers.is_empty() && turn==initial_turn) || (!opp_attackers.is_empty() && turn!=initial_turn)  {
 
         let piece_captures=if initial_turn==turn{
             curr_turn_attackers.remove(0)
         }
         else {
-            curr_turn_attackers.remove(0)
+            opp_attackers.remove(0)
         };
         let capture_value=get_piece_value(curr_piece_at_square.piece_type)-scores[score_index-1];
         scores.push(capture_value);
         curr_piece_at_square=piece_captures.0;
-        let delta = DIR_SQUARES[initial_square as usize][piece_captures.1 as usize];
+
 
         if(piece_captures.0.piece_type!=PieceType::KING && piece_captures.0.piece_type!=PieceType::KNIGHT) {
             let delta = DIR_SQUARES[initial_square as usize][piece_captures.1 as usize];

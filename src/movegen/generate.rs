@@ -55,11 +55,11 @@ pub fn get_attacking_pieces(board: &Board, square: u8, piece_color: PieceColor) 
 pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> Vec<(Piece,u8)> {
     let mut attackers = Vec::new();
     let blockers = board.get_all_pieces_bitboard();
-    let opp_pawns = board.get_piece_bitboard(piece_color.opposite(), PieceType::PAWN);
+    let pawns = board.get_piece_bitboard(piece_color, PieceType::PAWN);
     let square_bb = Bitboard::create_from_square(square);
 
     // Check for pawn attacks
-    let mut pawn_attackers = square_bb.pawn_attack(piece_color, opp_pawns, true) | square_bb.pawn_attack(piece_color, opp_pawns, false);
+    let mut pawn_attackers = square_bb.pawn_attack(piece_color.opposite(), pawns, true) | square_bb.pawn_attack(piece_color.opposite(), pawns, false);
 
     while pawn_attackers != 0 {
         let start_square= pawn_attackers.pop_lsb();
@@ -68,7 +68,7 @@ pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> 
 
 
     // Check for knight attacks
-    let mut knight_attackers = crate::movegen::precomputed::KNIGHT_MOVES[square as usize] & board.get_piece_bitboard(piece_color.opposite(), PieceType::KNIGHT);
+    let mut knight_attackers = crate::movegen::precomputed::KNIGHT_MOVES[square as usize] & board.get_piece_bitboard(piece_color, PieceType::KNIGHT);
 
     while knight_attackers != 0 {
         let start_square=knight_attackers.pop_lsb();
@@ -78,7 +78,7 @@ pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> 
 
 
     // Check for bishop attacks
-    let mut bishop_attackers = get_bishop_attacks(square as usize, blockers) & board.get_piece_bitboard(piece_color.opposite(), PieceType::BISHOP);
+    let mut bishop_attackers = get_bishop_attacks(square as usize, blockers) & board.get_piece_bitboard(piece_color, PieceType::BISHOP);
 
     while bishop_attackers != 0 {
         let start_square=bishop_attackers.pop_lsb();
@@ -86,7 +86,7 @@ pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> 
     }
 
     // Check for rook attacks
-    let mut rook_attackers = get_rook_attacks(square as usize, blockers) & board.get_piece_bitboard(piece_color.opposite(), PieceType::ROOK);
+    let mut rook_attackers = get_rook_attacks(square as usize, blockers) & board.get_piece_bitboard(piece_color, PieceType::ROOK);
 
     while rook_attackers != 0 {
       let start_square=rook_attackers.pop_lsb();
