@@ -399,7 +399,7 @@ fn search_common(
         }
 
         if score_mv > alpha {
-            is_pvs = true;
+          
             alpha = score_mv;
             best_move = *curr_move;
             entry_type = EntryType::Exact;
@@ -409,6 +409,7 @@ fn search_common(
             pv.push(*curr_move);
             pv.append(&mut node_pv);
         }
+        is_pvs = true;
     }
 
     TRANSPOSITION_TABLE
