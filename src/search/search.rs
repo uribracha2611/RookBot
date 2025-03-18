@@ -161,15 +161,15 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
     let mut history_table = [[[0; 64]; 64]; 2];
     let mut curr_eval =0;
     let mut best_move = MoveData::defualt();
-    let move_time = time_limit.mul_f64(0.0225) + increment / 2;
+    let move_time = time_limit/40 + increment / 2;
     let max_depth=256;
     let mut depth =1;
     let   start_time = Instant::now();
-    let mut refs = SearchRefs::new_timed_search(killer_moves, &start_time, &time_limit, history_table);
+    let mut refs = SearchRefs::new_timed_search(killer_moves, &start_time, &move_time, history_table);
     while depth<= max_depth {
        
 
-        if start_time.elapsed() >= move_time {
+        if start_time.elapsed()*2 > move_time {
             break;
         }
 
@@ -177,7 +177,7 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
 
         let  curr_depth_eval = timed_search_internal(
             board,
-            depth as i32,
+            depth,
             0,
             -INFINITY,
             INFINITY,
@@ -382,7 +382,7 @@ fn search_common(
 
         board.unmake_move(curr_move);
 
-        if score_mv >= beta {
+        if score_mv >= beta  {
             entry_type = EntryType::LowerBound;
             best_move = *curr_move;
 
@@ -391,7 +391,7 @@ fn search_common(
                 .unwrap()
                 .store(board.game_state.zobrist_hash, depth as u8, score_mv, entry_type, best_move);
 
-            if !curr_move.is_capture() && !curr_move.is_promotion() {
+            if !curr_move.is_capture() && !curr_move.is_promotion() && !board.is_move_check(curr_move) {
                 refs.store_killers(*curr_move, ply as usize);
                 refs.add_history(board.turn, *curr_move, depth);
             }

@@ -1,15 +1,13 @@
 use crate::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::board::piece::PieceType;
+use crate::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::movegen::movedata::MoveData;
+use crate::movegen::precomputed::KNIGHT_MOVES;
 use crate::search::psqt::constants::GAMEPHASE_INC;
 use crate::search::psqt::function;
 use crate::search::psqt::function::get_psqt;
 use crate::search::psqt::weight::W;
-use super::{
-    bitboard::Bitboard,
-    gamestate::GameState,
-    piece::{Piece, PieceColor},
-};
+use super::{bitboard, bitboard::Bitboard, gamestate::GameState, piece::{Piece, PieceColor}};
 
 use crate::search::Zobrist::constants::{ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE};
 
@@ -75,7 +73,41 @@ impl Board {
     pub fn detect_pawns_only(&self,piece_color: PieceColor) -> bool {
         return self.get_color_bitboard(piece_color) ^ self.get_piece_bitboard(piece_color,PieceType::PAWN) ==0;
     }
-   
+   pub fn is_move_check(&self, mv: &MoveData)->bool{
+       let to=mv.to;
+       let piece_moved=mv.piece_to_move;
+       let opp_king=self.get_piece_bitboard(piece_moved.piece_color.opposite(),PieceType::KING);
+       let blockers=self.all_pieces_bitboard ^ Bitboard::create_from_square(to);
+       match piece_moved.piece_type {
+              PieceType::KING=>{
+                false
+              }
+              PieceType::KNIGHT=>{
+                  KNIGHT_MOVES[to as usize] & opp_king!=0
+              }
+           PieceType::PAWN=>{
+               let pawn_attacks=opp_king.pawn_attack(piece_moved.piece_color.opposite(),Bitboard::create_from_square(to),true) | opp_king.pawn_attack(piece_moved.piece_color.opposite(),Bitboard::create_from_square(to),false);
+               pawn_attacks & opp_king!=0
+           }
+              PieceType::BISHOP=>{
+                let bishop_attacks=get_bishop_attacks(to as usize, blockers);
+                bishop_attacks & opp_king!=0
+              }
+                PieceType::ROOK=>{
+                    let rook_attacks=get_rook_attacks(to as usize, blockers);
+                    rook_attacks & opp_king!=0
+                }
+                PieceType::QUEEN=>{
+                    let bishop_attacks=get_bishop_attacks(to as usize, blockers);
+                    let rook_attacks=get_rook_attacks(to as usize, blockers);
+                    (bishop_attacks | rook_attacks) & opp_king!=0
+                }
+           
+
+
+       }
+   }
+
     
     pub fn from_fen(fen: &str) -> Self {
         let parts: Vec<&str> = fen.split_whitespace().collect();
