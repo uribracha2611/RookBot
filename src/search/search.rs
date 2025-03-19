@@ -4,7 +4,7 @@ use crate::board::piece::PieceColor;
 use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::movelist::MoveList;
-use crate::search::constants::{FUTILITY_MARGIN, FUTILITY_MARGIN_2, INFINITY, MATE_VALUE, VAL_WINDOW};
+use crate::search::constants::{ INFINITY, MATE_VALUE, VAL_WINDOW};
 use crate::search::move_ordering::{get_capture_score, get_capture_score_only, get_move_score, get_moves_score, store_killers, KillerMoves, BASE_KILLER};
 use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
 use crate::search::types::{ChosenMove, SearchInput, SearchOutput, SearchRefs};
@@ -12,6 +12,7 @@ use crate::search::types::{ChosenMove, SearchInput, SearchOutput, SearchRefs};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use crate::board::see::static_exchange_evaluation;
+use crate::search::functions::is_allowed_futility_pruning;
 use crate::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 
 pub fn quiescence_search(
@@ -281,22 +282,19 @@ fn search_common(
     let mut entry_type = EntryType::UpperBound;
     let mut is_pvs = false;
 
-    let curr_eval = if depth == 1 || depth == 2 {
-        eval(board)
-    } else {
-        INFINITY
-    };
 
-    let do_futile_prune = !board.is_check
-        && ((curr_eval < alpha - FUTILITY_MARGIN && depth == 1)
-        || (curr_eval < alpha - FUTILITY_MARGIN_2 && depth == 2));
 
     let tt_move = TRANSPOSITION_TABLE
         .lock()
         .unwrap()
         .get_TT_move(board.game_state.zobrist_hash)
         .unwrap_or(MoveData::defualt());
-
+    let curr_eval=if depth<=2 && depth>0{
+        eval(board)
+    }
+    else { 
+        INFINITY
+    };
     let mut move_score = get_moves_score(
         &move_list,
         &tt_move,
@@ -321,10 +319,11 @@ fn search_common(
          //   continue;
        // }
         board.make_move(curr_move);
-        if !board.is_check && !curr_move.is_capture() && do_futile_prune {
-            board.unmake_move(curr_move);
-            continue;
-        }
+       // if is_allowed_futility_pruning(depth as u8, alpha,curr_eval, curr_move, board) && is_pvs{
+       //      board.unmake_move(curr_move);
+       //      break;
+       //  }
+
 
 
         let mut score_mv = 0;
