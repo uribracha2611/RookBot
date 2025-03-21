@@ -118,11 +118,11 @@ pub fn handle_go(command: &str, board: &mut Board) {
     let mut btime = None;
     let mut winc = None;
     let mut binc = None;
-    // if let Some(mv)=(get_move_from_opening_book(board)) {
-    //      println!("info string Book move {} score cp 0",mv.to_algebraic());
-    //      println!("bestmove {}", mv.to_algebraic());
-    //      return;
-    //  }
+    if let Some(mv)=(get_move_from_opening_book(board)) {
+         println!("info string Book move {} score cp 0",mv.to_algebraic());
+         println!("bestmove {}", mv.to_algebraic());
+         return;
+     }
 
     let parts: Vec<&str> = command.split_whitespace().collect();
     let mut i = 1; // Skip the "go" part

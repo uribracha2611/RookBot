@@ -12,7 +12,7 @@ use crate::search::types::{ChosenMove, SearchInput, SearchOutput, SearchRefs};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use crate::board::see::static_exchange_evaluation;
-use crate::search::functions::is_allowed_futility_pruning;
+use crate::search::functions::{is_allowed_futility_pruning, is_allowed_reverse_futility_pruning};
 use crate::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 
 pub fn quiescence_search(
@@ -229,7 +229,7 @@ fn search_common(
         return quiescence_search(board, alpha, beta, refs);
     }
     refs.increment_nodes_evaluated();
-
+    let is_in_check=board.is_check;
     if let Some(entry) = TRANSPOSITION_TABLE
         .lock()
         .unwrap()
@@ -289,12 +289,12 @@ fn search_common(
         .unwrap()
         .get_TT_move(board.game_state.zobrist_hash)
         .unwrap_or(MoveData::defualt());
-    let curr_eval=if depth<=2 && depth>0{
-        eval(board)
+    let curr_eval= eval(board);
+    
+    if (is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board)){
+        return beta;
     }
-    else { 
-        INFINITY
-    };
+
     let mut move_score = get_moves_score(
         &move_list,
         &tt_move,
@@ -304,6 +304,7 @@ fn search_common(
 
         board.turn,
     );
+
 
     for i in 0..move_list.len() {
         // Stop search if time has elapsed
@@ -319,10 +320,10 @@ fn search_common(
          //   continue;
        // }
         board.make_move(curr_move);
-       // if is_allowed_futility_pruning(depth as u8, alpha,curr_eval, curr_move, board) && is_pvs{
-       //      board.unmake_move(curr_move);
-       //      break;
-       //  }
+       if is_allowed_futility_pruning(depth as u8, alpha,curr_eval, curr_move, board) && is_pvs && !is_in_check{
+            board.unmake_move(curr_move);
+            break;
+        }
 
 
 
