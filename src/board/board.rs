@@ -34,6 +34,7 @@ pub struct Board {
 impl Board {
 
 
+
     fn remove_piece(&mut self, square: u8, piece: Piece) {
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update Zobrist hash before removing the piece
@@ -52,6 +53,7 @@ impl Board {
         self.all_pieces_bitboard.clear_square(square);
     }
 
+   
     fn add_piece(&mut self, square: u8, piece: Piece) {
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update Zobrist hash before adding the piece

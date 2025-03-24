@@ -1,4 +1,4 @@
-use std::cmp::PartialEq;
+use std::cmp::{max, PartialEq};
 use crate::board::board::Board;
 use crate::board::piece::PieceColor;
 use crate::movegen::generate::generate_moves;
@@ -165,6 +165,8 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
     let move_time = time_limit/40 + increment / 2;
     let max_depth=256;
     let mut depth =1;
+    let mut alpha = -INFINITY;
+    let mut beta = INFINITY;
     let   start_time = Instant::now();
     let mut refs = SearchRefs::new_timed_search(killer_moves, &start_time, &move_time, history_table);
     while depth<= max_depth {
@@ -174,14 +176,13 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
             break;
         }
 
-   
 
         let  curr_depth_eval = timed_search_internal(
             board,
             depth,
             0,
-            -INFINITY,
-            INFINITY,
+            alpha,
+            beta,
 
             &mut pv,
             &mut refs
@@ -191,10 +192,19 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
             break;
         }
         curr_eval = curr_depth_eval;
-            if let Some(&best) = pv.first() {
-            best_move = best;
+        if (curr_eval<=alpha || curr_eval>=beta){
+            alpha=-INFINITY;
+            beta=INFINITY;
+            continue
         }
-        depth+=1;
+        else {
+            alpha=curr_eval-VAL_WINDOW;
+            beta=curr_eval+VAL_WINDOW;
+            depth+=1
+        }
+
+
+
 
 
     }
@@ -251,6 +261,7 @@ fn search_common(
             0
         }
     }
+    let curr_eval= eval(board);
     let mut should_extend =false;
     if board.is_check && refs.is_extension_allowed(){
         should_extend=true;
@@ -259,12 +270,13 @@ fn search_common(
     else {
         refs.reset_extensions();
     }
-    if depth >= 3 && !board.is_check && !board.detect_pawns_only(board.turn) {
+    if depth >= 3 && !board.is_check && !board.detect_pawns_only(board.turn)  {
         board.make_null_move();
         let r= depth/3;
+        let new_depth=(depth-(r+2)).max(0);
         let null_move_score = -search_common(
             board,
-            depth - (2+r),
+            new_depth,
             ply + 1,
             -beta,
             -beta + 1,
@@ -273,7 +285,7 @@ fn search_common(
 
         );
         board.unmake_null_move();
-        if null_move_score >= beta {
+        if null_move_score>= beta {
             return beta;
         }
     }
@@ -289,8 +301,8 @@ fn search_common(
         .unwrap()
         .get_TT_move(board.game_state.zobrist_hash)
         .unwrap_or(MoveData::defualt());
-    let curr_eval= eval(board);
-    
+
+
     if (is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board)){
         return beta;
     }
@@ -305,20 +317,22 @@ fn search_common(
         board.turn,
     );
 
-
+let mut mult_cut_count =0;
     for i in 0..move_list.len() {
         // Stop search if time has elapsed
         if refs.is_time_done(){
             return 0;
         }
 
-        let mut node_pv: Vec<MoveData> = Vec::new();
+
 
         pick_move(&mut move_list, i as u8, &mut move_score);
+
         let curr_move = move_list.get_move(i);
-       // if should_movecount_based_pruning(board, *curr_move, depth as u32, i as i32, &move_score){
-         //   continue;
-       // }
+        // if should_movecount_based_pruning(board, *curr_move, depth as u32, i as i32, &move_score){
+        //     continue;
+        // }
+        let mut node_pv: Vec<MoveData> = Vec::new();
         board.make_move(curr_move);
        if is_allowed_futility_pruning(depth as u8, alpha,curr_eval, curr_move, board) && is_pvs && !is_in_check{
             board.unmake_move(curr_move);
@@ -330,10 +344,10 @@ fn search_common(
         let mut score_mv = 0;
     let extension_adding=if should_extend {1} else { 0 };
         if depth >= 3 && is_pvs {
-            let new_depth = reduce_depth(board, curr_move, depth as f64, i as f64) as i32;
+            let new_depth = reduce_depth(board, curr_move, depth as f64, i as f64,move_score[i]) as i32;
             score_mv = -search_common(
                 board,
-                new_depth+ extension_adding,
+                new_depth,
                 ply + 1,
                 -alpha - 1,
                 -alpha,
@@ -378,9 +392,12 @@ fn search_common(
                 &mut node_pv,
                 refs
             );
+
         }
 
+
         board.unmake_move(curr_move);
+
 
         if score_mv >= beta  {
             entry_type = EntryType::LowerBound;
@@ -397,7 +414,7 @@ fn search_common(
             }
             return beta;
         }
-
+        
         if score_mv > alpha {
           
             alpha = score_mv;

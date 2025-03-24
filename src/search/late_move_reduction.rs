@@ -3,7 +3,7 @@ use crate::board::board::Board;
 use crate::movegen::movedata::MoveData;
 use crate::search::constants::INFINITY;
 
-pub fn reduce_depth(board: &Board, mv: &MoveData, depth: f64, moves_played: f64) -> f64 {
+pub fn reduce_depth(board: &Board, mv: &MoveData, depth: f64, moves_played: f64,move_score:i32) -> f64 {
     if mv.is_capture() || mv.is_promotion() {
         if board.is_check {
             depth - 2.0
@@ -31,12 +31,12 @@ pub fn should_movecount_based_pruning(board: &Board, mv: MoveData, depth: u32, m
     }
 
     let move_count_required: i32 = match depth {
-        1 => 50,
-        2 => 50,
-        3 => 50,
-        4 => 50,
-        5 => 50,
-        6 => 100,
+        1 => 8,
+        2 => 10,
+        3 => 14,
+        4 => 20,
+        5 => 20,
+        6 => 40,
         _ => INFINITY,
     };
 
