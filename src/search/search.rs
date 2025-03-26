@@ -301,7 +301,15 @@ fn search_common(
         .unwrap()
         .get_TT_move(board.game_state.zobrist_hash)
         .unwrap_or(MoveData::defualt());
-
+    let depth_actual= if (tt_move==MoveData::defualt() && depth>5)
+    {
+        depth-2
+    }
+    else {
+        depth
+        
+    };
+    
 
     if (is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board)){
         return beta;
@@ -317,7 +325,7 @@ fn search_common(
         board.turn,
     );
 
-let mut mult_cut_count =0;
+
     for i in 0..move_list.len() {
         // Stop search if time has elapsed
         if refs.is_time_done(){
@@ -344,7 +352,7 @@ let mut mult_cut_count =0;
         let mut score_mv = 0;
     let extension_adding=if should_extend {1} else { 0 };
         if depth >= 3 && is_pvs {
-            let new_depth = reduce_depth(board, curr_move, depth as f64, i as f64,move_score[i]) as i32;
+            let new_depth = reduce_depth(board, curr_move, depth_actual as f64, i as f64,move_score[i]) as i32;
             score_mv = -search_common(
                 board,
                 new_depth,
@@ -359,7 +367,7 @@ let mut mult_cut_count =0;
             if score_mv > alpha {
                 score_mv = -search_common(
                     board,
-                    depth - 1+ extension_adding,
+                    depth_actual - 1+ extension_adding,
                     ply + 1,
                     -alpha - 1,
                     -alpha,
@@ -371,7 +379,7 @@ let mut mult_cut_count =0;
                 if score_mv > alpha {
                     score_mv = -search_common(
                         board,
-                        depth - 1+ extension_adding,
+                        depth_actual - 1+ extension_adding,
                         ply + 1,
                         -beta,
                         -alpha,
@@ -384,7 +392,7 @@ let mut mult_cut_count =0;
         } else {
             score_mv = -search_common(
                 board,
-                depth - 1,
+                depth_actual - 1,
                 ply + 1,
                 -beta,
                 -alpha,
