@@ -74,6 +74,7 @@ pub struct SearchRefs
     start_time: Option<Instant>,
     time_limit: Option<Duration>,
     history_table: [[[i32; 64]; 64]; 2],
+    eval_stack:[Option<i32>;256],
     current_extensions: i32
 }
 impl SearchRefs {
@@ -84,6 +85,7 @@ impl SearchRefs {
             start_time: Some(*start_time),
             time_limit: Some(*time_limit),
             history_table,
+            eval_stack:[None;256],
             current_extensions: 0
         }
     }
@@ -94,6 +96,7 @@ impl SearchRefs {
             start_time: None,
             time_limit: None,
             history_table,
+            eval_stack:[None;256],
             current_extensions: 0
         }
     }
@@ -120,8 +123,20 @@ impl SearchRefs {
         }
 
         false
+    
+    }
+    #[inline(always)]
+    pub fn get_eval_ply(&self, ply: i32) -> Option<i32> {
+        self.eval_stack[ply as usize]
+    }
+    pub fn set_eval_ply(&mut self, ply: i32,eval:i32) {
+        self.eval_stack[ply as usize] = Some(eval);
+    }
+    pub fn disable_eval_ply(&mut self, ply: i32) {
+        self.eval_stack[ply as usize] = None;
     }
 
+    
 
     pub fn store_killers(&mut self, mv: MoveData, ply: usize) {
         let first_killer = self.killer_moves[ply][0];

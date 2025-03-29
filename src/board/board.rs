@@ -75,11 +75,14 @@ impl Board {
     pub fn detect_pawns_only(&self,piece_color: PieceColor) -> bool {
         return self.get_color_bitboard(piece_color) ^ self.get_piece_bitboard(piece_color,PieceType::PAWN) ==0;
     }
+    pub fn is_quiet_move(self:&Board,mv: &MoveData)->bool{
+         !mv.is_capture() && !mv.is_promotion() && !self.is_check && !self.is_move_check(&mv)
+    }
    pub fn is_move_check(&self, mv: &MoveData)->bool{
        let to=mv.to;
        let piece_moved=mv.piece_to_move;
        let opp_king=self.get_piece_bitboard(piece_moved.piece_color.opposite(),PieceType::KING);
-       let blockers=self.all_pieces_bitboard ^ Bitboard::create_from_square(to);
+       let blockers=self.all_pieces_bitboard & !Bitboard::create_from_square(to);
        match piece_moved.piece_type {
               PieceType::KING=>{
                 false

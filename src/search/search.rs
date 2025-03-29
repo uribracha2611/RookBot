@@ -262,6 +262,34 @@ fn search_common(
         }
     }
     let curr_eval= eval(board);
+    if board.is_check{
+        refs.disable_eval_ply(ply);
+    }
+    else { 
+        refs.set_eval_ply(ply,curr_eval);
+    }
+    let improving = if ply >= 2 {
+        if let (Some(this_depth_eval), Some(two_moves_ago_eval)) = (
+            refs.get_eval_ply(ply),
+            refs.get_eval_ply(ply - 2),
+        ) {
+            this_depth_eval > two_moves_ago_eval
+        } else {
+            false
+        }
+    } else if ply >= 4 {
+        if let (Some(second_depth_eval), Some(four_moves_ago_eval)) = (
+            refs.get_eval_ply(ply - 2),
+            refs.get_eval_ply(ply - 4),
+        ) {
+            second_depth_eval > four_moves_ago_eval
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+    
     let mut should_extend =false;
     if board.is_check && refs.is_extension_allowed(){
         should_extend=true;
@@ -325,7 +353,7 @@ fn search_common(
         board.turn,
     );
 
-
+    let mut quiet_moves=0;
     for i in 0..move_list.len() {
         // Stop search if time has elapsed
         if refs.is_time_done(){
@@ -337,11 +365,19 @@ fn search_common(
         pick_move(&mut move_list, i as u8, &mut move_score);
 
         let curr_move = move_list.get_move(i);
-        // if should_movecount_based_pruning(board, *curr_move, depth as u32, i as i32, &move_score){
-        //     continue;
-        // }
+
+        if board.is_quiet_move(curr_move){
+            
+            if should_movecount_based_pruning(board, *curr_move, depth as u32, quiet_moves ,alpha) && is_pvs{
+                continue;
+            }
+            quiet_moves+=1;
+        }
+
         let mut node_pv: Vec<MoveData> = Vec::new();
         board.make_move(curr_move);
+
+
        if is_allowed_futility_pruning(depth as u8, alpha,curr_eval, curr_move, board) && is_pvs && !is_in_check{
             board.unmake_move(curr_move);
             break;
@@ -352,7 +388,7 @@ fn search_common(
         let mut score_mv = 0;
     let extension_adding=if should_extend {1} else { 0 };
         if depth >= 3 && is_pvs {
-            let new_depth = reduce_depth(board, curr_move, depth_actual as f64, i as f64,move_score[i]) as i32;
+            let new_depth =reduce_depth(board, curr_move, depth_actual as f64, i as f64,improving) as i32;
             score_mv = -search_common(
                 board,
                 new_depth,
