@@ -368,7 +368,7 @@ fn search_common(
 
         if board.is_quiet_move(curr_move){
             
-            if should_movecount_based_pruning(board, *curr_move, depth as u32, quiet_moves ,alpha) && is_pvs{
+            if should_movecount_based_pruning(board, *curr_move, depth as u32, quiet_moves ,alpha,improving) && is_pvs{
                 continue;
             }
             quiet_moves+=1;
