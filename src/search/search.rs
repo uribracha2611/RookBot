@@ -64,7 +64,7 @@ pub fn quiescence_search(
 
 
             // Make the move and perform recursive quiescence search
-            board.make_move(mv);
+            board.make_move(mv,true);
             let score = -quiescence_search(board, -beta, -alpha, refs);
             board.unmake_move(mv);
 
@@ -375,7 +375,7 @@ fn search_common(
         }
 
         let mut node_pv: Vec<MoveData> = Vec::new();
-        board.make_move(curr_move);
+        board.make_move(curr_move,true);
 
 
        if is_allowed_futility_pruning(depth as u8, alpha,curr_eval, curr_move, board) && is_pvs && !is_in_check{
