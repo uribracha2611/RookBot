@@ -307,8 +307,8 @@ impl Board {
         
         
     }
-    pub fn is_board_draw(&self){
-        self.is_three_draw_repetition() || self.is_insufficient_material() || self.game_state.halfmove_clock>=50;
+    pub fn is_board_draw(&self)->bool{
+        self.is_three_draw_repetition() || self.is_insufficient_material() || self.game_state.halfmove_clock>=50
     }
     fn handle_en_passant(&mut self, mv: &MoveData) {
         if mv.piece_to_move.piece_type == PieceType::PAWN && mv.is_double_push() {

@@ -261,6 +261,9 @@ fn search_common(
             0
         }
     }
+    if board.is_board_draw(){
+        return 0;
+    }
     let curr_eval= eval(board);
     if board.is_check{
         refs.disable_eval_ply(ply);
