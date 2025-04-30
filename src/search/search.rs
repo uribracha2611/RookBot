@@ -12,6 +12,7 @@ use crate::search::types::{ChosenMove, SearchInput, SearchOutput, SearchRefs};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use crate::board::see::static_exchange_evaluation;
+use crate::debug_functions::assert_maps_equal;
 use crate::search::functions::{is_allowed_futility_pruning, is_allowed_reverse_futility_pruning};
 use crate::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 
@@ -27,15 +28,18 @@ pub fn quiescence_search(
     if (refs.is_time_done()){
         return 0;
     }
+  
     refs.increment_nodes_evaluated();
         let stand_pat = eval(board);
         let mut best_val = stand_pat;
 
         // Alpha-Beta pruning
         if stand_pat >= beta {
+         
             return beta;
         }
         if alpha < stand_pat {
+         
             alpha = stand_pat;
         }
 
@@ -59,17 +63,19 @@ pub fn quiescence_search(
             // Check time again before making a move
 
           if (refs.is_time_done()){
+              
                     return alpha; // Return the best evaluation if time is up
                 }
 
 
             // Make the move and perform recursive quiescence search
-            board.make_move(mv,true);
+            board.make_move(mv);
             let score = -quiescence_search(board, -beta, -alpha, refs);
             board.unmake_move(mv);
 
             // Apply pruning if necessary
             if score >= beta {
+                
                 return beta;
             }
 
@@ -81,7 +87,7 @@ pub fn quiescence_search(
                 alpha = score;
             }
         }
-
+    
         best_val
     }
 
@@ -124,6 +130,7 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
     let mut refs=SearchRefs::new_depth_search(killer_moves,history_table);
     while current_depth<= input.depth {
      {
+         let old_rep_table= board.repetition_table.clone();
 
 
 
@@ -139,6 +146,7 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
                 beta=eval+VAL_WINDOW;
              current_depth+=1
          }
+         
      }
     }
 
@@ -264,6 +272,7 @@ fn search_common(
     if board.is_board_draw(){
         return 0;
     }
+    
     let curr_eval= eval(board);
     if board.is_check{
         refs.disable_eval_ply(ply);
@@ -317,6 +326,7 @@ fn search_common(
         );
         board.unmake_null_move();
         if null_move_score>= beta {
+            
             return beta;
         }
     }
@@ -343,6 +353,7 @@ fn search_common(
     
 
     if (is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board)){
+        
         return beta;
     }
 
@@ -378,7 +389,7 @@ fn search_common(
         }
 
         let mut node_pv: Vec<MoveData> = Vec::new();
-        board.make_move(curr_move,true);
+        board.make_move(curr_move);
 
 
        if is_allowed_futility_pruning(depth as u8, alpha,curr_eval, curr_move, board) && is_pvs && !is_in_check{
@@ -459,6 +470,7 @@ fn search_common(
                 refs.store_killers(*curr_move, ply as usize);
                 refs.add_history(board.turn, *curr_move, depth);
             }
+            
             return beta;
         }
         

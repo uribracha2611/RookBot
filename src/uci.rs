@@ -8,7 +8,7 @@ use crate::movegen::movedata::MoveData;
 use crate::movegen::precomputed::precompute_movegen;
 
 use crate::opening_book::opening_book::{get_move_from_opening_book, init_book};
-use crate::perft::perft;
+use crate::perft::{perft, perft_bulk};
 use crate::search::search::{search, timed_search};
 use crate::search::transposition_table::reset_transposition_table;
 use crate::search::types::SearchInput;
@@ -50,8 +50,10 @@ pub fn handle_command(command:&str, board: &mut Board)
             let parts: Vec<&str> = command.split_whitespace().collect();
             if parts.len() > 1 {
                 if let Ok(depth) = parts[1].parse::<u32>() {
-                    let result = perft(board, depth);
+                    let start_time = std::time::Instant::now();
+                    let result = perft_bulk(board, depth);
                     println!("{}", result);
+                    println!("Perft took {} ms", start_time.elapsed().as_millis());
                 } else {
                     eprintln!("Invalid depth for perft command");
                 }
@@ -108,7 +110,7 @@ fn handle_position(command: String, board: &mut Board) {
 fn apply_moves(board: &mut Board, moves: &Vec<&str>) {
     for curr_move in moves{
         let move_from_algebric=MoveData::from_algebraic(curr_move, board);
-        board.make_move(&move_from_algebric,false);
+        board.make_move(&move_from_algebric);
     }
 }
 pub fn handle_go(command: &str, board: &mut Board) {
@@ -118,11 +120,11 @@ pub fn handle_go(command: &str, board: &mut Board) {
     let mut btime = None;
     let mut winc = None;
     let mut binc = None;
-    if let Some(mv)=(get_move_from_opening_book(board)) {
-         println!("info string Book move {} score cp 0",mv.to_algebraic());
-         println!("bestmove {}", mv.to_algebraic());
-         return;
-     }
+    // if let Some(mv)=(get_move_from_opening_book(board)) {
+    //      println!("info string Book move {} score cp 0",mv.to_algebraic());
+    //      println!("bestmove {}", mv.to_algebraic());
+    //      return;
+    //  }
 
     let parts: Vec<&str> = command.split_whitespace().collect();
     let mut i = 1; // Skip the "go" part

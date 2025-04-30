@@ -30,7 +30,7 @@ pub struct Board {
     pub psqt_black:W,
     pub game_phase:i32,
     history:Vec<GameState>,
-    repetition_table:FxHashMap<u64,u32>
+    pub repetition_table:Vec<u64>
 }
 
 impl Board {
@@ -115,7 +115,10 @@ impl Board {
        }
    }
 
-    
+    pub fn is_threefold_repetition(&self) -> bool {
+        let count = self.repetition_table.iter().take(self.game_state.halfmove_clock as usize).filter(|&&hash| hash == self.game_state.zobrist_hash).count();
+        count >= 3
+    }
     pub fn from_fen(fen: &str) -> Self {
         let parts: Vec<&str> = fen.split_whitespace().collect();
 
@@ -147,7 +150,7 @@ impl Board {
             psqt_black: W(0,0),
             game_phase: 0,
             history:Vec::new(),
-            repetition_table:FxHashMap::default()
+            repetition_table:Vec::new()
         };
 
         let mut rank = 7;
@@ -174,14 +177,9 @@ impl Board {
 
         board
     }
-    pub fn increment_repetition_table(&mut self) {
-        let count = self.repetition_table.entry(self.game_state.zobrist_hash).or_insert(0);
-        *count += 1;
-        
-    }
-    pub fn is_three_draw_repetition(&self) -> bool {
-        self.repetition_table.get(&self.game_state.zobrist_hash).is_some_and(|&count| count >= 3)
-    }
+ 
+    
+  
     pub fn is_insufficient_material(&self) -> bool {
         let pieces_without_white_king = self.get_color_bitboard(PieceColor::WHITE)
             & !self.get_piece_bitboard(PieceColor::WHITE, PieceType::KING);
@@ -202,9 +200,14 @@ impl Board {
         }
 
         // Get the single piece for each side, if it exists
-        let white_piece =  self.squares[pieces_without_white_king.get_single_set_bit() as usize];
+        let white_piece = if piece_count_white_without_king==0 {None} else {
+            self.squares[pieces_without_white_king.get_single_set_bit() as usize]
+        };
 
-        let black_piece =  self.squares[pieces_without_black_king.get_single_set_bit() as usize];
+        let black_piece = if piece_count_black_without_king==0 {None} else {
+            self.squares[pieces_without_black_king.get_single_set_bit() as usize]
+        };
+         
 
         // Check if each side has only a knight or bishop (this covers different-colored bishops case)
         let white_draw_bool = white_piece.is_none_or(|piece| {
@@ -251,7 +254,7 @@ impl Board {
         fen.push_str(&format!(" {} {}", active_color, self.game_state.to_fen()));
         fen
     }
-    pub fn make_move(&mut self, mv:&MoveData,is_search:bool)
+    pub fn make_move(&mut self, mv:&MoveData)
     {
         let  old_game_state =self.game_state.clone();
         let moved_piece = mv.piece_to_move;
@@ -299,16 +302,13 @@ impl Board {
         }
         
         self.history.push(old_game_state);
-        if !is_search {
-            self.increment_repetition_table();
-        }
-        
+      self.repetition_table.push(self.game_state.zobrist_hash);
         
         
         
     }
     pub fn is_board_draw(&self)->bool{
-        self.is_three_draw_repetition() || self.is_insufficient_material() || self.game_state.halfmove_clock>=50
+        self.is_threefold_repetition() || self.is_insufficient_material() || self.game_state.halfmove_clock>=50
     }
     fn handle_en_passant(&mut self, mv: &MoveData) {
         if mv.piece_to_move.piece_type == PieceType::PAWN && mv.is_double_push() {
@@ -363,6 +363,7 @@ impl Board {
 
         // Restore game state
         self.game_state = self.history.pop().unwrap();
+        self.repetition_table.pop();
         self.turn = self.turn.opposite();
     }
 
@@ -400,6 +401,8 @@ impl Board {
 
         self.turn = self.turn.opposite();
         self.game_state.zobrist_hash ^= ZOBRIST_SIDE_TO_MOVE;
+        self.game_state.halfmove_clock=0;
+        self.game_state.fullmove_clock+=1;
     }
 
     pub fn unmake_null_move(&mut self) {

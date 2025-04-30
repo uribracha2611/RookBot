@@ -16,13 +16,15 @@ pub mod perft;
 mod uci;
 pub mod constants;
 pub mod opening_book;
+mod debug_functions;
 
 use std::io::{self, BufRead};
+use crate::debug_functions::do_uci_from_file;
 //use crate::opening_book::opening_book::{decode_polyglot_move, OPENING_BOOK_ENTRIES};
 use crate::uci::handle_command;
 
 fn main() {
-    
+    // do_uci_from_file("src/debug_data.txt"); 
     let stdin = io::stdin();
     let mut board = Board::from_fen(constants::STARTPOS_FEN);
 
@@ -32,5 +34,5 @@ fn main() {
             handle_command(&command, &mut board);
         }
     }
-}
+ }
 
