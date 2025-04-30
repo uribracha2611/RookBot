@@ -1,6 +1,3 @@
-use std::collections::VecDeque;
-use std::sync::atomic::AtomicU64;
-use std::vec;
 use crate::board::bitboard::Bitboard;
 use crate::board::board::Board;
 use crate::board::castling::types::CastlingSide;
@@ -8,7 +5,7 @@ use crate::board::piece::{Piece, PieceColor, PieceType};
 use crate::board::piece::PieceType::PAWN;
 use crate::board::position::Position;
 use crate::board::see::get_piece_value;
-use crate::movegen::constants::{BISHOP_OFFSETS, RANK_1, RANK_2, RANK_7, RANK_8, ROOK_OFFSETS};
+use crate::movegen::constants::{BISHOP_OFFSETS, RANK_1, RANK_8, ROOK_OFFSETS};
 use crate::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::movegen::movedata::{CastlingMove, MoveData, MoveType, PromotionCaptureStruct};
 use crate::movegen::movelist::MoveList;
@@ -305,7 +302,7 @@ pub fn generate_king_move(board: &Board, move_list: &mut MoveList,only_captures:
         board.game_state.castle_black
     };
 
-    if (!only_captures) {
+    if !only_captures {
         for side in castling_options.iter() {
             if castling_rights.is_allowed(side) && !board.is_check &&
                 (board.get_all_pieces_bitboard() & side.required_empty(board.turn) == 0) && (board.attacked_square & side.king_moves_trough(board.turn) == 0)
@@ -399,7 +396,7 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList,only_captures
     let opp_pieces = board.get_color_bitboard(board.turn.opposite());
     let blockers = board.get_all_pieces_bitboard();
     let promotion_bitboard = get_promotion_bitboard(pawns, board.turn);
-if(!only_captures) {
+if !only_captures {
     let mut double_pushes = pawns.pawn_double_push(&board.turn, blockers) & board.check_ray;
     let mut single_pushes = pawns.pawn_push(&board.turn) & !blockers & !opp_pieces & board.check_ray;
     let mut single_pushes_promote = single_pushes & promotion_bitboard;
@@ -467,7 +464,7 @@ if(!only_captures) {
     if let Some(en_passant_square) = board.game_state.en_passant_square
     {
         let en_passant_target = (en_passant_square as i8 - (8 * get_pawn_dir(board.turn))) as u8;
-        let mut en_passent_bitboard=Bitboard::create_from_square(en_passant_square );
+        let en_passent_bitboard=Bitboard::create_from_square(en_passant_square );
         let  mut pawns_can_capture = en_passent_bitboard.pawn_attack(board.turn.opposite(), *pawns, true) | en_passent_bitboard.pawn_attack(board.turn.opposite(), *pawns, false);
        // let mut pawns_can_capture = pawns_attack_pattern & *pawns;
         while pawns_can_capture != 0

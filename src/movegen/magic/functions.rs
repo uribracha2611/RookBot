@@ -14,7 +14,7 @@ pub fn build_mask_square(start_square:u8, is_rook:bool) ->Bitboard{
             let new_square = start_square_coord + (coord * i);
             let new_square_check=start_square_coord+(coord*(i+1));
     
-            if(new_square_check.to_sqr().is_some()){
+            if new_square_check.to_sqr().is_some() {
                 mask.set_square(new_square.to_sqr().unwrap() as u8);
             } else {
                 break;

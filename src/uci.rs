@@ -1,4 +1,3 @@
-use std::thread;
 use std::time::Duration;
 use crate::board::board::Board;
 use crate::board::piece::PieceColor;
@@ -7,8 +6,8 @@ use crate::movegen::magic::precomputed::precompute_magics;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::precomputed::precompute_movegen;
 
-use crate::opening_book::opening_book::{get_move_from_opening_book, init_book};
-use crate::perft::{perft, perft_bulk};
+use crate::opening_book::opening_book::init_book;
+use crate::perft::perft_bulk;
 use crate::search::search::{search, timed_search};
 use crate::search::transposition_table::reset_transposition_table;
 use crate::search::types::SearchInput;

@@ -1,7 +1,7 @@
-use num_traits::{abs, clamp, Float};
+use num_traits::{abs, Float};
 use crate::board::board::Board;
 use crate::movegen::movedata::MoveData;
-use crate::search::constants::{INFINITY, MATE_VALUE};
+use crate::search::constants::MATE_VALUE;
 
 pub fn reduce_depth(board: &Board, mv: &MoveData, depth: f64, moves_played: f64,improving:bool) -> f64 {
     if mv.is_capture() || mv.is_promotion() {

@@ -107,7 +107,7 @@ pub static SQR_A_B_MASK: LazyLock<[[Bitboard; 64]; 64]> = LazyLock::new(|| {
             for i in 1..8 {
                 let coord = pos_a + dir * i as i8;
                 if let Some(index) = coord.to_sqr()  {
-                    if(index == square_b ){
+                    if index == square_b {
                         align_mask[square_a as usize][square_b as usize].set_square(index as u8);
                         break;
                     }

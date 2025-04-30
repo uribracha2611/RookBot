@@ -1,15 +1,12 @@
-use std::collections::HashMap;
 use crate::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::board::piece::PieceType;
 use crate::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::movegen::movedata::MoveData;
 use crate::movegen::precomputed::KNIGHT_MOVES;
 use crate::search::psqt::constants::GAMEPHASE_INC;
-use crate::search::psqt::function;
 use crate::search::psqt::function::get_psqt;
 use crate::search::psqt::weight::W;
-use super::{bitboard, bitboard::Bitboard, gamestate::GameState, piece::{Piece, PieceColor}};
-use fxhash::FxHashMap;
+use super::{bitboard::Bitboard, gamestate::GameState, piece::{Piece, PieceColor}};
 use crate::search::Zobrist::constants::{ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE};
 
 #[derive( Clone)]
@@ -138,7 +135,7 @@ impl Board {
         let active_color = parts[1]; // Second field (active color)
         let game_state_fen = parts[2..].join(" "); // Remaining fields (castling, en passant, clocks)
 
-        let mut squares = [None; 64];
+        let squares = [None; 64];
         let mut board = Board {
             squares,
             turn: if active_color == "w" { PieceColor::WHITE } else { PieceColor::BLACK },
@@ -269,7 +266,7 @@ impl Board {
             self.disallow_castling_if_needed(mv.get_capture_square().unwrap(), mv.get_captured_piece().unwrap());
 
         } 
-        if(mv.is_promotion()){
+        if mv.is_promotion() {
             self.remove_piece(mv.from,moved_piece);
             self.add_piece(mv.to,mv.get_promoted_piece().unwrap());
         }
@@ -287,7 +284,7 @@ impl Board {
             
             
         }
-        if(moved_piece.piece_type==PieceType::KING)
+        if moved_piece.piece_type==PieceType::KING
         {
             self.game_state.disallow_castling_both(moved_piece.piece_color);
          

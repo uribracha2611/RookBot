@@ -1,11 +1,7 @@
-use std::cmp::Reverse;
-use std::collections::BinaryHeap;
 use crate::board::board::Board;
 use crate::board::piece::{Piece, PieceColor, PieceType};
 use crate::movegen::generate::{find_hidden_attackers, get_attackers_vec};
-use crate::movegen::movedata::MoveData;
 use crate::movegen::precomputed::DIR_SQUARES;
-use crate::search::move_ordering::get_capture_score_only;
 
 // Define piece values
 pub(crate) const PAWN_VALUE: i32 = 100;
@@ -32,7 +28,7 @@ pub fn static_exchange_evaluation(board: &Board,capture_square:i32,piece_capture
 
     scores.push(score);
 
-    if(piece_captures.piece_type!=PieceType::KING && piece_captures.piece_type!=PieceType::KNIGHT) {
+    if piece_captures.piece_type!=PieceType::KING && piece_captures.piece_type!=PieceType::KNIGHT {
         let delta = DIR_SQUARES[initial_square as usize][capture_square as usize];
 
         let hidden_attacker = find_hidden_attackers(board, delta, capture_square);
@@ -58,7 +54,7 @@ pub fn static_exchange_evaluation(board: &Board,capture_square:i32,piece_capture
         curr_piece_at_square=piece_captures.0;
 
 
-        if(piece_captures.0.piece_type!=PieceType::KING && piece_captures.0.piece_type!=PieceType::KNIGHT) {
+        if piece_captures.0.piece_type!=PieceType::KING && piece_captures.0.piece_type!=PieceType::KNIGHT {
             let delta = DIR_SQUARES[initial_square as usize][piece_captures.1 as usize];
 
             let hidden_attacker = find_hidden_attackers(board, delta, capture_square);
@@ -76,7 +72,7 @@ pub fn static_exchange_evaluation(board: &Board,capture_square:i32,piece_capture
     while score_index>1
     {
         score_index-=1;
-        if(scores[score_index-1]>-scores[score_index]){
+        if scores[score_index-1]>-scores[score_index] {
             scores[score_index-1]=-scores[score_index];
         }
         

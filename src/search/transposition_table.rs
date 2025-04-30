@@ -96,7 +96,7 @@ pub fn is_mate_score(score: i32) -> bool {
     score.abs() > MATE_VALUE
 }
 pub fn correct_mate_score_for_storage(score: i32,ply:i32) -> i32 {
-    if(is_mate_score(score)) {
+    if is_mate_score(score) {
         let sign = score.signum();
       (score * sign + ply) * sign
     }
@@ -105,7 +105,7 @@ pub fn correct_mate_score_for_storage(score: i32,ply:i32) -> i32 {
     }
 }
 pub fn correct_mate_score_for_display(score: i32,ply:i32) -> i32 {
-    if(is_mate_score(score)) {
+    if is_mate_score(score) {
         let sign = score.signum();
         (score * sign - ply) * sign
     }

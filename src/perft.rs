@@ -1,8 +1,6 @@
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
-use crate::movegen::movelist::MoveList;
-use crate::movegen::movedata::MoveData;
 use crate::board::board::Board;
 use crate::movegen::generate::generate_moves;
 
@@ -46,7 +44,7 @@ pub fn perft_bulk(board: &mut Board, depth: u32) -> u32 {
     
 
     let move_list = generate_moves(board,false);
-    if (depth==1){
+    if depth==1 {
         return move_list.len() as u32;
     }
     let mut nodes = 0;

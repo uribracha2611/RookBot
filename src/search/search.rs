@@ -1,17 +1,14 @@
-use std::cmp::{max, PartialEq};
 use crate::board::board::Board;
 use crate::board::piece::PieceColor;
 use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::movelist::MoveList;
 use crate::search::constants::{ INFINITY, MATE_VALUE, VAL_WINDOW};
-use crate::search::move_ordering::{get_capture_score, get_capture_score_only, get_move_score, get_moves_score, store_killers, KillerMoves, BASE_KILLER};
-use crate::search::transposition_table::{Entry, EntryType, TRANSPOSITION_TABLE};
-use crate::search::types::{ChosenMove, SearchInput, SearchOutput, SearchRefs};
+use crate::search::move_ordering::{get_capture_score, get_moves_score};
+use crate::search::transposition_table::{EntryType, TRANSPOSITION_TABLE};
+use crate::search::types::{SearchInput, SearchOutput, SearchRefs};
 
-use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
-use crate::board::see::static_exchange_evaluation;
 use crate::search::functions::{is_allowed_futility_pruning, is_allowed_reverse_futility_pruning};
 use crate::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 
@@ -24,7 +21,7 @@ pub fn quiescence_search(
     
 ) -> i32 {
     // Check if time has exceeded
-    if (refs.is_time_done()){
+    if refs.is_time_done() {
         return 0;
     }
   
@@ -61,7 +58,7 @@ pub fn quiescence_search(
 
             // Check time again before making a move
 
-          if (refs.is_time_done()){
+          if refs.is_time_done() {
               
                     return alpha; // Return the best evaluation if time is up
                 }
@@ -120,10 +117,10 @@ pub fn pick_move(ml: &mut MoveList, start_index: u8, scores: &mut Vec<i32>) {
 
 pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
     let mut current_depth=1;
-    let mut  history_table=[[[0;64];64];2];
+    let history_table=[[[0;64];64];2];
     let mut principal_variation:Vec<MoveData>=Vec::new();
     let mut best_eval = -INFINITY;
-    let mut  killer_moves = [[MoveData::defualt(); 2]; 256];
+    let killer_moves = [[MoveData::defualt(); 2]; 256];
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
     let mut refs=SearchRefs::new_depth_search(killer_moves,history_table);
@@ -135,7 +132,7 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
 
     let eval = search_internal(&mut board, current_depth as i32, 0, alpha, beta,  &mut principal_variation, &mut refs);
         best_eval = eval;
-         if (eval<=alpha || eval>=beta){
+         if eval<=alpha || eval>=beta {
              alpha=-INFINITY;
              beta=INFINITY;
              continue
@@ -163,12 +160,12 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
 
 
 pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration) -> SearchOutput {
-    let mut nodes_evaluated = 0;
+    let nodes_evaluated = 0;
     let mut pv = Vec::new();
-    let mut killer_moves = [[MoveData::defualt(); 2]; 256];
-    let mut history_table = [[[0; 64]; 64]; 2];
+    let killer_moves = [[MoveData::defualt(); 2]; 256];
+    let history_table = [[[0; 64]; 64]; 2];
     let mut curr_eval =0;
-    let mut best_move = MoveData::defualt();
+    let best_move = MoveData::defualt();
     let move_time = time_limit/40 + increment / 2;
     let max_depth=256;
     let mut depth =1;
@@ -199,7 +196,7 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
             break;
         }
         curr_eval = curr_depth_eval;
-        if (curr_eval<=alpha || curr_eval>=beta){
+        if curr_eval<=alpha || curr_eval>=beta {
             alpha=-INFINITY;
             beta=INFINITY;
             continue
@@ -341,7 +338,7 @@ fn search_common(
         .unwrap()
         .get_TT_move(board.game_state.zobrist_hash)
         .unwrap_or(MoveData::defualt());
-    let depth_actual= if (tt_move==MoveData::defualt() && depth>5)
+    let depth_actual= if tt_move==MoveData::defualt() && depth>5
     {
         depth-2
     }
@@ -351,7 +348,7 @@ fn search_common(
     };
     
 
-    if (is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board)){
+    if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board) {
         
         return beta;
     }
@@ -499,7 +496,7 @@ fn search_internal(
     board: &mut Board,
     depth: i32,
     ply: i32,
-    mut alpha: i32,
+    alpha: i32,
     beta: i32,
     pv: &mut Vec<MoveData>,
     refs: &mut SearchRefs,
@@ -521,7 +518,7 @@ fn timed_search_internal(
     board: &mut Board,
     depth: i32,
     ply: i32,
-    mut alpha: i32,
+    alpha: i32,
     beta: i32,
     pv: &mut Vec<MoveData>,
     refs: &mut SearchRefs

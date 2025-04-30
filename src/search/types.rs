@@ -1,7 +1,5 @@
 use std::ops::Neg;
 use std::time::{Duration, Instant};
-use clap::builder::styling::Color;
-use crate::board::board::Board;
 use crate::board::piece::PieceColor;
 use crate::movegen::movedata::MoveData;
 use crate::search::constants::MAX_EXTENSIONS;

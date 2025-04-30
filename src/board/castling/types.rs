@@ -1,4 +1,3 @@
-use clap::builder::styling::Color;
 use crate::board::bitboard::Bitboard;
 use crate::board::piece::PieceColor;
 

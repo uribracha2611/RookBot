@@ -1,4 +1,3 @@
-use clap::builder::styling::Color;
 use crate::board::board::Board;
 use crate::board::piece::PieceColor;
 use crate::board::see::static_exchange_evaluation;
@@ -51,7 +50,7 @@ pub fn get_move_score(
         i32::MAX
     } else if mv.is_capture() {
         let see_score=static_exchange_evaluation(&board, mv.get_capture_square().unwrap() as i32, mv.get_captured_piece().unwrap(), mv.piece_to_move, mv.from as i32);
-        if(see_score>=0){
+        if see_score>=0 {
             return BASE_CAPTURE+see_score;
         }
         else { 

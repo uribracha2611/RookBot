@@ -82,7 +82,7 @@ impl Bitboard {
         }
     }
     pub fn create_from_square(square: u8) -> Bitboard {
-        let bit:u64=(1u64<<square) ;
+        let bit:u64=1u64<<square ;
         Bitboard(bit)
     }
     /// Perform a double pawn push, ensuring there are no blockers.
