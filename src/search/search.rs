@@ -12,7 +12,6 @@ use crate::search::types::{ChosenMove, SearchInput, SearchOutput, SearchRefs};
 use std::sync::{Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 use crate::board::see::static_exchange_evaluation;
-use crate::debug_functions::assert_maps_equal;
 use crate::search::functions::{is_allowed_futility_pruning, is_allowed_reverse_futility_pruning};
 use crate::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 
