@@ -116,9 +116,15 @@ impl Board {
    }
 
     pub fn is_threefold_repetition(&self) -> bool {
-        let count = self.repetition_table.iter().take(self.game_state.halfmove_clock as usize).filter(|&&hash| hash == self.game_state.zobrist_hash).count();
+        // let len=self.repetition_table.len();
+        // let start = len.saturating_sub(self.game_state.halfmove_clock as usize);
+        let count = self.repetition_table
+            .iter()
+            .filter(|&&hash| hash == self.game_state.zobrist_hash)
+            .count();
         count >= 3
     }
+
     pub fn from_fen(fen: &str) -> Self {
         let parts: Vec<&str> = fen.split_whitespace().collect();
 
@@ -174,7 +180,7 @@ impl Board {
                 }
             }
         }
-
+        board.repetition_table.push(board.game_state.zobrist_hash);
         board
     }
  
