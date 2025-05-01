@@ -348,7 +348,7 @@ fn search_common(
     };
     
 
-    if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board) {
+    if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board,improving) {
         
         return beta;
     }

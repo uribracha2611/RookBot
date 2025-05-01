@@ -16,7 +16,7 @@ pub fn is_allowed_futility_pruning(depth:u8, alpha:i32, eval:i32, mv:&MoveData, 
 
 
 }
-pub fn is_allowed_reverse_futility_pruning(depth: u8, beta: i32, eval: i32, board: &Board) -> bool {
+pub fn is_allowed_reverse_futility_pruning(depth: u8, beta: i32, eval: i32, board: &Board,improving:bool) -> bool {
     if depth > 9 || depth == 0 {
         return false; // Lower depth threshold
     }
@@ -24,7 +24,7 @@ pub fn is_allowed_reverse_futility_pruning(depth: u8, beta: i32, eval: i32, boar
     if board.is_check {
         return false; // Avoid pruning in check
     }
-
-    let rep_margin = 150 * depth as i32; // Lower margin
+    let  margin= if improving {100} else { 150 };
+    let rep_margin = margin* depth as i32; // Lower margin
     eval - rep_margin >= beta
 }
