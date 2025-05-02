@@ -32,7 +32,7 @@ pub fn quiescence_search(
         // Alpha-Beta pruning
         if stand_pat >= beta {
          
-            return beta;
+            return stand_pat;
         }
         if alpha < stand_pat {
          
@@ -72,7 +72,7 @@ pub fn quiescence_search(
             // Apply pruning if necessary
             if score >= beta {
                 
-                return beta;
+                return score;
             }
 
             if score > best_val {
@@ -323,7 +323,7 @@ fn search_common(
         board.unmake_null_move();
         if null_move_score>= beta {
             
-            return beta;
+            return null_move_score;
         }
     }
 
@@ -350,7 +350,7 @@ fn search_common(
 
     if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board,improving) {
         
-        return beta;
+        return curr_eval;
     }
 
     let mut move_score = get_moves_score(
@@ -467,7 +467,7 @@ fn search_common(
                 refs.add_history(board.turn, *curr_move, depth);
             }
             
-            return beta;
+            return score_mv;
         }
         
         if score_mv > alpha {
