@@ -49,14 +49,8 @@ pub fn get_move_score(
     if mv == tt_move {
         i32::MAX
     } else if mv.is_capture() {
-        let see_score=static_exchange_evaluation(&board, mv.get_capture_square().unwrap() as i32, mv.get_captured_piece().unwrap(), mv.piece_to_move, mv.from as i32);
-        if see_score>=0 {
-            return BASE_CAPTURE+see_score;
-        }
-        else { 
-            return  -BASE_CAPTURE+see_score;
-        }
 
+        BASE_CAPTURE+MVV_LVA[mv.get_captured_piece().unwrap().piece_type as usize][mv.piece_to_move.piece_type as usize] as i32
     }
         // else if board.is_move_check(mv){
         //     return  BASE_KILLER+1;
@@ -76,9 +70,7 @@ pub fn get_capture_score_only(board: &Board,move_data: MoveData, tt_move:MoveDat
         i32::MAX
     }
     else {
-        let see_score=static_exchange_evaluation(&board, move_data.get_capture_square().unwrap() as i32, move_data.get_captured_piece().unwrap(), move_data.piece_to_move, move_data.from as i32);
-        see_score
-          
+        BASE_CAPTURE+MVV_LVA[move_data.get_captured_piece().unwrap().piece_type as usize][move_data.piece_to_move.piece_type as usize] as i32          
     }
     
 }

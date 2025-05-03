@@ -1,14 +1,16 @@
+
 use crate::board::board::Board;
 use crate::board::piece::PieceColor;
 use crate::movegen::generate::generate_moves;
 use crate::movegen::movedata::MoveData;
 use crate::movegen::movelist::MoveList;
 use crate::search::constants::{ INFINITY, MATE_VALUE, VAL_WINDOW};
-use crate::search::move_ordering::{get_capture_score, get_moves_score};
+use crate::search::move_ordering::{get_capture_score, get_moves_score, BASE_CAPTURE, MVV_LVA};
 use crate::search::transposition_table::{EntryType, TRANSPOSITION_TABLE};
 use crate::search::types::{SearchInput, SearchOutput, SearchRefs};
 
 use std::time::{Duration, Instant};
+use crate::board::see::static_exchange_evaluation;
 use crate::search::functions::{is_allowed_futility_pruning, is_allowed_reverse_futility_pruning};
 use crate::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 
@@ -51,10 +53,11 @@ pub fn quiescence_search(
             pick_move(&mut moves, i as u8, &mut scores);
             let mv = moves.get_move(i);
 
-
-            if scores[i] < 0 {
-                continue;
+            if *mv!=TT_Move && static_exchange_evaluation(board, mv.get_capture_square().unwrap() as i32,mv.get_captured_piece().unwrap(),mv.piece_to_move, mv.from as i32)<0 {
+                continue
             }
+        
+            
 
             // Check time again before making a move
 
@@ -126,7 +129,6 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
     let mut refs=SearchRefs::new_depth_search(killer_moves,history_table);
     while current_depth<= input.depth {
      {
-         let old_rep_table= board.repetition_table.clone();
 
 
 
@@ -220,6 +222,8 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
         depth:depth-1
     }
 }
+
+
 
 
 fn search_common(
@@ -374,7 +378,12 @@ fn search_common(
 
         pick_move(&mut move_list, i as u8, &mut move_score);
 
-        let curr_move = move_list.get_move(i);
+        let mut curr_move = move_list.get_move(i);
+        if *curr_move!=tt_move && curr_move.is_capture() && static_exchange_evaluation(board, curr_move.get_capture_square().unwrap() as i32,curr_move.get_captured_piece().unwrap(),curr_move.piece_to_move, curr_move.from as i32) < 0 {
+            move_score[i]= -BASE_CAPTURE+MVV_LVA[curr_move.get_captured_piece().unwrap().piece_type as usize][curr_move.piece_to_move.piece_type as usize] as i32;
+            pick_move(&mut move_list, i as u8, &mut move_score);
+            curr_move= move_list.get_move(i);       
+        }
 
         if board.is_quiet_move(curr_move){
             
