@@ -114,7 +114,21 @@ impl Piece {
             piece_str
         }
     }
+    pub fn to_history_index(&self) -> usize {
+     self.piece_color.to_index()*6+self.piece_type.to_index()
+    }
+    pub const  fn mvv_score(&self)->i32{
+        match self.piece_type {
+            PieceType::PAWN => 10,
+            PieceType::KNIGHT => 11,
+            PieceType::BISHOP => 12,
+            PieceType::ROOK => 13,
+            PieceType::QUEEN => 14,
+            PieceType::KING => 15,
+        }
+    }
 }
+
 
 impl fmt::Debug for Piece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

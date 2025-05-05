@@ -7,7 +7,7 @@ use crate::movegen::movelist::MoveList;
 use crate::search::constants::{ INFINITY, MATE_VALUE, VAL_WINDOW};
 use crate::search::move_ordering::{get_capture_score, get_moves_score, BASE_CAPTURE, MVV_LVA};
 use crate::search::transposition_table::{EntryType, TRANSPOSITION_TABLE};
-use crate::search::types::{SearchInput, SearchOutput, SearchRefs};
+use crate::search::types::{CaptureHistoryTable, SearchInput, SearchOutput, SearchRefs};
 
 use std::time::{Duration, Instant};
 use crate::board::see::static_exchange_evaluation;
@@ -43,7 +43,7 @@ pub fn quiescence_search(
 
         let mut moves = generate_moves(board, true);
         let TT_Move = TRANSPOSITION_TABLE.lock().unwrap().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
-        let mut scores = get_capture_score(board, moves, TT_Move);
+        let mut scores = get_capture_score(board, moves, TT_Move,refs);
 
         // Iterate through the moves
         for i in 0..moves.len() {
@@ -124,9 +124,10 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
     let mut principal_variation:Vec<MoveData>=Vec::new();
     let mut best_eval = -INFINITY;
     let killer_moves = [[MoveData::defualt(); 2]; 256];
+    let mut cap_hist:CaptureHistoryTable=[[[0;12];64];12];
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
-    let mut refs=SearchRefs::new_depth_search(killer_moves,history_table);
+    let mut refs=SearchRefs::new_depth_search(killer_moves,history_table,cap_hist);
     while current_depth<= input.depth {
      {
 
@@ -174,7 +175,9 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
     let   start_time = Instant::now();
-    let mut refs = SearchRefs::new_timed_search(killer_moves, &start_time, &move_time, history_table);
+    let cap_hist:CaptureHistoryTable=[[[0;12];64];12];
+    
+    let mut refs = SearchRefs::new_timed_search(killer_moves, &start_time, &move_time, history_table,cap_hist);
     while depth<= max_depth {
        
 
@@ -471,12 +474,19 @@ fn search_common(
                 .unwrap()
                 .store(board.game_state.zobrist_hash, depth as u8, score_mv, entry_type, best_move);
 
+            if curr_move.is_capture(){
+                refs.add_capture_history(curr_move, depth);
+            }
             if !curr_move.is_capture() && !curr_move.is_promotion() && !board.is_move_check(curr_move) {
                 refs.store_killers(*curr_move, ply as usize);
                 refs.add_history(board.turn, *curr_move, depth);
             }
             
             return score_mv;
+        }
+        
+        if curr_move.is_capture(){
+            refs.reduce_capture_history(curr_move, depth);
         }
         
         if score_mv > alpha {

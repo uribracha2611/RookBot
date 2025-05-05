@@ -5,6 +5,7 @@ use crate::movegen::movedata::MoveData;
 use crate::search::constants::MAX_EXTENSIONS;
 use crate::search::move_ordering::{KillerMoves, BASE_KILLER};
 
+pub type CaptureHistoryTable =[[[i32; 12]; 64]; 12];
 #[derive(Clone, Copy)]
 pub struct ChosenMove{
      mv: MoveData,
@@ -72,28 +73,31 @@ pub struct SearchRefs
     start_time: Option<Instant>,
     time_limit: Option<Duration>,
     history_table: [[[i32; 64]; 64]; 2],
+    caphist: CaptureHistoryTable,
     eval_stack:[Option<i32>;256],
     current_extensions: i32
 }
 impl SearchRefs {
-    pub fn new_timed_search(killer_moves: KillerMoves, start_time:&Instant, time_limit: &Duration, history_table: [[[i32; 64]; 64]; 2]) -> SearchRefs {
+    pub fn new_timed_search(killer_moves: KillerMoves, start_time:&Instant, time_limit: &Duration, history_table: [[[i32; 64]; 64]; 2],cap_hist:CaptureHistoryTable) -> SearchRefs {
         SearchRefs {
             killer_moves,
             nodes_evaluated: 0,
             start_time: Some(*start_time),
             time_limit: Some(*time_limit),
             history_table,
+            caphist: cap_hist,
             eval_stack:[None;256],
             current_extensions: 0
         }
     }
-    pub fn new_depth_search(killer_moves: KillerMoves, history_table: [[[i32; 64]; 64]; 2]) -> SearchRefs {
+    pub fn new_depth_search(killer_moves: KillerMoves, history_table: [[[i32; 64]; 64]; 2],cap_hist:CaptureHistoryTable) -> SearchRefs {
         SearchRefs {
             killer_moves,
             nodes_evaluated: 0,
             start_time: None,
             time_limit: None,
             history_table,
+            caphist:cap_hist,
             eval_stack:[None;256],
             current_extensions: 0
         }
@@ -170,5 +174,34 @@ pub fn return_killer_move_score(&self,ply:i32,mv:MoveData)->Option<i32>{
     pub fn reset_extensions(&mut self) {
         self.current_extensions = 0;
     }
-    
+
+    #[inline(always)]
+    pub fn add_capture_history(&mut self, mv:&MoveData,depth:i32)
+    {
+        let captured_piece_index = mv.get_captured_piece().unwrap().to_history_index();
+        let capture_piece_index = mv.piece_to_move.to_history_index();
+        let square_index=mv.get_capture_square().unwrap();
+        self.caphist[captured_piece_index][square_index as usize][capture_piece_index as usize] += depth * depth;
+        
+        
+    }
+    pub fn reduce_capture_history(&mut self, mv:&MoveData,depth:i32)
+    {
+        let captured_piece_index = mv.get_captured_piece().unwrap().to_history_index();
+        let capture_piece_index = mv.piece_to_move.to_history_index();
+        let square_index=mv.get_capture_square().unwrap();
+        self.caphist[captured_piece_index as usize][square_index as usize][capture_piece_index as usize] -= depth * depth;
+        
+        
+    }
+    pub fn get_capture_history(&self, mv:&MoveData) -> i32
+    {
+        let captured_piece_index = mv.get_captured_piece().unwrap().to_history_index();
+        let capture_piece_index = mv.piece_to_move.to_history_index();
+        let square_index=mv.get_capture_square().unwrap();
+        self.caphist[captured_piece_index as usize][square_index as usize][capture_piece_index as usize]
+        
+    }
 }
+
+
