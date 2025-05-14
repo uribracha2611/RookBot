@@ -1,18 +1,18 @@
 use std::time::Duration;
-use crate::board::board::Board;
-use crate::board::piece::PieceColor;
-use crate::constants::STARTPOS_FEN;
-use crate::movegen::magic::precomputed::precompute_magics;
-use crate::movegen::movedata::MoveData;
-use crate::movegen::precomputed::precompute_movegen;
+use crate::engine::board::board::Board;
+use crate::engine::board::piece::PieceColor;
+use crate::engine::movegen::magic::precomputed::precompute_magics;
+use crate::engine::movegen::movedata::MoveData;
+use crate::engine::movegen::precomputed::precompute_movegen;
+use crate::engine::perft::perft_bulk;
+use crate::engine::search::search::{search, timed_search};
+use crate::engine::search::transposition_table::reset_transposition_table;
+use crate::engine::search::types::SearchInput;
+use crate::opening_book::{get_move_from_opening_book, init_book};
 
-use crate::opening_book::opening_book::{get_move_from_opening_book, init_book};
-use crate::perft::perft_bulk;
-use crate::search::search::{search, timed_search};
-use crate::search::transposition_table::reset_transposition_table;
-use crate::search::types::SearchInput;
+const STARTPOS_FEN: &str = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB1R w KQkq - 0 1";
 
-pub fn handle_command(command:&str, board: &mut Board)
+pub fn handle_command(command:&str, board: &mut Board,should_use_book:bool)
 {
     let first_word=command.split(" ").collect::<Vec<&str>>()[0];
     match first_word {
@@ -43,7 +43,7 @@ pub fn handle_command(command:&str, board: &mut Board)
             handle_position(remaining_string,board)
         },
         "go"=>{
-            handle_go(command,board);
+            handle_go(command,board,should_use_book);
         },
         "perft" => {
             let parts: Vec<&str> = command.split_whitespace().collect();
@@ -112,17 +112,19 @@ fn apply_moves(board: &mut Board, moves: &Vec<&str>) {
         board.make_move(&move_from_algebric);
     }
 }
-pub fn handle_go(command: &str, board: &mut Board) {
+pub fn handle_go(command: &str, board: &mut Board,should_use_book:bool) {
     let mut depth = None;
     let mut movetime = None;
     let mut wtime = None;
     let mut btime = None;
     let mut winc = None;
     let mut binc = None;
-    if let Some(mv)=(get_move_from_opening_book(board)) {
-         println!("info string Book move {} score cp 0",mv.to_algebraic());
-         println!("bestmove {}", mv.to_algebraic());
-         return;
+    if  let Some(mv)=(get_move_from_opening_book(board))  {
+        if should_use_book {
+            println!("info string Book move {} score cp 0", mv.to_algebraic());
+            println!("bestmove {}", mv.to_algebraic());
+            return;
+        }
      }
 
     let parts: Vec<&str> = command.split_whitespace().collect();
