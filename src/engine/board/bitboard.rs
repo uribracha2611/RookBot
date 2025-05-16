@@ -74,6 +74,7 @@ impl Bitboard {
     }
 
     /// Perform a pawn push in the specified direction for the given color.
+    #[inline(always)]
     pub fn pawn_push(self, color: &PieceColor) -> Bitboard {
         if *color == PieceColor::WHITE {
             Bitboard(self.0 << 8)
@@ -81,11 +82,13 @@ impl Bitboard {
             Bitboard(self.0 >> 8)
         }
     }
+    #[inline(always)]
     pub fn create_from_square(square: u8) -> Bitboard {
         let bit:u64=1u64<<square ;
         Bitboard(bit)
     }
     /// Perform a double pawn push, ensuring there are no blockers.
+    #[inline(always)]
     pub fn pawn_double_push(self, color: &PieceColor, blockers: Bitboard) -> Bitboard {
         let rank = if *color == PieceColor::WHITE { RANK_2 } else { RANK_7 };
 
@@ -94,15 +97,18 @@ impl Bitboard {
             .pawn_push(color)
             .bitand(!blockers)
     }
+    #[inline(always)]
     pub fn get_single_set_bit(self) -> u8 {
           self.0.trailing_zeros() as u8
     }
+    #[inline(always)]
     pub fn pop_count(self) -> u8 {
         self.0.count_ones() as u8
     }
 
 
     /// Perform a pawn attack in the specified direction for the given color.
+    #[inline(always)]
     pub fn pawn_attack(self, color: PieceColor, opponent: Bitboard, attack_left: bool) -> Bitboard {
         let pawn_mask=self & match(color,attack_left){
             (PieceColor::WHITE,true)=> !A_FILE,
@@ -119,11 +125,14 @@ impl Bitboard {
         attacks
     }
 
+    #[inline(always)]
     pub fn pop_lsb(&mut self) -> u8 {
         let lsb = self.0 & (!self.0 + 1);
         self.0 ^= lsb;
         lsb.trailing_zeros() as u8
     }
+
+    #[inline(always)]
     pub fn bitboard_to_set_vec(&self) -> Vec<u8> {
         let mut set_vec = Vec::new();
         let bitboard = self.0;
@@ -134,15 +143,36 @@ impl Bitboard {
         }
         set_vec
     }
+    #[inline(always)]
     pub fn contains_square(&self, square: u8) -> bool {
         self.0 & (1u64 << square) != 0
     }
 
+    #[inline(always)]
     pub fn get_bitboard(self) -> u64 {
         self.0
     }
 }
+impl Bitboard {
+    /// Returns an iterator over the set bits in the bitboard.
+    pub fn iter(self) -> BitboardIterator {
+        BitboardIterator(self)
+    }
+}
 
+pub struct BitboardIterator(Bitboard);
+
+impl Iterator for BitboardIterator {
+    type Item = u8;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.0 == Bitboard::new(0) {
+            None
+        } else {
+            Some(self.0.pop_lsb())
+        }
+    }
+}
 use std::fmt;
 use std::ops::{BitAnd, Shl};
 use derive_more::{AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Not, Shr, Sub, SubAssign};

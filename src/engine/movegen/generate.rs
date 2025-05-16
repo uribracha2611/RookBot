@@ -321,60 +321,23 @@ pub fn find_pinned_pieces(board: &Board) -> Bitboard {
     let mut pinned_ray = Bitboard::new(0);
     let king_square = Position::from_sqr(board.curr_king as i8).unwrap();
     let opponent_color = board.turn.opposite();
-
-    // Iterate over all 8 directions
-    for (dir_index,dir) in ROOK_OFFSETS.iter().chain(BISHOP_OFFSETS.iter()).enumerate() {
-        let king_ray = DIR_RAY_MASK[king_square.to_sqr().unwrap() as usize][dir_index];
-
-        // Get opponent's sliding pieces in this direction
-        let opponent_sliders = match dir_index {
-            0..=3 => board.get_piece_bitboard(opponent_color, PieceType::ROOK) | board.get_piece_bitboard(opponent_color, PieceType::QUEEN),
-            _ => board.get_piece_bitboard(opponent_color, PieceType::BISHOP) | board.get_piece_bitboard(opponent_color, PieceType::QUEEN),
-        };
-
-        // Find overlapping rays
-        let overlap_ray = king_ray & opponent_sliders;
-
-        // Determine pinned pieces
-        if overlap_ray != Bitboard::new(0) {
-            let mut pieces_between = Bitboard::new(0);
-            let mut found_slider = false;
-            let mut found_friendly = false;
-
-
-
-            for index in 0..NUM_SQUARES_FROM_SQUARE[dir_index][king_square.to_sqr().unwrap() as usize]
-            {
-                let sq =  (king_square + (*dir * (index+1) )).to_sqr().unwrap() ;
-                if board.squares[sq as usize].is_some() {
-                    let piece = board.squares[sq as usize].unwrap();
-                    if piece.piece_color == board.turn {
-                        if found_friendly {
-                            found_friendly = false;
-                            break;
-                        }
-                        found_friendly = true;
-                    } else if piece.piece_color == opponent_color && is_correct_slider(piece, dir_index) {
-                        found_slider = true;
-                            break;
-
-
-                    }
-                    else{
-                        break;
-                    }
-                    pieces_between.set_square(sq as u8);
-                }
-            }
-
-            if found_friendly && found_slider {
-                pinned_ray |= pieces_between;
-            }
+    let opp_ortho = board.get_piece_bitboard(opponent_color, PieceType::ROOK) | board.get_piece_bitboard(opponent_color, PieceType::QUEEN);
+    let opp_diag = board.get_piece_bitboard(opponent_color, PieceType::BISHOP) | board.get_piece_bitboard(opponent_color, PieceType::QUEEN);
+    let them = board.get_color_bitboard(opponent_color);
+    let us = board.get_color_bitboard(board.turn);
+    let potential_attackers = get_bishop_attacks(king_square.to_sqr().unwrap() as usize, them) & opp_diag | get_rook_attacks(king_square.to_sqr().unwrap() as usize, them) & opp_ortho;
+    for sqr in potential_attackers.iter() {
+        let local_pin_ray =
+            us & SQR_A_B_MASK[king_square.to_sqr().unwrap() as usize][sqr as usize];
+        if local_pin_ray.pop_count() == 1 {
+            pinned_ray |= local_pin_ray;
         }
     }
 
+
     pinned_ray
 }
+
 fn get_promotion_bitboard(pawns:&Bitboard, color: PieceColor) -> Bitboard {
     if color == PieceColor::WHITE { RANK_8} else { RANK_1 }
 

@@ -39,7 +39,7 @@ fn perft_recursive(board: &mut Board, depth: u32) -> u32 {
 pub fn perft_bulk(board: &mut Board, depth: u32) -> u32 {
     
 
-    let move_list = generate_moves(board,false);
+    let move_list = generate_moves( board,false);
     if depth==1 {
         return move_list.len() as u32;
     }
