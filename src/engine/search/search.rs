@@ -413,7 +413,7 @@ fn search_common(
             let new_depth =reduce_depth(board, curr_move, depth_actual as f64, i as f64,improving) as i32;
             score_mv = -search_common(
                 board,
-                new_depth,
+                new_depth+extension_adding,
                 ply + 1,
                 -alpha - 1,
                 -alpha,
@@ -450,7 +450,7 @@ fn search_common(
         } else {
             score_mv = -search_common(
                 board,
-                depth_actual - 1,
+                depth_actual - 1 +extension_adding,
                 ply + 1,
                 -beta,
                 -alpha,
