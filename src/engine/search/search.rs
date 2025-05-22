@@ -133,7 +133,7 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
 
 
 
-    let eval = search_internal(&mut board, current_depth as i32, 0, alpha, beta,  &mut principal_variation, &mut refs);
+    let eval = search_common(&mut board, current_depth as i32, 0, alpha, beta,  &mut principal_variation, &mut refs);
         best_eval = eval;
          if eval<=alpha || eval>=beta {
              alpha=-INFINITY;
@@ -162,14 +162,12 @@ pub fn search(mut board: &mut Board, input: &SearchInput) -> SearchOutput {
 
 
 
-pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration) -> SearchOutput {
-    let nodes_evaluated = 0;
+pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration,is_move_time:bool) -> SearchOutput {
     let mut pv = Vec::new();
     let killer_moves = [[MoveData::defualt(); 2]; 256];
     let history_table = [[[0; 64]; 64]; 2];
     let mut curr_eval =0;
-    let best_move = MoveData::defualt();
-    let move_time = time_limit/40 + increment / 2;
+    let move_time = if is_move_time {time_limit} else {   time_limit/40 + increment / 2};
     let max_depth=256;
     let mut depth =1;
     let mut alpha = -INFINITY;
@@ -186,7 +184,7 @@ pub fn timed_search(board: &mut Board, time_limit: Duration, increment: Duration
         }
 
 
-        let  curr_depth_eval = timed_search_internal(
+        let  curr_depth_eval = search_common(
             board,
             depth,
             0,
@@ -511,47 +509,4 @@ fn search_common(
     alpha
 }
 
-fn search_internal(
-    board: &mut Board,
-    depth: i32,
-    ply: i32,
-    alpha: i32,
-    beta: i32,
-    pv: &mut Vec<MoveData>,
-    refs: &mut SearchRefs,
-) -> i32 {
 
-    search_common(
-        board,
-        depth,
-        ply,
-        alpha,
-        beta,
-        pv,
-        refs
-
-    )
-}
-
-fn timed_search_internal(
-    board: &mut Board,
-    depth: i32,
-    ply: i32,
-    alpha: i32,
-    beta: i32,
-    pv: &mut Vec<MoveData>,
-    refs: &mut SearchRefs
-
-) -> i32 {
-    search_common(
-        board,
-        depth,
-        ply,
-        alpha,
-        beta,
-
-        pv,
-        refs
-
-    )
-}

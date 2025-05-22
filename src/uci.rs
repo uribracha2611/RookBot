@@ -119,8 +119,9 @@ pub fn handle_go(command: &str, board: &mut Board,should_use_book:bool) {
     let mut btime = None;
     let mut winc = None;
     let mut binc = None;
+    if should_use_book {
     if  let Some(mv)=(get_move_from_opening_book(board))  {
-        if should_use_book {
+        
             println!("info string Book move {} score cp 0", mv.to_algebraic());
             println!("bestmove {}", mv.to_algebraic());
             return;
@@ -173,22 +174,28 @@ pub fn handle_go(command: &str, board: &mut Board,should_use_book:bool) {
         i += 1;
     }
 
-    let time_limit = match board.turn {
-        PieceColor::WHITE => wtime.unwrap_or(Duration::from_secs(60)),
-        PieceColor::BLACK => btime.unwrap_or(Duration::from_secs(60)),
+    
+    let time_limit = if let Some(move_time) = movetime{
+        move_time
+    }  
+    else {
+        match board.turn {
+            PieceColor::WHITE => wtime.unwrap_or(Duration::from_secs(60)),
+            PieceColor::BLACK => btime.unwrap_or(Duration::from_secs(60)),
+        }
     };
-
-    let increment = match board.turn {
-        PieceColor::WHITE => winc.unwrap_or(Duration::from_secs(0)),
-        PieceColor::BLACK => binc.unwrap_or(Duration::from_secs(0)),
-    };
+        let increment = match board.turn {
+            PieceColor::WHITE => winc.unwrap_or(Duration::from_secs(0)),
+            PieceColor::BLACK => binc.unwrap_or(Duration::from_secs(0)),
+        };
+    
 
     
 
     let mut board_clone = board.clone();
     let time_test=std::time::Instant::now();
         let result = if movetime.is_some() || wtime.is_some() || btime.is_some() {
-            timed_search(&mut board_clone, time_limit, increment)
+            timed_search(&mut board_clone, time_limit, increment,movetime.is_some())
         } else {
             let search_depth = depth.unwrap();
            search(board, &SearchInput { depth: search_depth as u8 })
