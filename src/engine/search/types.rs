@@ -1,9 +1,11 @@
 use std::ops::Neg;
 use std::time::{Duration, Instant};
+use crate::engine;
 use crate::engine::board::piece::PieceColor;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::constants::MAX_EXTENSIONS;
 use crate::engine::search::move_ordering::{KillerMoves, BASE_KILLER};
+use crate::engine::search::transposition_table::TranspositionTable;
 
 pub type CaptureHistoryTable =[[[i32; 12]; 64]; 12];
 #[derive(Clone, Copy)]
@@ -66,7 +68,7 @@ impl SearchOutput {
 pub struct SearchInput{
     pub depth:u8,
 }
-pub struct SearchRefs
+pub struct SearchRefs<'a>
 {
     killer_moves: KillerMoves,
     nodes_evaluated: i32,
@@ -75,32 +77,52 @@ pub struct SearchRefs
     history_table: [[[i32; 64]; 64]; 2],
     caphist: CaptureHistoryTable,
     eval_stack:[Option<i32>;256],
-    current_extensions: i32
+    current_extensions: i32,
+    pub table: &'a mut TranspositionTable,
 }
-impl SearchRefs {
-    pub fn new_timed_search(killer_moves: KillerMoves, start_time:&Instant, time_limit: &Duration, history_table: [[[i32; 64]; 64]; 2],cap_hist:CaptureHistoryTable) -> SearchRefs {
-        SearchRefs {
-            killer_moves,
-            nodes_evaluated: 0,
-            start_time: Some(*start_time),
-            time_limit: Some(*time_limit),
-            history_table,
-            caphist: cap_hist,
-            eval_stack:[None;256],
-            current_extensions: 0
-        }
+impl SearchRefs<'_> {
+pub fn new_timed_search<'a>(
+    killer_moves: KillerMoves,
+    start_time: &Instant,
+    time_limit: &Duration,
+    history_table: [[[i32; 64]; 64]; 2],
+    cap_hist: CaptureHistoryTable,
+    transposition_table: &'a mut engine::search::transposition_table::TranspositionTable,
+) -> SearchRefs<'a> {
+    SearchRefs {
+        killer_moves,
+        nodes_evaluated: 0,
+        start_time: Some(*start_time),
+        time_limit: Some(*time_limit),
+        history_table,
+        caphist: cap_hist,
+        eval_stack: [None; 256],
+        current_extensions: 0,
+        table: transposition_table, // No need for `&mut` here!
     }
-    pub fn new_depth_search(killer_moves: KillerMoves, history_table: [[[i32; 64]; 64]; 2],cap_hist:CaptureHistoryTable) -> SearchRefs {
+}
+    pub fn new_depth_search(
+        killer_moves: KillerMoves,
+        history_table: [[[i32; 64]; 64]; 2],
+        cap_hist: CaptureHistoryTable,
+        transposition_table: &mut TranspositionTable,
+    ) -> SearchRefs {
         SearchRefs {
             killer_moves,
             nodes_evaluated: 0,
             start_time: None,
             time_limit: None,
             history_table,
-            caphist:cap_hist,
-            eval_stack:[None;256],
-            current_extensions: 0
+            caphist: cap_hist,
+            eval_stack: [None; 256],
+            current_extensions: 0,
+            table: transposition_table, // Removed &mut here
         }
+    }
+    
+    #[inline(always)]
+    pub fn get_transposition_table(&mut self) -> &mut TranspositionTable {
+         self.table
     }
     #[inline(always)]
     pub fn increment_nodes_evaluated(&mut self) {
@@ -203,5 +225,3 @@ pub fn return_killer_move_score(&self,ply:i32,mv:MoveData)->Option<i32>{
         
     }
 }
-
-

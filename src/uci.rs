@@ -6,13 +6,13 @@ use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::precomputed::precompute_movegen;
 use crate::engine::perft::perft_bulk;
 use crate::engine::search::search::{search, timed_search};
-use crate::engine::search::transposition_table::reset_transposition_table;
+use crate::engine::search::transposition_table::{ TranspositionTable};
 use crate::engine::search::types::SearchInput;
 use crate::opening_book::{get_move_from_opening_book, init_book};
 
 const STARTPOS_FEN: &str = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB1R w KQkq - 0 1";
 
-pub fn handle_command(command:&str, board: &mut Board,should_use_book:bool)
+pub fn handle_command(command:&str, board: &mut Board, should_use_book:bool, mut tt_table: &mut TranspositionTable)
 {
     let first_word=command.split(" ").collect::<Vec<&str>>()[0];
     match first_word {
@@ -28,8 +28,9 @@ pub fn handle_command(command:&str, board: &mut Board,should_use_book:bool)
         "ucinewgame" => {
             precompute_magics();
             precompute_movegen();
-            reset_transposition_table();
             init_book();
+            *tt_table = TranspositionTable::from_mb(64);
+            return;
 
 
 
@@ -43,7 +44,7 @@ pub fn handle_command(command:&str, board: &mut Board,should_use_book:bool)
             handle_position(remaining_string,board)
         },
         "go"=>{
-            handle_go(command,board,should_use_book);
+            handle_go(command, board, should_use_book, tt_table);
         },
         "perft" => {
             let parts: Vec<&str> = command.split_whitespace().collect();
@@ -112,7 +113,7 @@ fn apply_moves(board: &mut Board, moves: &Vec<&str>) {
         board.make_move(&move_from_algebric);
     }
 }
-pub fn handle_go(command: &str, board: &mut Board,should_use_book:bool) {
+pub fn handle_go(command: &str, board: &mut Board,should_use_book:bool,tt_table:&mut TranspositionTable) {
     let mut depth = None;
     let mut movetime = None;
     let mut wtime = None;
@@ -195,10 +196,10 @@ pub fn handle_go(command: &str, board: &mut Board,should_use_book:bool) {
     let mut board_clone = board.clone();
     let time_test=std::time::Instant::now();
         let result = if movetime.is_some() || wtime.is_some() || btime.is_some() {
-            timed_search(&mut board_clone, time_limit, increment,movetime.is_some())
+            timed_search(&mut board_clone, time_limit, increment,movetime.is_some(),tt_table)
         } else {
             let search_depth = depth.unwrap();
-           search(board, &SearchInput { depth: search_depth as u8 })
+           search(board, &mut SearchInput { depth: search_depth as u8}, tt_table)
             
         };
     let pv=result.principal_variation.iter().map(|x| x.to_algebraic()).collect::<Vec<String>>().join(" ");

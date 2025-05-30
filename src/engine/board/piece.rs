@@ -69,6 +69,16 @@ impl Piece {
             piece_type,
         }
     }
+    pub fn get_value(&self) -> i32 {
+        match self.piece_type {
+            PieceType::PAWN => 1,
+            PieceType::KNIGHT => 3,
+            PieceType::BISHOP => 3,
+            PieceType::ROOK => 5,
+            PieceType::QUEEN => 9,
+            PieceType::KING => 0,
+        }
+    }
 
     pub fn is_color(&self, piece_color: PieceColor) -> bool {
         self.piece_color == piece_color

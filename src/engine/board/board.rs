@@ -6,7 +6,7 @@ use crate::engine::movegen::precomputed::KNIGHT_MOVES;
 use crate::engine::search::psqt::constants::GAMEPHASE_INC;
 use crate::engine::search::psqt::function::get_psqt;
 use crate::engine::search::psqt::weight::W;
-use crate::engine::search::Zobrist::constants::{ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE};
+use crate::engine::search::Zobrist::constants::{ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE};
 use super::{bitboard::Bitboard, gamestate::GameState, piece::{Piece, PieceColor}};
 
 
@@ -32,20 +32,16 @@ pub struct Board {
 }
 
 impl Board {
-
-
-
     fn remove_piece(&mut self, square: u8, piece: Piece) {
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update Zobrist hash before removing the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
-        if piece.piece_color==PieceColor::WHITE {
-            self.psqt_white-=get_psqt(square as usize,piece);
-            self.game_phase-=GAMEPHASE_INC[piece.piece_type as usize];
-        }
-        else{
-            self.psqt_black-=get_psqt(square as usize,piece);
-            self.game_phase-=GAMEPHASE_INC[piece.piece_type as usize];
+        if piece.piece_color == PieceColor::WHITE {
+            self.psqt_white -= get_psqt(square as usize, piece);
+            self.game_phase -= GAMEPHASE_INC[piece.piece_type as usize];
+        } else {
+            self.psqt_black -= get_psqt(square as usize, piece);
+            self.game_phase -= GAMEPHASE_INC[piece.piece_type as usize];
         }
         self.squares[square as usize] = None;
         self.get_color_bitboard_mut(piece.piece_color).clear_square(square);
@@ -53,65 +49,60 @@ impl Board {
         self.all_pieces_bitboard.clear_square(square);
     }
 
-   
+
     fn add_piece(&mut self, square: u8, piece: Piece) {
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update Zobrist hash before adding the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
-        if piece.piece_color==PieceColor::WHITE {
-            self.psqt_white+=get_psqt(square as usize,piece);
+        if piece.piece_color == PieceColor::WHITE {
+            self.psqt_white += get_psqt(square as usize, piece);
+        } else {
+            self.psqt_black += get_psqt(square as usize, piece);
         }
-        else{
-            self.psqt_black+=get_psqt(square as usize,piece);
-
-        }
-        self.game_phase+=GAMEPHASE_INC[piece.piece_type as usize];
+        self.game_phase += GAMEPHASE_INC[piece.piece_type as usize];
         self.squares[square as usize] = Some(piece);
         self.get_color_bitboard_mut(piece.piece_color).set_square(square);
         self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type).set_square(square);
         self.all_pieces_bitboard.set_square(square);
     }
-    
-    pub fn detect_pawns_only(&self,piece_color: PieceColor) -> bool {
-        return self.get_color_bitboard(piece_color) ^ self.get_piece_bitboard(piece_color,PieceType::PAWN) ==0;
+
+    pub fn detect_pawns_only(&self, piece_color: PieceColor) -> bool {
+        return self.get_color_bitboard(piece_color) ^ self.get_piece_bitboard(piece_color, PieceType::PAWN) == 0;
     }
-    pub fn is_quiet_move(self:&Board,mv: &MoveData)->bool{
-         !mv.is_capture() && !mv.is_promotion() && !self.is_check && !self.is_move_check(&mv)
+    pub fn is_quiet_move(self: &Board, mv: &MoveData) -> bool {
+        !mv.is_capture() && !mv.is_promotion() && !self.is_check && !self.is_move_check(&mv)
     }
-   pub fn is_move_check(&self, mv: &MoveData)->bool{
-       let to=mv.to;
-       let piece_moved=mv.piece_to_move;
-       let opp_king=self.get_piece_bitboard(piece_moved.piece_color.opposite(),PieceType::KING);
-       let blockers=self.all_pieces_bitboard & !Bitboard::create_from_square(to);
-       match piece_moved.piece_type {
-              PieceType::KING=>{
+    pub fn is_move_check(&self, mv: &MoveData) -> bool {
+        let to = mv.to;
+        let piece_moved = mv.piece_to_move;
+        let opp_king = self.get_piece_bitboard(piece_moved.piece_color.opposite(), PieceType::KING);
+        let blockers = self.all_pieces_bitboard & !Bitboard::create_from_square(to);
+        match piece_moved.piece_type {
+            PieceType::KING => {
                 false
-              }
-              PieceType::KNIGHT=>{
-                  KNIGHT_MOVES[to as usize] & opp_king!=0
-              }
-           PieceType::PAWN=>{
-               let pawn_attacks=opp_king.pawn_attack(piece_moved.piece_color.opposite(),Bitboard::create_from_square(to),true) | opp_king.pawn_attack(piece_moved.piece_color.opposite(),Bitboard::create_from_square(to),false);
-               pawn_attacks & opp_king!=0
-           }
-              PieceType::BISHOP=>{
-                let bishop_attacks=get_bishop_attacks(to as usize, blockers);
-                bishop_attacks & opp_king!=0
-              }
-                PieceType::ROOK=>{
-                    let rook_attacks=get_rook_attacks(to as usize, blockers);
-                    rook_attacks & opp_king!=0
-                }
-                PieceType::QUEEN=>{
-                    let bishop_attacks=get_bishop_attacks(to as usize, blockers);
-                    let rook_attacks=get_rook_attacks(to as usize, blockers);
-                    (bishop_attacks | rook_attacks) & opp_king!=0
-                }
-           
-
-
-       }
-   }
+            }
+            PieceType::KNIGHT => {
+                KNIGHT_MOVES[to as usize] & opp_king != 0
+            }
+            PieceType::PAWN => {
+                let pawn_attacks = opp_king.pawn_attack(piece_moved.piece_color.opposite(), Bitboard::create_from_square(to), true) | opp_king.pawn_attack(piece_moved.piece_color.opposite(), Bitboard::create_from_square(to), false);
+                pawn_attacks & opp_king != 0
+            }
+            PieceType::BISHOP => {
+                let bishop_attacks = get_bishop_attacks(to as usize, blockers);
+                bishop_attacks & opp_king != 0
+            }
+            PieceType::ROOK => {
+                let rook_attacks = get_rook_attacks(to as usize, blockers);
+                rook_attacks & opp_king != 0
+            }
+            PieceType::QUEEN => {
+                let bishop_attacks = get_bishop_attacks(to as usize, blockers);
+                let rook_attacks = get_rook_attacks(to as usize, blockers);
+                (bishop_attacks | rook_attacks) & opp_king != 0
+            }
+        }
+    }
 
     pub fn is_threefold_repetition(&self) -> bool {
         // let len=self.repetition_table.len();
@@ -150,11 +141,11 @@ impl Board {
             curr_king: 0,
             check_ray: Bitboard::new(u64::MAX),
             pinned_ray: Bitboard::new(0),
-            psqt_white: W(0,0),
-            psqt_black: W(0,0),
+            psqt_white: W(0, 0),
+            psqt_black: W(0, 0),
             game_phase: 0,
-            history:Vec::new(),
-            repetition_table:Vec::new()
+            history: Vec::new(),
+            repetition_table: Vec::new()
         };
 
         let mut rank = 7;
@@ -178,12 +169,14 @@ impl Board {
                 }
             }
         }
+        if board.turn == PieceColor::BLACK {
+            board.game_state.zobrist_hash ^= ZOBRIST_SIDE_TO_MOVE;
+        }
         board.repetition_table.push(board.game_state.zobrist_hash);
         board
     }
- 
-    
-  
+
+
     pub fn is_insufficient_material(&self) -> bool {
         let pieces_without_white_king = self.get_color_bitboard(PieceColor::WHITE)
             & !self.get_piece_bitboard(PieceColor::WHITE, PieceType::KING);
@@ -204,14 +197,14 @@ impl Board {
         }
 
         // Get the single piece for each side, if it exists
-        let white_piece = if piece_count_white_without_king==0 {None} else {
+        let white_piece = if piece_count_white_without_king == 0 { None } else {
             self.squares[pieces_without_white_king.get_single_set_bit() as usize]
         };
 
-        let black_piece = if piece_count_black_without_king==0 {None} else {
+        let black_piece = if piece_count_black_without_king == 0 { None } else {
             self.squares[pieces_without_black_king.get_single_set_bit() as usize]
         };
-         
+
 
         // Check if each side has only a knight or bishop (this covers different-colored bishops case)
         let white_draw_bool = white_piece.is_none_or(|piece| {
@@ -258,63 +251,57 @@ impl Board {
         fen.push_str(&format!(" {} {}", active_color, self.game_state.to_fen()));
         fen
     }
-    pub fn make_move(&mut self, mv:&MoveData)
+    pub fn make_move(&mut self, mv: &MoveData)
     {
-        let  old_game_state =self.game_state.clone();
+        let old_game_state = self.game_state.clone();
         let moved_piece = mv.piece_to_move;
         if mv.is_capture() {
-            self.remove_piece(mv.get_capture_square().unwrap(),mv.get_captured_piece().unwrap());
+            self.remove_piece(mv.get_capture_square().unwrap(), mv.get_captured_piece().unwrap());
             self.disallow_castling_if_needed(mv.get_capture_square().unwrap(), mv.get_captured_piece().unwrap());
-
-        } 
+        }
         if mv.is_promotion() {
-            self.remove_piece(mv.from,moved_piece);
-            self.add_piece(mv.to,mv.get_promoted_piece().unwrap());
+            self.remove_piece(mv.from, moved_piece);
+            self.add_piece(mv.to, mv.get_promoted_piece().unwrap());
+        } else {
+            self.remove_piece(mv.from, moved_piece);
+            self.add_piece(mv.to, moved_piece);
         }
-        else{
-            self.remove_piece(mv.from,moved_piece);
-            self.add_piece(mv.to,moved_piece);
-        }
-        if mv.is_castling(){
+        if mv.is_castling() {
             let rook_start = mv.get_rook_start().unwrap();
             let rook_end = mv.get_rook_end().unwrap();
             let rook = self.squares[rook_start as usize].unwrap();
-            self.remove_piece(rook_start,rook);
-            self.add_piece(rook_end,rook);
+            self.remove_piece(rook_start, rook);
+            self.add_piece(rook_end, rook);
             self.game_state.disallow_castling_both(moved_piece.piece_color);
-            
-            
         }
-        if moved_piece.piece_type==PieceType::KING
+        if moved_piece.piece_type == PieceType::KING
         {
             self.game_state.disallow_castling_both(moved_piece.piece_color);
-         
         }
-       self.disallow_castling_if_needed(mv.from, moved_piece);
+        self.disallow_castling_if_needed(mv.from, moved_piece);
         self.handle_en_passant(mv);
 
-        
-        
+
         self.turn = self.turn.opposite();
-        self.game_state.zobrist_hash^=ZOBRIST_SIDE_TO_MOVE;
-        self.game_state.fullmove_clock+=1;
-        if moved_piece.piece_type==PieceType::PAWN || mv.is_capture(){
-            self.game_state.halfmove_clock=0;
+        self.game_state.zobrist_hash ^= ZOBRIST_SIDE_TO_MOVE;
+        self.game_state.fullmove_clock += 1;
+        if moved_piece.piece_type == PieceType::PAWN || mv.is_capture() {
+            self.game_state.halfmove_clock = 0;
+        } else {
+            self.game_state.halfmove_clock += 1;
         }
-        else{
-            self.game_state.halfmove_clock+=1;
-        }
-        
+
         self.history.push(old_game_state);
-      self.repetition_table.push(self.game_state.zobrist_hash);
-        
-        
-        
+        self.repetition_table.push(self.game_state.zobrist_hash);
     }
-    pub fn is_board_draw(&self)->bool{
-        self.is_threefold_repetition() || self.is_insufficient_material() || self.game_state.halfmove_clock>=50
+    pub fn is_board_draw(&self) -> bool {
+        self.is_threefold_repetition() || self.is_insufficient_material() || self.game_state.halfmove_clock >= 50
     }
     fn handle_en_passant(&mut self, mv: &MoveData) {
+        if let Some(file) = self.game_state.en_passant_file {
+            // Remove old en passant from Zobrist hash
+            self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[file as usize];
+        }
         if mv.piece_to_move.piece_type == PieceType::PAWN && mv.is_double_push() {
             let new_en_passant_square = if mv.piece_to_move.piece_color == PieceColor::WHITE {
                 mv.to - 8
@@ -327,10 +314,6 @@ impl Board {
             // Update Zobrist hash for en passant
             self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[mv.to as usize % 8];
         } else {
-            if let Some(file) = self.game_state.en_passant_file {
-                // Remove old en passant from Zobrist hash
-                self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[file as usize];
-            }
             self.game_state.en_passant_file = None;
             self.game_state.en_passant_square = None;
         }
@@ -340,8 +323,7 @@ impl Board {
         if mv.is_promotion() {
             self.remove_piece(mv.to, mv.get_promoted_piece().unwrap());
             self.add_piece(mv.from, moved_piece);
-        }
-        else {
+        } else {
             // Restore the piece to its original position
             self.remove_piece(mv.to, moved_piece);
             self.add_piece(mv.from, moved_piece);
@@ -362,7 +344,6 @@ impl Board {
             let rook = self.squares[rook_end as usize].unwrap();
             self.remove_piece(rook_end, rook);
             self.add_piece(rook_start, rook);
-
         }
 
         // Restore game state
@@ -405,8 +386,8 @@ impl Board {
 
         self.turn = self.turn.opposite();
         self.game_state.zobrist_hash ^= ZOBRIST_SIDE_TO_MOVE;
-        self.game_state.halfmove_clock=0;
-        self.game_state.fullmove_clock+=1;
+        self.game_state.halfmove_clock = 0;
+        self.game_state.fullmove_clock += 1;
     }
 
     pub fn unmake_null_move(&mut self) {
@@ -435,23 +416,44 @@ impl Board {
 
         stockfish_str.push_str(&self.game_state.to_stockfish_string());
         stockfish_str.push_str(&format!("fen: {}\n", self.to_fen()));
-        
+
         stockfish_str
     }
-    pub  fn get_piece_bitboard(&self, color: PieceColor, piece: PieceType) -> Bitboard {
+    pub fn get_piece_bitboard(&self, color: PieceColor, piece: PieceType) -> Bitboard {
         self.piece_bitboards[color as usize][piece as usize]
     }
     pub fn get_color_bitboard(&self, color: PieceColor) -> Bitboard {
         self.color_bitboards[color as usize]
     }
     fn get_piece_bitboard_mut(&mut self, color: PieceColor, piece: PieceType) -> &mut Bitboard {
-    &mut self.piece_bitboards[color as usize][piece as usize]
-}
+        &mut self.piece_bitboards[color as usize][piece as usize]
+    }
 
-fn get_color_bitboard_mut(&mut self, color: PieceColor) -> &mut Bitboard {
-    &mut self.color_bitboards[color as usize]
-}
+    fn get_color_bitboard_mut(&mut self, color: PieceColor) -> &mut Bitboard {
+        &mut self.color_bitboards[color as usize]
+    }
     pub fn get_all_pieces_bitboard(&self) -> Bitboard {
         self.all_pieces_bitboard
+    }
+    pub fn calc_zobrist(&self) -> u64
+    {
+        let mut zobrist = 0;
+        if self.turn == PieceColor::BLACK {
+            zobrist ^= ZOBRIST_SIDE_TO_MOVE;
+        }
+        if let Some(en_passant_file) = self.game_state.en_passant_file {
+            zobrist ^= ZOBRIST_EN_PASSANT[en_passant_file as usize];
+        }
+        zobrist ^= ZOBRIST_CASTLING[GameState::zobrist_castling_index(self.game_state.castle_white, self.game_state.castle_black)];
+
+
+        for sqr in 0..64 {
+            if let Some(piece) = self.squares[sqr] {
+                let piece_index = piece.piece_color.to_index() * 6 + piece.piece_type.to_index();
+                zobrist ^= ZOBRIST_KEYS[piece_index][sqr]
+            }
+        }
+
+        zobrist
     }
 }

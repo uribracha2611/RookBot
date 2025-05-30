@@ -53,6 +53,29 @@ pub fn perft_bulk(board: &mut Board, depth: u32) -> u32 {
 
     nodes
 }
+pub fn perft_bulk_with_zobrist_check(board: &mut Board, curr_move:&mut Vec<MoveData>, depth: u32) -> u32 {
+
+    assert_eq!(board.game_state.zobrist_hash,board.calc_zobrist(),"wrong zobrist hash board zobrist is {} and actual zobrist is {} and movelist are {:?}",board.game_state.zobrist_hash,board.calc_zobrist(),curr_move);
+    let move_list = generate_moves( board,false);
+    if depth==1 {
+        return move_list.len() as u32;
+    }
+    let mut nodes = 0;
+
+    for mv in move_list.iter() {
+        
+        board.make_move(mv);
+        curr_move.push(mv.clone());
+        assert_eq!(board.game_state.zobrist_hash,board.calc_zobrist(),"wrong zobrist hash board zobrist is {} and actual zobrist is {} and movelist are {:?}",board.game_state.zobrist_hash,board.calc_zobrist(),curr_move);
+        nodes += perft_bulk_with_zobrist_check(board, curr_move, depth - 1);
+        curr_move.pop();
+        board.unmake_move(mv);
+        assert_eq!(board.game_state.zobrist_hash,board.calc_zobrist(),"wrong zobrist hash board zobrist is {} and actual zobrist is {} and movelist are {:?}",board.game_state.zobrist_hash,board.calc_zobrist(),curr_move);
+
+    }
+
+    nodes
+}
 
 use std::fs::File;
 use std::time::Instant;
@@ -70,6 +93,7 @@ use std::io::BufRead;
 use std::sync::{Arc, Mutex};
 use crate::engine::board::board::Board;
 use crate::engine::movegen::generate::generate_moves;
+use crate::engine::movegen::movedata::MoveData;
 
 pub fn check_epd_line(line: &str) -> Result<(), String> {
     let parts: Vec<&str> = line.split(';').collect();
@@ -94,7 +118,8 @@ pub fn check_epd_line(line: &str) -> Result<(), String> {
 
         let result = panic::catch_unwind(|| {
             let mut board_lock = board_clone.lock().map_err(|_| "Mutex lock failed".to_string())?;
-            let result = perft_bulk(&mut board_lock, depth);
+            let mut curr_move = Vec::new();
+            let result = perft_bulk_with_zobrist_check(&mut board_lock, &mut curr_move, depth);
             if result != expected_result {
                 return Err(format!("Mismatch for FEN: {} at depth {}: expected {}, got {}", fen, depth, expected_result, result));
             }

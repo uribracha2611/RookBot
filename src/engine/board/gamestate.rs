@@ -1,6 +1,8 @@
+use crate::engine;
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::engine::board::piece::PieceColor;
 use crate::engine::board::position::Position;
+use crate::engine::movegen::movedata::MoveType::Castling;
 use crate::engine::search::Zobrist::constants::{ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -36,68 +38,64 @@ impl GameState {
 
        pub fn disallow_castling(&mut self, side: AllowedCastling, color: PieceColor) {
            let old_hash = self.zobrist_hash;
-           let castling_index = match (color, side) {
-               (PieceColor::WHITE, AllowedCastling::Kingside) => 0,
-               (PieceColor::WHITE, AllowedCastling::Queenside) => 1,
-               (PieceColor::BLACK, AllowedCastling::Kingside) => 2,
-               (PieceColor::BLACK, AllowedCastling::Queenside) => 3,
-               _ => return,
-           };
+           let (old_white_castle,old_black_castle)=(self.castle_white,self.castle_black);
+           let old_castling_index = GameState::zobrist_castling_index(old_white_castle,old_black_castle);
 
            // Remove the old castling right from the hash
-           self.zobrist_hash ^= ZOBRIST_CASTLING[castling_index];
+           self.zobrist_hash ^= ZOBRIST_CASTLING[old_castling_index];
 
            if color == PieceColor::WHITE {
                self.castle_white = self.castle_white.disallow_castling(side);
            } else {
                self.castle_black = self.castle_black.disallow_castling(side);
            }
+           let (new_white_castle,new_black_castle)=(self.castle_white,self.castle_black);
+           let old_castling_index = GameState::zobrist_castling_index(new_white_castle,new_black_castle);
 
            // Add the new castling right to the hash
-           self.zobrist_hash ^= ZOBRIST_CASTLING[castling_index];
+           self.zobrist_hash ^= ZOBRIST_CASTLING[old_castling_index];
 
        }
 
 pub fn disallow_castling_both(&mut self, color: PieceColor) {
-    let old_hash = self.zobrist_hash;
-
     if color == PieceColor::WHITE {
         if self.castle_white.is_allowed(&CastlingSide::Kingside) {
-            self.zobrist_hash ^= ZOBRIST_CASTLING[0];
+            self.disallow_castling(AllowedCastling::Kingside, color);
         }
         if self.castle_white.is_allowed(&CastlingSide::Queenside) {
-            self.zobrist_hash ^= ZOBRIST_CASTLING[1];
+            self.disallow_castling(AllowedCastling::Queenside, color);
         }
-        self.castle_white = AllowedCastling::None;
-    } else {
+        
+    }
+    else {
         if self.castle_black.is_allowed(&CastlingSide::Kingside) {
-            self.zobrist_hash ^= ZOBRIST_CASTLING[2];
+            self.disallow_castling(AllowedCastling::Kingside, color);
         }
         if self.castle_black.is_allowed(&CastlingSide::Queenside) {
-            self.zobrist_hash ^= ZOBRIST_CASTLING[3];
+            self.disallow_castling(AllowedCastling::Queenside, color);
         }
-        self.castle_black = AllowedCastling::None;
     }
-
-
 }
+   pub fn zobrist_castling_index(castle_white: AllowedCastling, castle_black: AllowedCastling) -> usize {
+        // Map each enum variant to an integer 0..3
+        let to_index = |c: AllowedCastling| -> usize {
+            match c {
+                AllowedCastling::Both => 0,
+                AllowedCastling::Queenside => 1,
+                AllowedCastling::Kingside => 2,
+                AllowedCastling::None => 3,
+            }
+        };
+
+        let white_index = to_index(castle_white);
+        let black_index = to_index(castle_black);
+
+        white_index * 4 + black_index
+    }
 
     pub fn init_zobrist_hash(&mut self) {
         self.zobrist_hash = 0;
-
-        // Add castling rights to the hash
-        if self.castle_white.is_allowed(&CastlingSide::Kingside) {
-            self.zobrist_hash ^= ZOBRIST_CASTLING[0];
-        }
-        if self.castle_white.is_allowed(&CastlingSide::Queenside) {
-            self.zobrist_hash ^= ZOBRIST_CASTLING[1];
-        }
-        if self.castle_black.is_allowed(&CastlingSide::Kingside) {
-            self.zobrist_hash ^= ZOBRIST_CASTLING[2];
-        }
-        if self.castle_black.is_allowed(&CastlingSide::Queenside) {
-            self.zobrist_hash ^= ZOBRIST_CASTLING[3];
-        }
+        self.zobrist_hash^= ZOBRIST_CASTLING[GameState::zobrist_castling_index(self.castle_white,self.castle_black)];
 
         // Add en passant square to the hash
         if let Some(file) = self.en_passant_file {

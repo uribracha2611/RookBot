@@ -1,7 +1,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use RookBot::engine::board::board::Board;
-use RookBot::engine::perft::{check_epd_line, perft, perft_bulk, run_epd_file};
+use RookBot::engine::perft::{check_epd_line, perft, perft_bulk, perft_bulk_with_zobrist_check, run_epd_file};
 
 fn parse_and_check_line(line: &str) {
     let mut parts = line.split(';');
@@ -14,7 +14,8 @@ fn parse_and_check_line(line: &str) {
         let mut board =Board::from_fen(fen);
         if let Some((depth_str, expected_str)) = part.strip_prefix('D').and_then(|s| s.split_once(' ')) {
             if let (Ok(depth), Ok(expected)) = (depth_str.parse::<u32>(), expected_str.parse::<u64>()) {
-                let result = perft_bulk(&mut board, depth);
+                let mut curr_move = Vec::new();
+                let result = perft_bulk_with_zobrist_check(&mut board, &mut curr_move, depth);
                 if result != expected as u32 {
                     panic!("Mismatch at depth {}: expected {}, got {} for FEN: {}", depth, expected, result, fen);
                 }

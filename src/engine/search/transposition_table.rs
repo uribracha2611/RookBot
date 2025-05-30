@@ -2,7 +2,7 @@ use std::sync::{LazyLock, Mutex};
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::constants::MATE_VALUE;
 
-const MB_SIZE: usize = 128 * 1024 * 1024; // 64 MB
+const MB_SIZE: usize = 128 * 1024 * 1024; // 128 MB
 
 #[derive(Clone, Copy,Eq, PartialEq)]
 pub enum EntryType {
@@ -30,6 +30,9 @@ impl TranspositionTable {
             table: vec![None; size],
         }
     }
+    pub fn from_mb(mb_size: usize) -> Self {
+        TranspositionTable::new(mb_size * 1024 * 1024 / std::mem::size_of::<Entry>())
+    }
 
     pub fn store(&mut self, hash: u64, depth: u8, eval: i32, entry_type: EntryType, best_move: MoveData) {
         let index = (hash as usize) % self.table.len();
@@ -48,26 +51,20 @@ impl TranspositionTable {
         });
     }
 
-    pub fn retrieve(&self, hash: u64, depth: u8, alpha: i32, beta: i32) -> Option<Entry> {
+    pub  fn retrieve(&self, hash: u64, depth: u8, alpha: i32, beta: i32) -> Option<Entry> {
         let index = (hash as usize) % self.table.len();
-        if let Some(entry) = self.table[index] {
-            if entry.hash == hash && entry.depth >= depth {
-                match entry.entry_type {
-                    EntryType::Exact => return Some(entry),
-                    EntryType::LowerBound => {
-                        if entry.eval >= beta {
-                            return Some(entry);
-                        }
-                    }
-                    EntryType::UpperBound => {
-                        if entry.eval <= alpha {
-                            return Some(entry);
-                        }
-                    }
+        let elem= self.table[index];
+        unsafe {
+            if elem.is_some() {
+                if elem.unwrap_unchecked().hash == hash {
+                    elem
+                } else {
+                    None
                 }
+            } else {
+                None
             }
         }
-        None
     }
 
     pub fn get_TT_move(&self, hash: u64) -> Option<MoveData> {
@@ -80,18 +77,10 @@ impl TranspositionTable {
         None
     }
 }
-pub fn reset_transposition_table() {
-    let mut table = TRANSPOSITION_TABLE.lock().unwrap();
-    *table = TranspositionTable::new(MB_SIZE / std::mem::size_of::<Entry>());
-}
 
-pub static TRANSPOSITION_TABLE: LazyLock<Mutex<TranspositionTable>> = LazyLock::new(|| {
-    Mutex::new(TranspositionTable::new(MB_SIZE / std::mem::size_of::<Entry>()))
-});
 
-pub fn setup_transposition_table() {
-    LazyLock::force(&TRANSPOSITION_TABLE);
-}
+
+
 pub fn is_mate_score(score: i32) -> bool {
     score.abs() > MATE_VALUE
 }
