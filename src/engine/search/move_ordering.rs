@@ -62,7 +62,7 @@ pub fn get_move_score(
         //     
         // }
     else {
-       0
+       refs.get_history_value(mv,board.turn)
         
     }
 }
