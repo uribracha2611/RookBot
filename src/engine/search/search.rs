@@ -42,8 +42,8 @@ pub fn quiescence_search(
         }
 
         let mut moves = generate_moves(board, true);
-         let TT_Move =MoveData::defualt(); 
-        let mut scores = get_capture_score(board, moves, TT_Move,refs);
+         let tt_Move = refs.get_transposition_table().get_TT_move(board.game_state.zobrist_hash).unwrap_or(MoveData::defualt());
+        let mut scores = get_capture_score(board, moves, tt_Move,refs);
 
         // Iterate through the moves
         for i in 0..moves.len() {
@@ -53,9 +53,9 @@ pub fn quiescence_search(
             pick_move(&mut moves, i as u8, &mut scores);
             let mv = moves.get_move(i);
 
-            if *mv!=TT_Move && static_exchange_evaluation(board, mv.get_capture_square().unwrap() as i32,mv.get_captured_piece().unwrap(),mv.piece_to_move, mv.from as i32)<0 {
-                continue
-            }
+            // if *mv!=TT_Move && static_exchange_evaluation(board, mv.get_capture_square().unwrap() as i32,mv.get_captured_piece().unwrap(),mv.piece_to_move, mv.from as i32)<0 {
+            //     continue
+            // }
         
             
 
@@ -63,7 +63,7 @@ pub fn quiescence_search(
 
           if refs.is_time_done() {
               
-                    return alpha; // Return the best evaluation if time is up
+                    return 0;
                 }
 
 
@@ -228,10 +228,40 @@ fn search_common(
         }
 
     refs.increment_nodes_evaluated();
-    if depth == 0 {
-        return eval(board)
+    if depth <= 0 {
+        return quiescence_search(board,alpha,beta,refs);
     }
+    let mut move_list = generate_moves(board, false);
 
+    if move_list.len()==0{
+        return if board.is_check{
+            -MATE_VALUE+ply
+        }
+        else{
+            0
+        }
+    }
+    if board.is_board_draw(){
+        return 0;
+    }
+    
+    if !board.is_check && depth>=3 {
+        
+        let r=  if depth > 10 {
+            5
+        } else if depth > 6 {
+            4
+        } else {
+            3
+        };
+        board.make_null_move();
+        let null_move_score= -search_common(board, depth-1-r, ply+1,-beta,-beta+1,pv,refs);
+        board.unmake_null_move();
+        if null_move_score>= beta {
+
+            return null_move_score;
+        }
+    }
     let is_in_check=board.is_check;
     let  mut tt_move=MoveData::defualt();
         if let Some(entry) = refs.get_transposition_table().retrieve(board.game_state.zobrist_hash, depth as u8, alpha, beta)
@@ -257,18 +287,7 @@ fn search_common(
     
     
 
-    let mut move_list = generate_moves(board, false);
-    if move_list.len()==0{
-        return if board.is_check{
-            -MATE_VALUE+ply
-        }
-        else{
-            0
-        }
-    }
-    if board.is_board_draw(){
-        return 0;
-    }
+ 
 
 
 
@@ -352,6 +371,9 @@ fn search_common(
             best_move = *curr_move;
             refs.table.store(board.game_state.zobrist_hash, depth as u8, score_mv, entry_type, best_move);
             if !curr_move.is_capture() {
+                // if !board.is_check {
+                //     refs.store_killers(*curr_move, ply as usize);
+                // }
                 refs.add_history(board.turn, *curr_move, depth);
             }
         

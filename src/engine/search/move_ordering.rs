@@ -59,8 +59,8 @@ pub fn get_move_score(
         // }
         // else if let Some(killer_val)= refs.return_killer_move_score(ply as i32, *mv) { 
         //     return killer_val
-        //     
-        // }
+            
+        //}
     else {
        refs.get_history_value(mv,board.turn)
         
@@ -72,7 +72,7 @@ pub fn get_capture_score_only(board: &Board,move_data: MoveData, tt_move:MoveDat
         i32::MAX
     }
     else {
-        BASE_CAPTURE+move_data.get_captured_piece().unwrap().mvv_score()+ refs.get_capture_history(&move_data)          
+        BASE_CAPTURE+((move_data.get_captured_piece().unwrap().get_value()*10)-move_data.piece_to_move.get_value())          
     }
     
 }
