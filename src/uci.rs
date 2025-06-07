@@ -10,7 +10,7 @@ use crate::engine::search::transposition_table::{ TranspositionTable};
 use crate::engine::search::types::SearchInput;
 use crate::opening_book::{get_move_from_opening_book, init_book};
 
-const STARTPOS_FEN: &str = "rnbqkb1r/pppppppp/8/8/8/8/PPPPPPPP/RNBQKB1R w KQkq - 0 1";
+const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 pub fn handle_command(command:&str, board: &mut Board, should_use_book:bool, mut tt_table: &mut TranspositionTable)
 {

@@ -132,7 +132,6 @@ pub fn search(mut board: &mut Board, input: &mut SearchInput, tt_table: &mut Tra
 
 
 
-
     let eval = search_common(&mut board, current_depth as i32, 0, alpha, beta,  &mut principal_variation, &mut refs);
         best_eval = eval;
       current_depth+=1;
@@ -232,7 +231,7 @@ fn search_common(
         return quiescence_search(board,alpha,beta,refs);
     }
     let mut move_list = generate_moves(board, false);
-
+    let is_in_check=board.is_check;
     if move_list.len()==0{
         return if board.is_check{
             -MATE_VALUE+ply
@@ -244,7 +243,32 @@ fn search_common(
     if board.is_board_draw(){
         return 0;
     }
-    
+
+    let  mut tt_move=MoveData::defualt();
+    if let Some(entry) = refs.get_transposition_table().retrieve(board.game_state.zobrist_hash, depth as u8, alpha, beta)
+    {
+        tt_move=entry.best_move;
+        if entry.depth >= depth as u8 {
+            match entry.entry_type {
+                EntryType::Exact => return entry.eval,
+                EntryType::LowerBound => {
+                    if entry.eval >= beta {
+                        return entry.eval;
+                    }
+                }
+                EntryType::UpperBound => {
+                    if entry.eval <= alpha {
+                        return entry.eval;
+                    }
+                }
+            }
+
+        }
+    }
+    let curr_eval=eval(board);
+    if is_allowed_reverse_futility_pruning(depth as u8,beta, curr_eval,board){
+        return curr_eval;
+    }
     if !board.is_check && depth>=3 {
         
         let r=  if depth > 10 {
@@ -262,29 +286,8 @@ fn search_common(
             return null_move_score;
         }
     }
-    let is_in_check=board.is_check;
-    let  mut tt_move=MoveData::defualt();
-        if let Some(entry) = refs.get_transposition_table().retrieve(board.game_state.zobrist_hash, depth as u8, alpha, beta)
-        {
-            tt_move=entry.best_move;
-            if entry.depth >= depth as u8 {
-                match entry.entry_type {
-                    EntryType::Exact => return entry.eval,
-                    EntryType::LowerBound => {
-                        if entry.eval >= beta {
-                            return entry.eval;
-                        }
-                    }
-                    EntryType::UpperBound => {
-                        if entry.eval <= alpha {
-                            return entry.eval;
-                        }
-                    }
-                }
-                return entry.eval;
-            }
-        }
-    
+   
+   
     
 
  
@@ -292,11 +295,7 @@ fn search_common(
 
 
 
-    // let tt_move = TRANSPOSITION_TABLE
-    //     .lock()
-    //     .unwrap()
-    //     .get_TT_move(board.game_state.zobrist_hash)
-    //     .unwrap_or(MoveData::defualt());
+
     // let depth_actual= if tt_move==MoveData::defualt() && depth>5
     // {
     //     depth-2
@@ -319,6 +318,7 @@ fn search_common(
     let mut best_move = MoveData::defualt();
     let mut entry_type = EntryType::UpperBound;
     let mut quiet_moves=0;
+    let mut is_pvs =false;
     for i in 0..move_list.len() {
         // Stop search if time has elapsed
         if refs.is_time_done(){
@@ -350,16 +350,27 @@ fn search_common(
 
         let mut node_pv: Vec<MoveData> = Vec::new();
         board.make_move(curr_move);
+        
 
+       if is_allowed_futility_pruning(depth as u8, alpha,curr_eval, curr_move, board) && is_pvs && !is_in_check{
+            board.unmake_move(curr_move);
+            break;
+        }
 
-       // if is_allowed_futility_pruning(depth as u8, alpha,curr_eval, curr_move, board) && is_pvs && !is_in_check{
-       //      board.unmake_move(curr_move);
-       //      break;
-       //  }
-
-
-
-        let  score_mv = -search_common(board, depth - 1, ply + 1, -beta, -alpha, &mut node_pv, refs);
+        let mut score_mv = 0;
+        if is_pvs && depth>=3 {
+            let new_depth =reduce_depth(board, curr_move, depth as f64, i as f64) as i32;
+            score_mv = -search_common(board, new_depth, ply + 1, -alpha - 1, -alpha, &mut node_pv, refs);
+            if score_mv > alpha && score_mv < beta {
+                score_mv = -search_common(board, depth - 1, ply + 1, - alpha-1, -alpha, &mut node_pv, refs);
+                if score_mv > alpha && score_mv < beta {
+                    score_mv = -search_common(board, depth - 1, ply + 1, -beta, -alpha, &mut node_pv, refs);
+                }
+            }
+            
+        } else {
+            score_mv = -search_common(board, depth - 1, ply + 1, -beta, -alpha, &mut node_pv, refs);
+        }
 
 
 
@@ -391,7 +402,10 @@ fn search_common(
             pv.clear();
             pv.push(*curr_move);
             pv.append(&mut node_pv);
+
         }
+        is_pvs=true;
+
 
     }
     refs.get_transposition_table().store(board.game_state.zobrist_hash, depth as u8, alpha, entry_type, best_move);
