@@ -57,10 +57,10 @@ pub fn get_move_score(
         // else if board.is_move_check(mv){
         //     return  BASE_KILLER+1;
         // }
-        // else if let Some(killer_val)= refs.return_killer_move_score(ply as i32, *mv) { 
-        //     return killer_val
+        else if let Some(killer_val)= refs.return_killer_move_score(ply as i32, *mv) { 
+            return killer_val
             
-        //}
+        }
     else {
        refs.get_history_value(mv,board.turn)
         

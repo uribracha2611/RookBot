@@ -382,9 +382,9 @@ fn search_common(
             best_move = *curr_move;
             refs.table.store(board.game_state.zobrist_hash, depth as u8, score_mv, entry_type, best_move);
             if !curr_move.is_capture() {
-                // if !board.is_check {
-                //     refs.store_killers(*curr_move, ply as usize);
-                // }
+              
+                    refs.store_killers(*curr_move, ply as usize);
+                
                 refs.add_history(board.turn, *curr_move, depth);
             }
         
