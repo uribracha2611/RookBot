@@ -40,30 +40,23 @@ pub fn get_moves_score(moves:&MoveList,  ply:usize, board: &Board, tt_move:MoveD
 }
 pub fn get_move_score(
     mv: &MoveData,
-
     ply: usize,
-    tt_move:MoveData,
+    tt_move: MoveData,
     board: &Board,
-    refs:&SearchRefs,
-    color: PieceColor
+    refs: &SearchRefs,
+    color: PieceColor,
 ) -> i32 {
-    if *mv==tt_move{
-        return i32::MAX
+    if *mv == tt_move {
+        return i32::MAX;
     }
-      if mv.is_capture() {
-
-        BASE_CAPTURE+((mv.get_captured_piece().unwrap().get_value()*10)-mv.piece_to_move.get_value())
+    if mv.is_capture() {
+        BASE_CAPTURE + ((mv.get_captured_piece().unwrap().get_value() * 10) - mv.piece_to_move.get_value())
     }
-        // else if board.is_move_check(mv){
-        //     return  BASE_KILLER+1;
-        // }
-        else if let Some(killer_val)= refs.return_killer_move_score(ply as i32, *mv) { 
-            return killer_val
-            
-        }
-    else {
-       refs.get_history_value(mv,board.turn)
-        
+    
+    else if let Some(killer_val) = refs.return_killer_move_score(ply as i32, *mv) {
+        return killer_val
+    } else {
+        refs.get_history_value(mv, board.turn)
     }
 }
 
