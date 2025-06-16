@@ -5,8 +5,8 @@ use crate::engine::movegen::precomputed::DIR_SQUARES;
 
 // Define piece values
 pub const PAWN_VALUE: i32 = 100;
-pub const KNIGHT_VALUE: i32 = 320;
-pub const BISHOP_VALUE: i32 = 330;
+pub const KNIGHT_VALUE: i32 = 300;
+pub const BISHOP_VALUE: i32 = 300;
 pub const ROOK_VALUE: i32 = 500;
 pub const QUEEN_VALUE: i32 = 900;
 pub const KING_VALUE: i32 = 20000;
@@ -31,10 +31,10 @@ pub fn static_exchange_evaluation(board: &Board,capture_square:i32,piece_capture
     if piece_captures.piece_type!=PieceType::KING && piece_captures.piece_type!=PieceType::KNIGHT {
         let delta = DIR_SQUARES[initial_square as usize][capture_square as usize];
 
-        let hidden_attacker = find_hidden_attackers(board, delta, capture_square);
-        if hidden_attacker.is_some()
+        let hidden_attacker = find_hidden_attackers(board, delta, initial_square);
+        if hidden_attacker.is_some() 
         {
-            add_piece_to_attack(hidden_attacker.unwrap(),&mut curr_turn_attackers,&mut opp_attackers,initial_turn);
+            add_piece_to_attack(hidden_attacker.unwrap(),&mut curr_turn_attackers,&mut opp_attackers,initial_turn,(piece_captures, initial_square as u8));
 
         }
     }
@@ -43,7 +43,7 @@ pub fn static_exchange_evaluation(board: &Board,capture_square:i32,piece_capture
     let mut score_index =1;
     while (!curr_turn_attackers.is_empty() && turn==initial_turn) || (!opp_attackers.is_empty() && turn!=initial_turn)  {
 
-        let piece_captures=if initial_turn==turn{
+        let new_piece_captures=if initial_turn==turn{
             curr_turn_attackers.remove(0)
         }
         else {
@@ -51,16 +51,16 @@ pub fn static_exchange_evaluation(board: &Board,capture_square:i32,piece_capture
         };
         let capture_value=get_piece_value(curr_piece_at_square.piece_type)-scores[score_index-1];
         scores.push(capture_value);
-        curr_piece_at_square=piece_captures.0;
+        curr_piece_at_square=new_piece_captures.0;
 
 
-        if piece_captures.0.piece_type!=PieceType::KING && piece_captures.0.piece_type!=PieceType::KNIGHT {
-            let delta = DIR_SQUARES[initial_square as usize][piece_captures.1 as usize];
+        if new_piece_captures.0.piece_type!=PieceType::KING && new_piece_captures.0.piece_type!=PieceType::KNIGHT {
+            let delta = DIR_SQUARES[new_piece_captures.1 as usize][capture_square as usize];
 
-            let hidden_attacker = find_hidden_attackers(board, delta, capture_square);
+            let hidden_attacker = find_hidden_attackers(board, delta, new_piece_captures.1 as i32);
             if hidden_attacker.is_some()
             {
-                add_piece_to_attack(hidden_attacker.unwrap(), &mut curr_turn_attackers, &mut opp_attackers, initial_turn);
+                add_piece_to_attack(hidden_attacker.unwrap(), &mut curr_turn_attackers, &mut opp_attackers, initial_turn,(piece_captures, initial_square as u8));
             }
         }
 
@@ -94,12 +94,17 @@ pub fn get_piece_value(piece: PieceType) -> i32 {
         PieceType::KING => KING_VALUE,
     }
 }
-fn add_piece_to_attack(hidden_attacker:(Piece,u8),our_attackers:&mut Vec<(Piece,u8)>,their_attackers:&mut Vec<(Piece,u8)>,initial_turn:PieceColor){
-    if hidden_attacker.0.piece_color==initial_turn{
-        our_attackers.push(hidden_attacker);
-        our_attackers.sort_by_key(|x| get_piece_value(x.0.piece_type));
+fn add_piece_to_attack(hidden_attacker:(Piece,u8),our_attackers:&mut Vec<(Piece,u8)>,their_attackers:&mut Vec<(Piece,u8)>,initial_turn:PieceColor,initial_piece:(Piece,u8)){
+    if hidden_attacker== initial_piece{
+        return;
     }
-    else{
+    if hidden_attacker.0.piece_color==initial_turn{
+        if !our_attackers.contains(&hidden_attacker) {
+            our_attackers.push(hidden_attacker);
+            our_attackers.sort_by_key(|x| get_piece_value(x.0.piece_type));
+        }
+    }
+    else if  !their_attackers.contains(&hidden_attacker) {
         their_attackers.push(hidden_attacker);
         their_attackers.sort_by_key(|x| get_piece_value(x.0.piece_type));
     }

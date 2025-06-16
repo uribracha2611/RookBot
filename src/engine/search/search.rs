@@ -53,9 +53,9 @@ pub fn quiescence_search(
             pick_move(&mut moves, i as u8, &mut scores);
             let mv = moves.get_move(i);
 
-            // if *mv!=TT_Move && static_exchange_evaluation(board, mv.get_capture_square().unwrap() as i32,mv.get_captured_piece().unwrap(),mv.piece_to_move, mv.from as i32)<0 {
-            //     continue
-            // }
+            if *mv!=tt_Move && static_exchange_evaluation(&board, mv.to as i32, mv.get_captured_piece().unwrap(), mv.piece_to_move, mv.from as i32)<0 {
+                continue
+            }
         
             
 
@@ -327,26 +327,32 @@ fn search_common(
 
       
         pick_move(&mut move_list,  i as u8,&mut move_score);
-        let curr_move = move_list.get_move(i);
+    
 
 
 
-        // pick_move(&mut move_list, i as u8, &mut move_score);
+   
 
-        // let mut curr_move = move_list.get_move(i);
-        // if *curr_move!=tt_move && curr_move.is_capture() && static_exchange_evaluation(board, curr_move.get_capture_square().unwrap() as i32,curr_move.get_captured_piece().unwrap(),curr_move.piece_to_move, curr_move.from as i32) < 0 {
-        //     move_score[i]= -BASE_CAPTURE+MVV_LVA[curr_move.get_captured_piece().unwrap().piece_type as usize][curr_move.piece_to_move.piece_type as usize] as i32;
-        //     pick_move(&mut move_list, i as u8, &mut move_score);
-        //     curr_move= move_list.get_move(i);
-        // }
+        let mut curr_move = move_list.get_move(i);
 
-        // if board.is_quiet_move(curr_move){
-        //
-        //     if should_movecount_based_pruning(board, *curr_move, depth as u32, quiet_moves ,alpha,improving) && is_pvs{
-        //         continue;
-        //     }
-        //     quiet_moves+=1;
-        // }
+        while *curr_move!=tt_move && curr_move.is_capture() && static_exchange_evaluation(&board, curr_move.to as i32, curr_move.get_captured_piece().unwrap(), curr_move.piece_to_move, curr_move.from as i32) < 0 {
+            let old_move=*curr_move;
+            move_score[i]= -BASE_CAPTURE+((curr_move.get_captured_piece().unwrap().get_value() * 10) - curr_move.piece_to_move.get_value());
+            pick_move(&mut move_list, i as u8, &mut move_score);
+            curr_move= move_list.get_move(i);
+            if *curr_move==old_move {
+                break;
+            };
+          
+        }
+
+        if board.is_quiet_move(curr_move){
+        
+            if should_movecount_based_pruning(board, *curr_move, depth as u32, quiet_moves ,alpha) && is_pvs{
+                continue;
+            }
+            quiet_moves+=1;
+        }
 
         let mut node_pv: Vec<MoveData> = Vec::new();
         board.make_move(curr_move);

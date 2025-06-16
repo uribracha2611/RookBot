@@ -93,11 +93,16 @@ pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> 
     }
 
     // Check for queen attacks
-    let mut queen_attackers = (get_bishop_attacks(square as usize, blockers) | get_rook_attacks(square as usize, blockers)) & board.get_piece_bitboard(piece_color.opposite(), PieceType::QUEEN);
+    let mut queen_attackers = (get_bishop_attacks(square as usize, blockers) | get_rook_attacks(square as usize, blockers)) & board.get_piece_bitboard(piece_color, PieceType::QUEEN);
 
     while queen_attackers != 0 {
         let start_square=queen_attackers.pop_lsb();
         attackers.push((Piece::new(piece_color,PieceType::QUEEN),start_square));
+    }
+   let mut king_attacks = precomputed::KING_MOVES[square as usize] & board.get_piece_bitboard(piece_color, PieceType::KING);
+    while king_attacks != 0 {
+        let start_square=king_attacks.pop_lsb();
+        attackers.push((Piece::new(piece_color,PieceType::KING),start_square));
     }
     attackers.sort_by_key(|x| get_piece_value(x.0.piece_type));
     attackers
@@ -112,7 +117,7 @@ pub fn find_hidden_attackers(board: &Board,delta:Position,square:i32)->Option<(P
     let delta_search=-delta;
     let is_ortho=delta_search.is_orthogonal();
     let initial_pos=Position::from_sqr(square as i8).unwrap();
-    let i=0;
+    let mut i =1;
     loop {
         let curr_pos=initial_pos+delta_search*i;
         if curr_pos.to_sqr().is_none(){
@@ -129,7 +134,7 @@ pub fn find_hidden_attackers(board: &Board,delta:Position,square:i32)->Option<(P
            }
            
        }
-        
+     i+=1;   
     }
     
 }

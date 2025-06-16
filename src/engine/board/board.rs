@@ -119,6 +119,7 @@ impl Board {
 
         // Validate that the FEN has the minimum required parts
         if parts.len() < 6 {
+            println!("Invalid fen: {}", fen);
             panic!("Invalid FEN string: insufficient parts");
         }
 
