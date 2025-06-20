@@ -317,7 +317,9 @@ fn search_common(
     );
     let mut best_move = MoveData::defualt();
     let mut entry_type = EntryType::UpperBound;
-    let mut quiet_moves=0;
+    let mut quiet_moves_count=0;
+    
+    let mut quiet_moves:Vec<MoveData>=Vec::with_capacity(move_list.len());
     let mut is_pvs =false;
     for i in 0..move_list.len() {
         // Stop search if time has elapsed
@@ -325,7 +327,7 @@ fn search_common(
             return 0;
         }
 
-      
+      let mut is_quiet_move =false;
         pick_move(&mut move_list,  i as u8,&mut move_score);
     
 
@@ -347,11 +349,11 @@ fn search_common(
         }
 
         if board.is_quiet_move(curr_move){
-        
-            if should_movecount_based_pruning(board, *curr_move, depth as u32, quiet_moves ,alpha) && is_pvs{
+            is_quiet_move=true;
+            if should_movecount_based_pruning(board, *curr_move, depth as u32, quiet_moves_count ,alpha) && is_pvs{
                 continue;
             }
-            quiet_moves+=1;
+            quiet_moves_count+=1;
         }
 
         let mut node_pv: Vec<MoveData> = Vec::new();
@@ -362,6 +364,7 @@ fn search_common(
             board.unmake_move(curr_move);
             break;
         }
+        refs.set_move_ply(ply, *curr_move);
 
         let mut score_mv = 0;
         if is_pvs && depth>=3 {
@@ -392,11 +395,18 @@ fn search_common(
                     refs.store_killers(*curr_move, ply as usize);
                 
                 refs.add_history(board.turn, *curr_move, depth);
+                refs.increament_cont_hist(depth,ply,curr_move);
+            }
+            for quiet_move in quiet_moves{
+                refs.decreament_cont_hist(depth, ply, &quiet_move);
             }
         
             return score_mv;
         }
         
+        if is_quiet_move{
+            quiet_moves.push(*curr_move);
+        }
 
         
         if score_mv > alpha {

@@ -56,7 +56,7 @@ pub fn get_move_score(
     else if let Some(killer_val) = refs.return_killer_move_score(ply as i32, *mv) {
         return killer_val
     } else {
-        refs.get_history_value(mv, board.turn)
+        refs.get_history_value(mv, board.turn)+ refs.get_cont_history(ply as i32, mv)
     }
 }
 
