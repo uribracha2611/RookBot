@@ -19,7 +19,7 @@ impl SearchStackEntry {
     pub fn new(eval:i32, curr_move:MoveData) -> SearchStackEntry {
         SearchStackEntry{eval, curr_move}
     }
-    
+
 }
 #[derive(Clone, Copy)]
 pub struct ChosenMove{
@@ -116,7 +116,7 @@ pub fn new_timed_search<'a>(
         move_stack: [None; 256],
         current_extensions: 0,
         table: transposition_table,
-        continuation_history:vec![vec![0; 64*12*64*12]; 2]  
+        continuation_history:vec![vec![0; 64*12*64*12]; 2]
     }
 }
     pub fn new_depth_search(
@@ -184,7 +184,7 @@ pub fn new_timed_search<'a>(
     }
     pub fn get_move_ply(&self, ply: i32) -> Option<MoveData> {
         self.move_stack[ply as usize]
-        
+
     }
     fn cont_hist_index(mv_1:&MoveData,mv_2:&MoveData) -> usize {
         let to1=mv_1.to as usize;
@@ -193,7 +193,7 @@ pub fn new_timed_search<'a>(
         let piece2=mv_2.piece_to_move;
         ((to1 * 12 + piece1.to_history_index()) * 64 + to2) * 12 + piece2.to_history_index()
     }
-    pub fn increament_cont_hist(&mut self, depth:i32,ply: i32,mv:&MoveData) 
+    pub fn increament_cont_hist(&mut self, depth:i32,ply: i32,mv:&MoveData)
     {
         if ply>=1 {
             if let Some(stack_mv) = &mut self.move_stack[(ply - 1) as usize] {
@@ -201,7 +201,7 @@ pub fn new_timed_search<'a>(
                 self.continuation_history[0][index] += depth * depth;
             }
         }
-        
+
         if ply>=2 {
             if let Some(stack_mv) = &mut self.move_stack[(ply - 2) as usize] {
                 let index = Self::cont_hist_index(mv, stack_mv);
@@ -241,10 +241,10 @@ pub fn new_timed_search<'a>(
             }
         }
         cont
-        
+
     }
 
-    
+
 
     
 
