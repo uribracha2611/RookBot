@@ -296,14 +296,14 @@ fn search_common(
 
 
 
-    // let depth_actual= if tt_move==MoveData::defualt() && depth>5
-    // {
-    //     depth-2
-    // }
-    // else {
-    //     depth
-    //
-    // };
+    let depth_actual= if tt_move==MoveData::defualt() && depth>5
+    {
+        depth-2
+    }
+    else {
+        depth
+
+    };
     
 
     //
@@ -350,7 +350,7 @@ fn search_common(
 
         if board.is_quiet_move(curr_move){
             is_quiet_move=true;
-            if should_movecount_based_pruning(board, *curr_move, depth as u32, quiet_moves_count ,alpha) && is_pvs{
+            if should_movecount_based_pruning(board, *curr_move, depth_actual as u32, quiet_moves_count ,alpha) && is_pvs{
                 continue;
             }
             quiet_moves_count+=1;
@@ -360,25 +360,25 @@ fn search_common(
         board.make_move(curr_move);
         
 
-       if is_allowed_futility_pruning(depth as u8, alpha,curr_eval, curr_move, board) && is_pvs && !is_in_check{
+       if is_allowed_futility_pruning(depth_actual as u8, alpha,curr_eval, curr_move, board) && is_pvs && !is_in_check{
             board.unmake_move(curr_move);
             break;
         }
         refs.set_move_ply(ply, *curr_move);
 
         let mut score_mv = 0;
-        if is_pvs && depth>=3 {
-            let new_depth =reduce_depth(board, curr_move, depth as f64, i as f64) as i32;
+        if is_pvs && depth_actual>=3 {
+            let new_depth =reduce_depth(board, curr_move, depth_actual as f64, i as f64) as i32;
             score_mv = -search_common(board, new_depth, ply + 1, -alpha - 1, -alpha, &mut node_pv, refs);
             if score_mv > alpha && score_mv < beta {
-                score_mv = -search_common(board, depth - 1, ply + 1, - alpha-1, -alpha, &mut node_pv, refs);
+                score_mv = -search_common(board, depth_actual - 1, ply + 1, - alpha-1, -alpha, &mut node_pv, refs);
                 if score_mv > alpha && score_mv < beta {
-                    score_mv = -search_common(board, depth - 1, ply + 1, -beta, -alpha, &mut node_pv, refs);
+                    score_mv = -search_common(board, depth_actual - 1, ply + 1, -beta, -alpha, &mut node_pv, refs);
                 }
             }
             
         } else {
-            score_mv = -search_common(board, depth - 1, ply + 1, -beta, -alpha, &mut node_pv, refs);
+            score_mv = -search_common(board, depth_actual - 1, ply + 1, -beta, -alpha, &mut node_pv, refs);
         }
 
 
@@ -389,16 +389,16 @@ fn search_common(
         if score_mv >= beta  {
             entry_type = EntryType::LowerBound;
             best_move = *curr_move;
-            refs.table.store(board.game_state.zobrist_hash, depth as u8, score_mv, entry_type, best_move);
+            refs.table.store(board.game_state.zobrist_hash, depth_actual as u8, score_mv, entry_type, best_move);
             if !curr_move.is_capture() {
               
                     refs.store_killers(*curr_move, ply as usize);
                 
-                refs.add_history(board.turn, *curr_move, depth);
-                refs.increament_cont_hist(depth,ply,curr_move);
+                refs.add_history(board.turn, *curr_move, depth_actual);
+                refs.increament_cont_hist(depth_actual,ply,curr_move);
             }
             for quiet_move in quiet_moves{
-                refs.decreament_cont_hist(depth, ply, &quiet_move);
+                refs.decreament_cont_hist(depth_actual, ply, &quiet_move);
             }
         
             return score_mv;
@@ -424,7 +424,7 @@ fn search_common(
 
 
     }
-    refs.get_transposition_table().store(board.game_state.zobrist_hash, depth as u8, alpha, entry_type, best_move);
+    refs.get_transposition_table().store(board.game_state.zobrist_hash, depth_actual as u8, alpha, entry_type, best_move);
 
     alpha
 }
