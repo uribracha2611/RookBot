@@ -7,7 +7,7 @@ use crate::engine::movegen::generate::generate_moves;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
 use crate::engine::search::constants::{INFINITY, MATE_VALUE, VAL_WINDOW};
-use crate::engine::search::functions::{is_allowed_futility_pruning, is_allowed_reverse_futility_pruning};
+use crate::engine::search::functions::{is_allowed_futility_pruning, is_allowed_reverse_futility_pruning, is_improving};
 use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 use crate::engine::search::move_ordering::{get_capture_score, get_move_score, get_moves_score, BASE_CAPTURE, MVV_LVA};
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
@@ -266,7 +266,16 @@ fn search_common(
         }
     }
     let curr_eval=eval(board);
-    if is_allowed_reverse_futility_pruning(depth as u8,beta, curr_eval,board){
+    if board.is_check{
+        refs.disable_eval_ply(ply);
+    }
+    else {
+        refs.set_eval_ply(ply,curr_eval);
+    }
+    let improving=is_improving(refs, ply);
+
+
+    if is_allowed_reverse_futility_pruning(depth as u8,beta, curr_eval,board,improving){
         return curr_eval;
     }
     if !board.is_check && depth>=3 {

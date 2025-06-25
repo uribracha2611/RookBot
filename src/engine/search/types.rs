@@ -171,6 +171,9 @@ pub fn new_timed_search<'a>(
     }
     #[inline(always)]
     pub fn get_eval_ply(&self, ply: i32) -> Option<i32> {
+        if ply>=256{
+            return None;
+        }
         self.eval_stack[ply as usize]
     }
     pub fn set_eval_ply(&mut self, ply: i32,eval:i32) {
