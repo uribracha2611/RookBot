@@ -3,7 +3,7 @@ use crate::engine::board::board::Board;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::constants::MATE_VALUE;
 
-pub fn reduce_depth(board: &Board, mv: &MoveData, depth: f64, moves_played: f64) -> f64 {
+pub fn reduce_depth(board: &Board, mv: &MoveData, depth: f32, moves_played: f32,improving:bool) -> f32 {
     if mv.is_capture() || mv.is_promotion() {
         if board.is_check {
             depth - 2.0
@@ -13,9 +13,14 @@ pub fn reduce_depth(board: &Board, mv: &MoveData, depth: f64, moves_played: f64)
     } else {
         let reg_reduction =depth - (0.7844 + (depth.ln() * moves_played.ln()) / 2.4696);
 
+        let actual_reduction=if !improving{
+            reg_reduction-1.0
+        }
+        else {
+            reg_reduction
+        };
 
-
-        reg_reduction.clamp(1.0, depth.floor())
+        actual_reduction.clamp(1.0, depth.floor())
         
     }
 }

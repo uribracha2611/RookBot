@@ -377,7 +377,7 @@ fn search_common(
 
         let mut score_mv = 0;
         if is_pvs && depth_actual>=3 {
-            let new_depth =reduce_depth(board, curr_move, depth_actual as f64, i as f64) as i32;
+            let new_depth =reduce_depth(board, curr_move, depth_actual as f32, i as f32,improving) as i32;
             score_mv = -search_common(board, new_depth, ply + 1, -alpha - 1, -alpha, &mut node_pv, refs);
             if score_mv > alpha && score_mv < beta {
                 score_mv = -search_common(board, depth_actual - 1, ply + 1, - alpha-1, -alpha, &mut node_pv, refs);
