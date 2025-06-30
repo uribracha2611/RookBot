@@ -24,7 +24,7 @@ pub fn reduce_depth(board: &Board, mv: &MoveData, depth: f32, moves_played: f32,
         
     }
 }
-pub fn should_movecount_based_pruning(board: &Board, mv: MoveData, depth: u32, moves_played_so_far: i32,best_score:i32 ) -> bool {
+pub fn should_movecount_based_pruning(board: &Board, mv: MoveData, depth: u32, moves_played_so_far: i32,best_score:i32,improving:bool ) -> bool {
     if depth>=4{
         return false;
     }
@@ -33,8 +33,8 @@ pub fn should_movecount_based_pruning(board: &Board, mv: MoveData, depth: u32, m
     if  abs(best_score)>= MATE_VALUE-100 {
         return false;
     }
-
-     moves_played_so_far> ((3 + depth * depth) ) as i32
+    let factor=if improving{1} else { 2 };
+    moves_played_so_far> (3+ (depth * depth)/factor ) as i32
 
 
 }
