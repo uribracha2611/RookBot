@@ -25,7 +25,7 @@ impl MoveList {
     }
     pub fn new() -> Self {
         MoveList {
-            moves: [MoveData::defualt(); MAX_MOVES],
+            moves: [MoveData::default(); MAX_MOVES],
             count: 0,
         }
     }

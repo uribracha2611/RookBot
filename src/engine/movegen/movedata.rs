@@ -51,7 +51,7 @@ pub struct MoveData {
 }
 
 impl MoveData {
-    pub fn defualt() -> MoveData {
+    pub fn default() -> MoveData {
         MoveData {
             from: 0,
             to: 0,

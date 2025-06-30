@@ -44,7 +44,7 @@ pub fn quiescence_search(
     let tt_Move = refs
         .get_transposition_table()
         .get_TT_move(board.game_state.zobrist_hash)
-        .unwrap_or(MoveData::defualt());
+        .unwrap_or(MoveData::default());
     let mut scores = get_capture_score(board, moves, tt_Move, refs);
 
     // Iterate through the moves
@@ -124,7 +124,7 @@ pub fn search(
     let history_table = [[[0; 64]; 64]; 2];
     let mut principal_variation: Vec<MoveData> = Vec::new();
     let mut best_eval = -INFINITY;
-    let killer_moves = [[MoveData::defualt(); 2]; 256];
+    let killer_moves = [[MoveData::default(); 2]; 256];
     let mut cap_hist: CaptureHistoryTable = [[[0; 12]; 64]; 12];
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
@@ -159,7 +159,7 @@ pub fn timed_search(
     tt_table: &mut TranspositionTable,
 ) -> SearchOutput {
     let mut pv = Vec::new();
-    let killer_moves = [[MoveData::defualt(); 2]; 256];
+    let killer_moves = [[MoveData::default(); 2]; 256];
     let history_table = [[[0; 64]; 64]; 2];
     let mut curr_eval = 0;
     let move_time = if is_move_time {
@@ -231,7 +231,7 @@ fn search_common(
         return 0;
     }
 
-    let mut tt_move = MoveData::defualt();
+    let mut tt_move = MoveData::default();
     if let Some(entry) = refs.get_transposition_table().retrieve(
         board.game_state.zobrist_hash,
         depth as u8,
@@ -283,7 +283,7 @@ fn search_common(
         }
     }
 
-    let depth_actual = if tt_move == MoveData::defualt() && depth > 5 {
+    let depth_actual = if tt_move == MoveData::default() && depth > 5 {
         depth - 2
     } else {
         depth
@@ -292,7 +292,7 @@ fn search_common(
     //
     let mut move_score =
         get_moves_score(&move_list, ply as usize, board, tt_move, &*refs, board.turn);
-    let mut best_move = MoveData::defualt();
+    let mut best_move = MoveData::default();
     let mut entry_type = EntryType::UpperBound;
     let mut quiet_moves_count = 0;
 
