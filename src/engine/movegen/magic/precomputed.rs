@@ -1,7 +1,9 @@
-use std::sync::LazyLock;
 use crate::engine::board::bitboard::Bitboard;
-use crate::engine::movegen::magic::constants::{BISHOP_MAGICS, BISHOP_SHIFTS, ROOK_MAGICS, ROOK_SHIFTS};
+use crate::engine::movegen::magic::constants::{
+    BISHOP_MAGICS, BISHOP_SHIFTS, ROOK_MAGICS, ROOK_SHIFTS,
+};
 use crate::engine::movegen::magic::functions::{build_mask_square, create_table};
+use std::sync::LazyLock;
 
 pub static ROOK_MASK: LazyLock<[Bitboard; 64]> = LazyLock::new(|| {
     let mut mask = [Bitboard::new(0); 64];
@@ -34,7 +36,6 @@ pub static BISHOP_ATTACKS: LazyLock<Vec<Vec<Bitboard>>> = LazyLock::new(|| {
     }
     attacks
 });
-
 
 pub fn precompute_magics() {
     LazyLock::force(&ROOK_MASK);

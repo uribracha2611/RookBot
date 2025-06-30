@@ -1,6 +1,6 @@
-use std::ops::{Add, Sub, Mul, Neg};
-use std::fmt;
 use num_traits::AsPrimitive;
+use std::fmt;
+use std::ops::{Add, Mul, Neg, Sub};
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct Position {
@@ -22,7 +22,6 @@ impl Position {
             None
         }
     }
-    
 
     /// Converts a chess notation string (e.g., "e2") to a `Position`. Panics if invalid notation.
 
@@ -64,7 +63,6 @@ impl Position {
         let rank = (self.y + 1).to_string();
         Some(format!("{}{}", file, rank))
     }
-
 
     /// Checks if another `Position` is adjacent to the current one.
     pub fn is_adjacent(&self, other: &Self) -> bool {

@@ -23,7 +23,6 @@ impl PieceColor {
             PieceColor::BLACK => 1,
         }
     }
-    
 }
 impl PieceType {
     pub fn to_index(&self) -> usize {
@@ -36,7 +35,6 @@ impl PieceType {
             PieceType::KING => 5,
         }
     }
-    
 }
 impl<T> Index<PieceColor> for [T] {
     type Output = T;
@@ -45,7 +43,6 @@ impl<T> Index<PieceColor> for [T] {
         &self[index as usize]
     }
 }
-
 
 impl PieceColor {
     pub fn opposite(&self) -> PieceColor {
@@ -125,9 +122,9 @@ impl Piece {
         }
     }
     pub fn to_history_index(&self) -> usize {
-     self.piece_color.to_index()*6+self.piece_type.to_index()
+        self.piece_color.to_index() * 6 + self.piece_type.to_index()
     }
-    pub const  fn mvv_score(&self)->i32{
+    pub const fn mvv_score(&self) -> i32 {
         match self.piece_type {
             PieceType::PAWN => 10,
             PieceType::KNIGHT => 11,
@@ -138,7 +135,6 @@ impl Piece {
         }
     }
 }
-
 
 impl fmt::Debug for Piece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

@@ -1,7 +1,9 @@
-use std::sync::LazyLock;
 use crate::engine::board::bitboard::Bitboard;
 use crate::engine::board::position::Position;
-use crate::engine::movegen::constants::{BISHOP_OFFSETS, KING_OFFSETS, KNIGHT_OFFSETS, ROOK_OFFSETS};
+use crate::engine::movegen::constants::{
+    BISHOP_OFFSETS, KING_OFFSETS, KNIGHT_OFFSETS, ROOK_OFFSETS,
+};
+use std::sync::LazyLock;
 
 pub static KNIGHT_MOVES: LazyLock<[Bitboard; 64]> = LazyLock::new(|| {
     let mut moves = [Bitboard::new(0); 64];
@@ -79,21 +81,19 @@ pub static ALIGN_MASK: LazyLock<[[Bitboard; 64]; 64]> = LazyLock::new(|| {
 
     align_mask
 });
-pub static DIR_SQUARES:LazyLock<[[Position;64];64]>=LazyLock::new(||{
-    let mut dir_squares=[[Position::new(0,0);64];64];
+pub static DIR_SQUARES: LazyLock<[[Position; 64]; 64]> = LazyLock::new(|| {
+    let mut dir_squares = [[Position::new(0, 0); 64]; 64];
     for square_a in 0..64 {
         for square_b in 0..64 {
             let pos_a = Position::from_sqr(square_a).unwrap();
             let pos_b = Position::from_sqr(square_b).unwrap();
             let delta = pos_b - pos_a;
             let dir = Position::new(delta.x.signum(), delta.y.signum());
-            dir_squares[square_a as usize][square_b as usize]=dir;
-            }
-        
+            dir_squares[square_a as usize][square_b as usize] = dir;
         }
-    dir_squares
     }
-);
+    dir_squares
+});
 pub static SQR_A_B_MASK: LazyLock<[[Bitboard; 64]; 64]> = LazyLock::new(|| {
     let mut align_mask = [[Bitboard::new(0); 64]; 64];
 
@@ -106,7 +106,7 @@ pub static SQR_A_B_MASK: LazyLock<[[Bitboard; 64]; 64]> = LazyLock::new(|| {
 
             for i in 1..8 {
                 let coord = pos_a + dir * i as i8;
-                if let Some(index) = coord.to_sqr()  {
+                if let Some(index) = coord.to_sqr() {
                     if index == square_b {
                         align_mask[square_a as usize][square_b as usize].set_square(index as u8);
                         break;
@@ -139,9 +139,9 @@ pub static NUM_SQUARES_FROM_SQUARE: LazyLock<[[u8; 64]; 8]> = LazyLock::new(|| {
             num_squares_from_square[dir_index][square as usize] = count;
         }
     }
-    
+
     num_squares_from_square
-    });
+});
 pub fn precompute_movegen() {
     LazyLock::force(&KNIGHT_MOVES);
     LazyLock::force(&KING_MOVES);

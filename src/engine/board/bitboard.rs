@@ -1,11 +1,9 @@
 use super::piece::PieceColor;
 
-
 #[derive(
     Copy,
     Clone,
     PartialEq,
-    
     Sub,
     BitAnd,
     BitXor,
@@ -19,8 +17,8 @@ use super::piece::PieceColor;
     Shr,
     Mul,
     Default,
+    Debug,
 )]
-#[derive(Debug)]
 pub struct Bitboard(u64);
 
 impl PartialEq<u64> for Bitboard {
@@ -60,7 +58,7 @@ impl Bitboard {
     }
 
     pub fn set_square(&mut self, square: u8) {
-        let bit:u64 = 1u64 << square;
+        let bit: u64 = 1u64 << square;
         self.set(bit);
     }
 
@@ -69,7 +67,7 @@ impl Bitboard {
         self.0 &= !bit;
     }
     pub fn clear_square(&mut self, square: u8) {
-        let bit:u64 = 1u64 << square;
+        let bit: u64 = 1u64 << square;
         self.clear(bit);
     }
 
@@ -84,43 +82,48 @@ impl Bitboard {
     }
     #[inline(always)]
     pub fn create_from_square(square: u8) -> Bitboard {
-        let bit:u64=1u64<<square ;
+        let bit: u64 = 1u64 << square;
         Bitboard(bit)
     }
     /// Perform a double pawn push, ensuring there are no blockers.
     #[inline(always)]
     pub fn pawn_double_push(self, color: &PieceColor, blockers: Bitboard) -> Bitboard {
-        let rank = if *color == PieceColor::WHITE { RANK_2 } else { RANK_7 };
+        let rank = if *color == PieceColor::WHITE {
+            RANK_2
+        } else {
+            RANK_7
+        };
 
-        self.bitand(rank).pawn_push(color)
+        self.bitand(rank)
+            .pawn_push(color)
             .bitand(!blockers)
             .pawn_push(color)
             .bitand(!blockers)
     }
     #[inline(always)]
     pub fn get_single_set_bit(self) -> u8 {
-          self.0.trailing_zeros() as u8
+        self.0.trailing_zeros() as u8
     }
     #[inline(always)]
     pub fn pop_count(self) -> u8 {
         self.0.count_ones() as u8
     }
 
-
     /// Perform a pawn attack in the specified direction for the given color.
     #[inline(always)]
     pub fn pawn_attack(self, color: PieceColor, opponent: Bitboard, attack_left: bool) -> Bitboard {
-        let pawn_mask=self & match(color,attack_left){
-            (PieceColor::WHITE,true)=> !A_FILE,
-            (PieceColor::WHITE,false)=>!H_FILE,
-            (PieceColor::BLACK,true)=>!H_FILE,
-            (PieceColor::BLACK,false)=>!A_FILE,
-        };
-        let attacks=match(color,attack_left){
-            (PieceColor::WHITE,true)=>(pawn_mask << 7) & opponent,
-            (PieceColor::WHITE,false)=>(pawn_mask << 9) & opponent,
-            (PieceColor::BLACK,true)=>(pawn_mask >> 7) & opponent,
-            (PieceColor::BLACK,false)=>(pawn_mask >> 9) & opponent,
+        let pawn_mask = self
+            & match (color, attack_left) {
+                (PieceColor::WHITE, true) => !A_FILE,
+                (PieceColor::WHITE, false) => !H_FILE,
+                (PieceColor::BLACK, true) => !H_FILE,
+                (PieceColor::BLACK, false) => !A_FILE,
+            };
+        let attacks = match (color, attack_left) {
+            (PieceColor::WHITE, true) => (pawn_mask << 7) & opponent,
+            (PieceColor::WHITE, false) => (pawn_mask << 9) & opponent,
+            (PieceColor::BLACK, true) => (pawn_mask >> 7) & opponent,
+            (PieceColor::BLACK, false) => (pawn_mask >> 9) & opponent,
         };
         attacks
     }
@@ -173,11 +176,13 @@ impl Iterator for BitboardIterator {
         }
     }
 }
+use crate::engine::movegen::constants::{A_FILE, H_FILE, RANK_2, RANK_7};
+use derive_more::{
+    AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Not, Shr, Sub,
+    SubAssign,
+};
 use std::fmt;
 use std::ops::{BitAnd, Shl};
-use derive_more::{AddAssign, BitAnd, BitAndAssign, BitOr, BitOrAssign, BitXor, BitXorAssign, Mul, Not, Shr, Sub, SubAssign};
-use crate::engine::movegen::constants::{A_FILE, H_FILE, RANK_2, RANK_7};
-
 
 impl fmt::Display for Bitboard {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {

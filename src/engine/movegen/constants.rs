@@ -15,13 +15,13 @@ pub const KNIGHT_OFFSETS: [Position; 8] = [
     Position { x: -1, y: -2 },
 ];
 pub const KING_OFFSETS: [Position; 8] = [
-    Position { x: 1, y: 0 },  // Right
-    Position { x: -1, y: 0 }, // Left
-    Position { x: 0, y: 1 },  // Up
-    Position { x: 0, y: -1 }, // Down
-    Position { x: 1, y: 1 },  // Up-Right
-    Position { x: 1, y: -1 }, // Down-Right
-    Position { x: -1, y: 1 }, // Up-Left
+    Position { x: 1, y: 0 },   // Right
+    Position { x: -1, y: 0 },  // Left
+    Position { x: 0, y: 1 },   // Up
+    Position { x: 0, y: -1 },  // Down
+    Position { x: 1, y: 1 },   // Up-Right
+    Position { x: 1, y: -1 },  // Down-Right
+    Position { x: -1, y: 1 },  // Up-Left
     Position { x: -1, y: -1 }, // Down-Left
 ];
 pub const ROOK_OFFSETS: [Position; 4] = [
@@ -31,19 +31,19 @@ pub const ROOK_OFFSETS: [Position; 4] = [
     Position { x: 0, y: -1 }, // Down
 ];
 pub const BISHOP_OFFSETS: [Position; 4] = [
-    Position { x: 1, y: 1 },  // Up-Right
-    Position { x: 1, y: -1 }, // Down-Right
-    Position { x: -1, y: 1 }, // Up-Left
+    Position { x: 1, y: 1 },   // Up-Right
+    Position { x: 1, y: -1 },  // Down-Right
+    Position { x: -1, y: 1 },  // Up-Left
     Position { x: -1, y: -1 }, // Down-Left
 ];
 pub const ALL_OFSET: [Position; 8] = [
-    Position { x: 1, y: 0 },  // Right
-    Position { x: -1, y: 0 }, // Left
-    Position { x: 0, y: 1 },  // Up
-    Position { x: 0, y: -1 }, // Down
-    Position { x: 1, y: 1 },  // Up-Right
-    Position { x: 1, y: -1 }, // Down-Right
-    Position { x: -1, y: 1 }, // Up-Left
+    Position { x: 1, y: 0 },   // Right
+    Position { x: -1, y: 0 },  // Left
+    Position { x: 0, y: 1 },   // Up
+    Position { x: 0, y: -1 },  // Down
+    Position { x: 1, y: 1 },   // Up-Right
+    Position { x: 1, y: -1 },  // Down-Right
+    Position { x: -1, y: 1 },  // Up-Left
     Position { x: -1, y: -1 }, // Down-Left
 ];
 

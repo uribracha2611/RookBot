@@ -37,7 +37,6 @@ impl MoveList {
         }
     }
 
-
     pub fn add_move(&mut self, mv: MoveData) {
         if self.count < MAX_MOVES {
             self.moves[self.count] = mv;
@@ -58,15 +57,12 @@ impl MoveList {
     }
 
     pub fn is_move_in_list(&self, mv: &MoveData) -> bool {
-        self.moves
-            .iter()
-            .take(self.count)
-            .any(|m| *m == *mv)
+        self.moves.iter().take(self.count).any(|m| *m == *mv)
     }
-    pub fn find_move_by_start_end_square(self,from:u8,to:u8)->Option<MoveData>{
-        for i in 0..MAX_MOVES{
-            if let mv=self.moves[i]{
-                if mv.from==from && mv.to==to{
+    pub fn find_move_by_start_end_square(self, from: u8, to: u8) -> Option<MoveData> {
+        for i in 0..MAX_MOVES {
+            if let mv = self.moves[i] {
+                if mv.from == from && mv.to == to {
                     return Some(mv);
                 }
             }
@@ -106,7 +102,6 @@ pub struct MoveListIterator<'a> {
     index: usize,
 }
 
-
 impl<'a> Iterator for MoveListIterator<'a> {
     type Item = &'a MoveData;
 
@@ -120,6 +115,3 @@ impl<'a> Iterator for MoveListIterator<'a> {
         }
     }
 }
-
-    
-

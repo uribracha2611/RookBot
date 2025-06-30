@@ -1,4 +1,4 @@
-pub mod movegen;
-pub  mod search;
-pub mod perft;
 pub mod board;
+pub mod movegen;
+pub mod perft;
+pub mod search;

@@ -4,8 +4,6 @@ use RookBot::engine::board::board::Board;
 use RookBot::engine::movegen::movedata::MoveData;
 use RookBot::engine::perft::perft;
 
-
-
 fn main() {
     // Collect command-line arguments
     let args: Vec<String> = env::args().collect();

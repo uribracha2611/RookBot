@@ -1,8 +1,17 @@
 use crate::engine::board::bitboard::Bitboard;
-use crate::engine::board::castling::constants::{BLACK_KINGSIDE_KING_END, BLACK_KINGSIDE_KING_MOVES_TROUGH, BLACK_KINGSIDE_KING_START, BLACK_KINGSIDE_REQUIRED_EMPTY, BLACK_KINGSIDE_ROOK_END, BLACK_KINGSIDE_ROOK_START, BLACK_QUEENSIDE_KING_END, BLACK_QUEENSIDE_KING_MOVES_TROUGH, BLACK_QUEENSIDE_REQUIRED_EMPTY, BLACK_QUEENSIDE_ROOK_END, BLACK_QUEENSIDE_ROOK_START, WHITE_KINGSIDE_KING_END, WHITE_KINGSIDE_KING_MOVES_TROUGH, WHITE_KINGSIDE_KING_START, WHITE_KINGSIDE_REQUIRED_EMPTY, WHITE_KINGSIDE_ROOK_END, WHITE_KINGSIDE_ROOK_START, WHITE_QUEENSIDE_KING_END, WHITE_QUEENSIDE_KING_MOVES_TROUGH, WHITE_QUEENSIDE_REQUIRED_EMPTY, WHITE_QUEENSIDE_ROOK_END, WHITE_QUEENSIDE_ROOK_START};
+use crate::engine::board::castling::constants::{
+    BLACK_KINGSIDE_KING_END, BLACK_KINGSIDE_KING_MOVES_TROUGH, BLACK_KINGSIDE_KING_START,
+    BLACK_KINGSIDE_REQUIRED_EMPTY, BLACK_KINGSIDE_ROOK_END, BLACK_KINGSIDE_ROOK_START,
+    BLACK_QUEENSIDE_KING_END, BLACK_QUEENSIDE_KING_MOVES_TROUGH, BLACK_QUEENSIDE_REQUIRED_EMPTY,
+    BLACK_QUEENSIDE_ROOK_END, BLACK_QUEENSIDE_ROOK_START, WHITE_KINGSIDE_KING_END,
+    WHITE_KINGSIDE_KING_MOVES_TROUGH, WHITE_KINGSIDE_KING_START, WHITE_KINGSIDE_REQUIRED_EMPTY,
+    WHITE_KINGSIDE_ROOK_END, WHITE_KINGSIDE_ROOK_START, WHITE_QUEENSIDE_KING_END,
+    WHITE_QUEENSIDE_KING_MOVES_TROUGH, WHITE_QUEENSIDE_REQUIRED_EMPTY, WHITE_QUEENSIDE_ROOK_END,
+    WHITE_QUEENSIDE_ROOK_START,
+};
 use crate::engine::board::piece::PieceColor;
 
-#[derive(Clone, Copy, PartialEq, Eq,Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum CastlingSide {
     Kingside,
     Queenside,
@@ -60,7 +69,7 @@ impl CastlingSide {
             (PieceColor::BLACK, CastlingSide::Queenside) => BLACK_QUEENSIDE_KING_MOVES_TROUGH,
         }
     }
-    pub fn get_castling_from_squares(from:u8,to:u8,color: PieceColor)->Option<CastlingSide>{
+    pub fn get_castling_from_squares(from: u8, to: u8, color: PieceColor) -> Option<CastlingSide> {
         match (from, to, color) {
             (4, 6, PieceColor::WHITE) => Some(CastlingSide::Kingside),
             (4, 2, PieceColor::WHITE) => Some(CastlingSide::Queenside),
@@ -151,11 +160,11 @@ impl AllowedCastling {
         }
     }
 }
-impl  From<CastlingSide> for AllowedCastling {
+impl From<CastlingSide> for AllowedCastling {
     fn from(side: CastlingSide) -> Self {
         match side {
             CastlingSide::Kingside => AllowedCastling::Kingside,
             CastlingSide::Queenside => AllowedCastling::Queenside,
         }
     }
-} 
+}

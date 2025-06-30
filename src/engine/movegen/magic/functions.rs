@@ -1,19 +1,26 @@
 use crate::engine::board::bitboard::Bitboard;
 use crate::engine::board::position::Position;
 use crate::engine::movegen::constants::{BISHOP_OFFSETS, ROOK_OFFSETS};
-use crate::engine::movegen::magic::constants::{BISHOP_MAGICS, BISHOP_SHIFTS, ROOK_MAGICS, ROOK_SHIFTS};
-use crate::engine::movegen::magic::precomputed::{BISHOP_ATTACKS, BISHOP_MASK, ROOK_ATTACKS, ROOK_MASK};
+use crate::engine::movegen::magic::constants::{
+    BISHOP_MAGICS, BISHOP_SHIFTS, ROOK_MAGICS, ROOK_SHIFTS,
+};
+use crate::engine::movegen::magic::precomputed::{
+    BISHOP_ATTACKS, BISHOP_MASK, ROOK_ATTACKS, ROOK_MASK,
+};
 
-pub fn build_mask_square(start_square:u8, is_rook:bool) ->Bitboard{
-    let mut mask=Bitboard::new(0);
-    let start_square_coord=Position::from_sqr(start_square as i8).unwrap();
-    let offsets=if is_rook{ROOK_OFFSETS} else {BISHOP_OFFSETS};
-    for coord in offsets
-    {
+pub fn build_mask_square(start_square: u8, is_rook: bool) -> Bitboard {
+    let mut mask = Bitboard::new(0);
+    let start_square_coord = Position::from_sqr(start_square as i8).unwrap();
+    let offsets = if is_rook {
+        ROOK_OFFSETS
+    } else {
+        BISHOP_OFFSETS
+    };
+    for coord in offsets {
         for i in 1..8 {
             let new_square = start_square_coord + (coord * i);
-            let new_square_check=start_square_coord+(coord*(i+1));
-    
+            let new_square_check = start_square_coord + (coord * (i + 1));
+
             if new_square_check.to_sqr().is_some() {
                 mask.set_square(new_square.to_sqr().unwrap() as u8);
             } else {
@@ -24,28 +31,31 @@ pub fn build_mask_square(start_square:u8, is_rook:bool) ->Bitboard{
     mask
 }
 
-pub fn build_mask(is_rook:bool)->[Bitboard;64]{
-    let mut mask=[Bitboard::new(0);64];
-    for i in 0..64{
-        mask[i]=build_mask_square(i as u8,is_rook);
+pub fn build_mask(is_rook: bool) -> [Bitboard; 64] {
+    let mut mask = [Bitboard::new(0); 64];
+    for i in 0..64 {
+        mask[i] = build_mask_square(i as u8, is_rook);
     }
     mask
 }
-pub fn build_blocker_bitboards(mask: Bitboard)->Vec<Bitboard>{
-
+pub fn build_blocker_bitboards(mask: Bitboard) -> Vec<Bitboard> {
     let mask_set_vec = mask.bitboard_to_set_vec();
-    let blocker_count=(1u64<<mask_set_vec.len()) as usize;
-    let mut blocker_bitboards:Vec<Bitboard>=vec![Bitboard::new(0);blocker_count];
-    for pattern_index in 0..blocker_count{
-        for  bit_index in 0..mask_set_vec.len(){
-            let bit=(pattern_index>>bit_index)&1;
-            blocker_bitboards[pattern_index]|=Bitboard::new ((bit as u64)<<mask_set_vec[bit_index]);
+    let blocker_count = (1u64 << mask_set_vec.len()) as usize;
+    let mut blocker_bitboards: Vec<Bitboard> = vec![Bitboard::new(0); blocker_count];
+    for pattern_index in 0..blocker_count {
+        for bit_index in 0..mask_set_vec.len() {
+            let bit = (pattern_index >> bit_index) & 1;
+            blocker_bitboards[pattern_index] |=
+                Bitboard::new((bit as u64) << mask_set_vec[bit_index]);
         }
-
     }
     blocker_bitboards
 }
-pub fn legal_move_bitboard_from_blockers(start_square: u8, blocker_bitboard: Bitboard, ortho: bool) -> Bitboard {
+pub fn legal_move_bitboard_from_blockers(
+    start_square: u8,
+    blocker_bitboard: Bitboard,
+    ortho: bool,
+) -> Bitboard {
     let mut bitboard = Bitboard::new(0);
     let directions = if ortho { ROOK_OFFSETS } else { BISHOP_OFFSETS };
     let start_coord = Position::from_sqr(start_square as i8).unwrap();
@@ -67,7 +77,6 @@ pub fn legal_move_bitboard_from_blockers(start_square: u8, blocker_bitboard: Bit
     bitboard
 }
 
-
 pub fn create_table(square: u8, rook: bool, magic: u64, left_shift: u8) -> Vec<Bitboard> {
     let num_bits = 64 - left_shift;
     let lookup_size = 1u64 << num_bits;
@@ -81,18 +90,23 @@ pub fn create_table(square: u8, rook: bool, magic: u64, left_shift: u8) -> Vec<B
         let moves = legal_move_bitboard_from_blockers(square, pattern, rook);
         table[index as usize] = moves; // Store the calculated moves in the table
     }
-    
 
     table
 }
 pub fn get_rook_attacks(square: usize, blockers: Bitboard) -> Bitboard {
     let masked_blockers = blockers & ROOK_MASK[square]; // Apply the blocker mask
-    let key = (masked_blockers.get_bitboard().wrapping_mul(ROOK_MAGICS[square])) >> ROOK_SHIFTS[square]; // Wrapping multiplication and shift
+    let key = (masked_blockers
+        .get_bitboard()
+        .wrapping_mul(ROOK_MAGICS[square]))
+        >> ROOK_SHIFTS[square]; // Wrapping multiplication and shift
     ROOK_ATTACKS[square][key as usize] // Use the resulting key to index the attack table
 }
 
 pub fn get_bishop_attacks(square: usize, blockers: Bitboard) -> Bitboard {
     let masked_blockers = blockers & BISHOP_MASK[square]; // Apply the blocker mask
-    let key = (masked_blockers.get_bitboard().wrapping_mul(BISHOP_MAGICS[square])) >> BISHOP_SHIFTS[square]; // Wrapping multiplication and shift
+    let key = (masked_blockers
+        .get_bitboard()
+        .wrapping_mul(BISHOP_MAGICS[square]))
+        >> BISHOP_SHIFTS[square]; // Wrapping multiplication and shift
     BISHOP_ATTACKS[square][key as usize] // Use the resulting key to index the attack table
 }

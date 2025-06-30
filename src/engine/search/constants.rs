@@ -4,8 +4,8 @@ const BISHOP_VALUE: i32 = 300;
 const ROOK_VALUE: i32 = 500;
 const QUEEN_VALUE: i32 = 900;
 pub const INFINITY: i32 = 1000000;
-pub const VAL_WINDOW:i32=50;
-pub const FUTILITY_MARGIN_DEPTH:[i32;2]=[100,150];
+pub const VAL_WINDOW: i32 = 50;
+pub const FUTILITY_MARGIN_DEPTH: [i32; 2] = [100, 150];
 
-pub const MATE_VALUE:i32=10000;
-pub const MAX_EXTENSIONS:i32=5;
+pub const MATE_VALUE: i32 = 10000;
+pub const MAX_EXTENSIONS: i32 = 5;
