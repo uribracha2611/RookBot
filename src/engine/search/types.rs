@@ -146,8 +146,13 @@ impl SearchRefs<'_> {
         self.nodes_evaluated += 1;
     }
     #[inline(always)]
-    pub fn add_history(&mut self, color: PieceColor, mv: MoveData, depth: i32) {
-        self.history_table[color as usize][mv.from as usize][mv.to as usize] += depth * depth;
+    pub fn add_history(&mut self, color: PieceColor, mv: MoveData, depth: i32,is_malus:bool) {
+        if is_malus {
+            self.history_table[color as usize][mv.from as usize][mv.to as usize] -= depth * depth;
+        }
+        else {
+            self.history_table[color as usize][mv.from as usize][mv.to as usize] += depth * depth;
+        }
     }
     #[inline(always)]
     pub fn get_history_value(&self, mv: &MoveData, color: PieceColor) -> i32 {

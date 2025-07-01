@@ -420,11 +420,12 @@ fn search_common(
             if !curr_move.is_capture() {
                 refs.store_killers(*curr_move, ply as usize);
 
-                refs.add_history(board.turn, *curr_move, depth_actual);
+                refs.add_history(board.turn, *curr_move, depth_actual,false);
                 refs.increament_cont_hist(depth_actual, ply, curr_move);
             }
             for quiet_move in quiet_moves {
                 refs.decreament_cont_hist(depth_actual, ply, &quiet_move);
+                refs.add_history(board.turn, quiet_move, depth_actual,true);
             }
 
             return score_mv;
