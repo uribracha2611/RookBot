@@ -262,6 +262,13 @@ fn search_common(
         refs.set_eval_ply(ply, curr_eval);
     }
     let improving = is_improving(refs, ply);
+    let mut should_extend = false;
+    if board.is_check && refs.is_extension_allowed() {
+        should_extend = true;
+        refs.increment_extensions();
+    } else {
+        refs.reset_extensions();
+    }
 
     if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving) {
         return curr_eval;
@@ -357,7 +364,7 @@ fn search_common(
             break;
         }
         refs.set_move_ply(ply, *curr_move);
-
+        let extension_adding = if should_extend { 1 } else { 0 };
         let mut score_mv = 0;
         if is_pvs && depth_actual >= 3 {
             let new_depth =
@@ -374,7 +381,7 @@ fn search_common(
             if score_mv > alpha && score_mv < beta {
                 score_mv = -search_common(
                     board,
-                    depth_actual - 1,
+                    (depth_actual - 1) + extension_adding,
                     ply + 1,
                     -alpha - 1,
                     -alpha,
@@ -384,7 +391,7 @@ fn search_common(
                 if score_mv > alpha && score_mv < beta {
                     score_mv = -search_common(
                         board,
-                        depth_actual - 1,
+                        (depth_actual - 1) + extension_adding,
                         ply + 1,
                         -beta,
                         -alpha,
@@ -396,7 +403,7 @@ fn search_common(
         } else {
             score_mv = -search_common(
                 board,
-                depth_actual - 1,
+                (depth_actual - 1) + extension_adding,
                 ply + 1,
                 -beta,
                 -alpha,
@@ -420,12 +427,12 @@ fn search_common(
             if !curr_move.is_capture() {
                 refs.store_killers(*curr_move, ply as usize);
 
-                refs.add_history(board.turn, *curr_move, depth_actual,false);
+                refs.add_history(board.turn, *curr_move, depth_actual, false);
                 refs.increament_cont_hist(depth_actual, ply, curr_move);
             }
             for quiet_move in quiet_moves {
                 refs.decreament_cont_hist(depth_actual, ply, &quiet_move);
-                refs.add_history(board.turn, quiet_move, depth_actual,true);
+                refs.add_history(board.turn, quiet_move, depth_actual, true);
             }
 
             return score_mv;
