@@ -1,3 +1,4 @@
 /target
 ./src/board_tests.rs
 ./sr/debug_functions.rs
+/src/bin
