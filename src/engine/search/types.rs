@@ -92,6 +92,7 @@ pub struct SearchRefs<'a> {
     current_extensions: i32,
     continuation_history: Vec<Vec<i32>>,
     pub table: &'a mut TranspositionTable,
+    pub excluded_mv: Option<MoveData>,
 }
 impl SearchRefs<'_> {
     pub fn new_timed_search<'a>(
@@ -114,6 +115,7 @@ impl SearchRefs<'_> {
             current_extensions: 0,
             table: transposition_table,
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
+            excluded_mv: None,
         }
     }
     pub fn new_depth_search(
@@ -134,6 +136,7 @@ impl SearchRefs<'_> {
             current_extensions: 0,
             table: transposition_table, // Removed &mut here
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
+            excluded_mv: None,
         }
     }
 
@@ -146,11 +149,10 @@ impl SearchRefs<'_> {
         self.nodes_evaluated += 1;
     }
     #[inline(always)]
-    pub fn add_history(&mut self, color: PieceColor, mv: MoveData, depth: i32,is_malus:bool) {
+    pub fn add_history(&mut self, color: PieceColor, mv: MoveData, depth: i32, is_malus: bool) {
         if is_malus {
             self.history_table[color as usize][mv.from as usize][mv.to as usize] -= depth * depth;
-        }
-        else {
+        } else {
             self.history_table[color as usize][mv.from as usize][mv.to as usize] += depth * depth;
         }
     }
@@ -177,6 +179,7 @@ impl SearchRefs<'_> {
         }
         self.eval_stack[ply as usize]
     }
+
     pub fn set_eval_ply(&mut self, ply: i32, eval: i32) {
         self.eval_stack[ply as usize] = Some(eval);
     }
