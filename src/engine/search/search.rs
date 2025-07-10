@@ -6,7 +6,9 @@ use crate::engine::board::see::static_exchange_evaluation;
 use crate::engine::movegen::generate::generate_moves;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
-use crate::engine::search::constants::{INFINITY, MATE_VALUE, VAL_WINDOW};
+use crate::engine::search::constants::{
+    INFINITY, MATE_VALUE, RAZOR_DEPTH, RAZOR_MARGIN, VAL_WINDOW,
+};
 use crate::engine::search::functions::{
     is_allowed_futility_pruning, is_allowed_reverse_futility_pruning, is_improving,
 };
@@ -232,32 +234,25 @@ fn search_common(
         return 0;
     }
     let mut tt_move = MoveData::default();
-    let mut tt_depth = 0;
-    let mut tt_type = EntryType::UpperBound;
-    let mut tt_eval = -INFINITY;
-    if refs.excluded_mv.is_none() {
-        if let Some(entry) = refs.get_transposition_table().retrieve(
-            board.game_state.zobrist_hash,
-            depth as u8,
-            alpha,
-            beta,
-        ) {
-            tt_type = entry.entry_type;
-            tt_depth = entry.depth;
-            tt_move = entry.best_move;
-            tt_eval = entry.eval;
-            if entry.depth >= depth as u8 {
-                match entry.entry_type {
-                    EntryType::Exact => return entry.eval,
-                    EntryType::LowerBound => {
-                        if entry.eval >= beta {
-                            return entry.eval;
-                        }
+
+    if let Some(entry) = refs.get_transposition_table().retrieve(
+        board.game_state.zobrist_hash,
+        depth as u8,
+        alpha,
+        beta,
+    ) {
+        tt_move = entry.best_move;
+        if ply > 0 && entry.depth >= depth as u8 {
+            match entry.entry_type {
+                EntryType::Exact => return entry.eval,
+                EntryType::LowerBound => {
+                    if entry.eval >= beta {
+                        return entry.eval;
                     }
-                    UpperBound => {
-                        if entry.eval <= alpha {
-                            return entry.eval;
-                        }
+                }
+                UpperBound => {
+                    if entry.eval <= alpha {
+                        return entry.eval;
                     }
                 }
             }
@@ -278,13 +273,16 @@ fn search_common(
     } else {
         refs.reset_extensions();
     }
-
-    if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving)
-        && refs.excluded_mv.is_none()
-    {
+    if depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
+        let value = quiescence_search(board, alpha, beta, refs);
+        if (value < beta) {
+            return value;
+        }
+    }
+    if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving) {
         return curr_eval;
     }
-    if !board.is_check && depth >= 3 && refs.excluded_mv.is_none() {
+    if !board.is_check && depth >= 3 {
         let r = if depth > 10 {
             5
         } else if depth > 6 {
@@ -301,14 +299,12 @@ fn search_common(
         }
     }
 
-    let depth_actual = if tt_move == MoveData::default() && depth > 5 && refs.excluded_mv.is_none()
-    {
+    let depth_actual = if tt_move == MoveData::default() && depth > 5 {
         depth - 2
     } else {
         depth
     };
 
-    //
     let mut move_score =
         get_moves_score(&move_list, ply as usize, board, tt_move, &*refs, board.turn);
     let mut best_move = MoveData::default();
@@ -318,7 +314,6 @@ fn search_common(
     let mut quiet_moves: Vec<MoveData> = Vec::with_capacity(move_list.len());
     let mut is_pvs = false;
     for i in 0..move_list.len() {
-        let mut should_extend_singular = false;
         // Stop search if time has elapsed
         if refs.is_time_done() {
             return 0;
@@ -366,29 +361,6 @@ fn search_common(
             quiet_moves_count += 1;
         }
 
-        if refs.excluded_mv.is_some() && refs.excluded_mv.unwrap() == *curr_move {
-            continue;
-        }
-        if ply > 0
-            && depth_actual >= 8
-            && refs.excluded_mv.is_none()
-            && tt_depth >= (depth_actual - 3) as u8
-            && tt_type != UpperBound
-            && *curr_move == tt_move
-        {
-            refs.excluded_mv = Some(tt_move);
-            let sdepth = (depth_actual - 1) / 2;
-            let sbeta = i32::max(-MATE_VALUE + 1, tt_eval - depth_actual * 2);
-            let s_score =
-                search_common(board, sdepth, ply, sbeta - 1, sbeta, &mut Vec::new(), refs);
-            refs.excluded_mv = None;
-            if s_score >= sbeta && sbeta >= beta {
-                return sbeta;
-            }
-            if s_score < sbeta {
-                should_extend_singular = true;
-            }
-        }
         let mut node_pv: Vec<MoveData> = Vec::new();
         board.make_move(curr_move);
 
@@ -401,11 +373,7 @@ fn search_common(
         }
 
         refs.set_move_ply(ply, *curr_move);
-        let extension_adding = if (should_extend || should_extend_singular) {
-            1
-        } else {
-            0
-        };
+        let extension_adding = if (should_extend) { 1 } else { 0 };
         let mut score_mv = 0;
         if is_pvs && depth_actual >= 3 {
             let new_depth =
@@ -458,25 +426,24 @@ fn search_common(
         if score_mv >= beta {
             entry_type = EntryType::LowerBound;
             best_move = *curr_move;
-            if refs.excluded_mv.is_none() {
-                refs.table.store(
-                    board.game_state.zobrist_hash,
-                    depth_actual as u8,
-                    score_mv,
-                    entry_type,
-                    best_move,
-                );
 
-                if !curr_move.is_capture() {
-                    refs.store_killers(*curr_move, ply as usize);
+            refs.table.store(
+                board.game_state.zobrist_hash,
+                depth_actual as u8,
+                score_mv,
+                entry_type,
+                best_move,
+            );
 
-                    refs.add_history(board.turn, *curr_move, depth_actual, false);
-                    refs.increament_cont_hist(depth_actual, ply, curr_move);
-                }
-                for quiet_move in quiet_moves {
-                    refs.decreament_cont_hist(depth_actual, ply, &quiet_move);
-                    refs.add_history(board.turn, quiet_move, depth_actual, true);
-                }
+            if !curr_move.is_capture() {
+                refs.store_killers(*curr_move, ply as usize);
+
+                refs.add_history(board.turn, *curr_move, depth_actual, false);
+                refs.increament_cont_hist(depth_actual, ply, curr_move);
+            }
+            for quiet_move in quiet_moves {
+                refs.decreament_cont_hist(depth_actual, ply, &quiet_move);
+                refs.add_history(board.turn, quiet_move, depth_actual, true);
             }
 
             return score_mv;
@@ -497,15 +464,14 @@ fn search_common(
         }
         is_pvs = true;
     }
-    if refs.excluded_mv.is_none() {
-        refs.get_transposition_table().store(
-            board.game_state.zobrist_hash,
-            depth_actual as u8,
-            alpha,
-            entry_type,
-            best_move,
-        );
-    }
+
+    refs.get_transposition_table().store(
+        board.game_state.zobrist_hash,
+        depth_actual as u8,
+        alpha,
+        entry_type,
+        best_move,
+    );
 
     alpha
 }
