@@ -42,13 +42,31 @@ pub fn quiescence_search(
     if alpha < stand_pat {
         alpha = stand_pat;
     }
+    let mut tt_move = MoveData::default();
+    if let Some(entry) = refs
+        .get_transposition_table()
+        .retrieve(board.game_state.zobrist_hash)
+    {
+        tt_move = entry.best_move;
+
+        match entry.entry_type {
+            EntryType::Exact => return entry.eval,
+            EntryType::LowerBound => {
+                if entry.eval >= beta {
+                    return entry.eval;
+                }
+            }
+            UpperBound => {
+                if entry.eval <= alpha {
+                    return entry.eval;
+                }
+            }
+        }
+    }
 
     let mut moves = generate_moves(board, true);
-    let tt_Move = refs
-        .get_transposition_table()
-        .get_TT_move(board.game_state.zobrist_hash)
-        .unwrap_or(MoveData::default());
-    let mut scores = get_capture_score(board, moves, tt_Move, refs);
+
+    let mut scores = get_capture_score(board, moves, tt_move, refs);
 
     // Iterate through the moves
     for i in 0..moves.len() {
@@ -56,9 +74,9 @@ pub fn quiescence_search(
         pick_move(&mut moves, i as u8, &mut scores);
         let mv = moves.get_move(i);
 
-        if *mv != tt_Move
+        if *mv != tt_move
             && static_exchange_evaluation(
-                &board,
+                board,
                 mv.to as i32,
                 mv.get_captured_piece().unwrap(),
                 mv.piece_to_move,
@@ -235,12 +253,10 @@ fn search_common(
     }
     let mut tt_move = MoveData::default();
 
-    if let Some(entry) = refs.get_transposition_table().retrieve(
-        board.game_state.zobrist_hash,
-        depth as u8,
-        alpha,
-        beta,
-    ) {
+    if let Some(entry) = refs
+        .get_transposition_table()
+        .retrieve(board.game_state.zobrist_hash)
+    {
         tt_move = entry.best_move;
         if ply > 0 && entry.depth >= depth as u8 {
             match entry.entry_type {

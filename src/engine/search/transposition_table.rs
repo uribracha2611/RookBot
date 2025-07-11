@@ -58,7 +58,7 @@ impl TranspositionTable {
         });
     }
 
-    pub fn retrieve(&self, hash: u64, depth: u8, alpha: i32, beta: i32) -> Option<Entry> {
+    pub fn retrieve(&self, hash: u64) -> Option<Entry> {
         let index = (hash as usize) % self.table.len();
         let elem = self.table[index];
         unsafe {
