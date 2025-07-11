@@ -323,17 +323,19 @@ fn search_common(
         pick_move(&mut move_list, i as u8, &mut move_score);
 
         let mut curr_move = move_list.get_move(i);
-
-        while *curr_move != tt_move
-            && curr_move.is_capture()
-            && static_exchange_evaluation(
-                &board,
+        let mut see_val = 0;
+        while *curr_move != tt_move && curr_move.is_capture() {
+            see_val = static_exchange_evaluation(
+                board,
                 curr_move.to as i32,
                 curr_move.get_captured_piece().unwrap(),
                 curr_move.piece_to_move,
                 curr_move.from as i32,
-            ) < 0
-        {
+            );
+            if see_val >= 0 {
+                break;
+            }
+
             let old_move = *curr_move;
             move_score[i] = -BASE_CAPTURE
                 + ((curr_move.get_captured_piece().unwrap().get_value() * 10)
@@ -343,6 +345,16 @@ fn search_common(
             if *curr_move == old_move {
                 break;
             };
+        }
+
+        if curr_move.is_capture()
+            && *curr_move != tt_move
+            && see_val < -25 * depth_actual * depth_actual
+            && !board.is_check
+            && alpha > -MATE_VALUE + 500
+            && i > 1
+        {
+            continue;
         }
 
         if board.is_quiet_move(curr_move) {
