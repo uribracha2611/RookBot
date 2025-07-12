@@ -348,7 +348,12 @@ fn search_common(
                 break;
             };
         }
-        if !curr_move.is_capture() && !board.is_check && alpha > -MATE_VALUE + 500 && i > 1 {
+        if !curr_move.is_capture()
+            && !board.is_check
+            && alpha > -MATE_VALUE + 500
+            && i > 1
+            && !curr_move.is_promotion()
+        {
             see_val = static_exchange_evaluation(board, curr_move);
             if see_val < -200 * depth {
                 continue;
