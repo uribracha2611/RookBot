@@ -355,7 +355,7 @@ fn search_common(
             && !curr_move.is_promotion()
         {
             see_val = static_exchange_evaluation(board, curr_move);
-            if see_val < -200 * depth {
+            if see_val < -80 * depth {
                 continue;
             }
         }
