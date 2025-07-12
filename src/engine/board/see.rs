@@ -1,6 +1,7 @@
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::movegen::generate::{find_hidden_attackers, get_attackers_vec};
+use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::precomputed::DIR_SQUARES;
 
 // Define piece values
@@ -13,23 +14,26 @@ pub const KING_VALUE: i32 = 20000;
 
 // Generate attackers for a given square
 
-pub fn static_exchange_evaluation(
-    board: &Board,
-    capture_square: i32,
-    piece_captured: Piece,
-    piece_captures: Piece,
-    initial_square: i32,
-) -> i32 {
+pub fn static_exchange_evaluation(board: &Board, curr_mv: &MoveData) -> i32 {
+    let MoveData {
+        to: capture_square,
+        piece_to_move: piece_captures,
+        from: initial_square,
+        ..
+    } = *curr_mv;
+
     let mut scores = Vec::new();
     let mut turn = board.turn;
     let initial_turn = turn;
-    let mut curr_turn_attackers = get_attackers_vec(board, capture_square as u8, turn);
-    let mut opp_attackers = get_attackers_vec(board, capture_square as u8, turn.opposite());
+    let mut curr_turn_attackers = get_attackers_vec(board, capture_square, turn);
+    let mut opp_attackers = get_attackers_vec(board, capture_square, turn.opposite());
     curr_turn_attackers
-        .retain(|x| (x.0.piece_type != piece_captures.piece_type || x.1 != initial_square as u8));
+        .retain(|x| (x.0.piece_type != piece_captures.piece_type || x.1 != initial_square));
 
-    let score = get_piece_value(piece_captured.piece_type);
-
+    let score = match curr_mv.get_captured_piece() {
+        None => 0,
+        Some(p) => get_piece_value(p.piece_type),
+    };
     scores.push(score);
 
     if piece_captures.piece_type != PieceType::KING
@@ -69,7 +73,7 @@ pub fn static_exchange_evaluation(
         {
             let delta = DIR_SQUARES[new_piece_captures.1 as usize][capture_square as usize];
 
-            let hidden_attacker = find_hidden_attackers(board, delta, new_piece_captures.1 as i32);
+            let hidden_attacker = find_hidden_attackers(board, delta, new_piece_captures.1);
             if hidden_attacker.is_some() {
                 add_piece_to_attack(
                     hidden_attacker.unwrap(),

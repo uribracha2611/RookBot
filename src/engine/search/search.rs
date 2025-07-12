@@ -74,15 +74,7 @@ pub fn quiescence_search(
         pick_move(&mut moves, i as u8, &mut scores);
         let mv = moves.get_move(i);
 
-        if *mv != tt_move
-            && static_exchange_evaluation(
-                board,
-                mv.to as i32,
-                mv.get_captured_piece().unwrap(),
-                mv.piece_to_move,
-                mv.from as i32,
-            ) < 0
-        {
+        if *mv != tt_move && static_exchange_evaluation(board, mv) < 0 {
             continue;
         }
 
@@ -341,13 +333,7 @@ fn search_common(
         let mut curr_move = move_list.get_move(i);
         let mut see_val = 0;
         while *curr_move != tt_move && curr_move.is_capture() {
-            see_val = static_exchange_evaluation(
-                board,
-                curr_move.to as i32,
-                curr_move.get_captured_piece().unwrap(),
-                curr_move.piece_to_move,
-                curr_move.from as i32,
-            );
+            see_val = static_exchange_evaluation(board, curr_move);
             if see_val >= 0 {
                 break;
             }
@@ -362,7 +348,12 @@ fn search_common(
                 break;
             };
         }
-
+        if !curr_move.is_capture() && !board.is_check && alpha > -MATE_VALUE + 500 && i > 1 {
+            see_val = static_exchange_evaluation(board, curr_move);
+            if see_val < -200 * depth {
+                continue;
+            }
+        }
         if curr_move.is_capture()
             && *curr_move != tt_move
             && see_val < -25 * depth_actual * depth_actual

@@ -126,7 +126,7 @@ pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> 
     attackers.sort_by_key(|x| get_piece_value(x.0.piece_type));
     attackers
 }
-pub fn find_hidden_attackers(board: &Board, delta: Position, square: i32) -> Option<(Piece, u8)> {
+pub fn find_hidden_attackers(board: &Board, delta: Position, square: u8) -> Option<(Piece, u8)> {
     let delta_search = -delta;
     let is_ortho = delta_search.is_orthogonal();
     let initial_pos = Position::from_sqr(square as i8).unwrap();
