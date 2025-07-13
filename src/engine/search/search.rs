@@ -219,7 +219,7 @@ pub fn timed_search(
 
 fn search_common(
     board: &mut Board,
-    depth: i32,
+    mut depth: i32,
     ply: i32,
     mut alpha: i32,
     beta: i32,
@@ -307,11 +307,9 @@ fn search_common(
         }
     }
 
-    let depth_actual = if tt_move == MoveData::default() && depth > 5 {
-        depth - 2
-    } else {
-        depth
-    };
+    if tt_move == MoveData::default() && depth > 5 {
+        depth -= 2;
+    }
 
     let mut move_score =
         get_moves_score(&move_list, ply as usize, board, tt_move, &*refs, board.turn);
@@ -348,20 +346,10 @@ fn search_common(
                 break;
             };
         }
-        if !curr_move.is_capture()
-            && !board.is_check
-            && alpha > -MATE_VALUE + 500
-            && i > 1
-            && !curr_move.is_promotion()
-        {
-            see_val = static_exchange_evaluation(board, curr_move);
-            if see_val < -80 * depth {
-                continue;
-            }
-        }
+
         if curr_move.is_capture()
             && *curr_move != tt_move
-            && see_val < -25 * depth_actual * depth_actual
+            && see_val < -25 * depth * depth
             && !board.is_check
             && alpha > -MATE_VALUE + 500
             && i > 1
@@ -374,7 +362,7 @@ fn search_common(
             if should_movecount_based_pruning(
                 board,
                 *curr_move,
-                depth_actual as u32,
+                depth as u32,
                 quiet_moves_count,
                 alpha,
                 improving,
@@ -388,7 +376,7 @@ fn search_common(
         let mut node_pv: Vec<MoveData> = Vec::new();
         board.make_move(curr_move);
 
-        if is_allowed_futility_pruning(depth_actual as u8, alpha, curr_eval, curr_move, board)
+        if is_allowed_futility_pruning(depth as u8, alpha, curr_eval, curr_move, board)
             && is_pvs
             && !is_in_check
         {
@@ -399,9 +387,9 @@ fn search_common(
         refs.set_move_ply(ply, *curr_move);
         let extension_adding = if (should_extend) { 1 } else { 0 };
         let mut score_mv = 0;
-        if is_pvs && depth_actual >= 3 {
+        if is_pvs && depth >= 3 {
             let new_depth =
-                reduce_depth(board, curr_move, depth_actual as f32, i as f32, improving) as i32;
+                reduce_depth(board, curr_move, depth as f32, i as f32, improving) as i32;
             score_mv = -search_common(
                 board,
                 new_depth,
@@ -414,7 +402,7 @@ fn search_common(
             if score_mv > alpha && score_mv < beta {
                 score_mv = -search_common(
                     board,
-                    (depth_actual - 1) + extension_adding,
+                    (depth - 1) + extension_adding,
                     ply + 1,
                     -alpha - 1,
                     -alpha,
@@ -424,7 +412,7 @@ fn search_common(
                 if score_mv > alpha && score_mv < beta {
                     score_mv = -search_common(
                         board,
-                        (depth_actual - 1) + extension_adding,
+                        (depth - 1) + extension_adding,
                         ply + 1,
                         -beta,
                         -alpha,
@@ -436,7 +424,7 @@ fn search_common(
         } else {
             score_mv = -search_common(
                 board,
-                (depth_actual - 1) + extension_adding,
+                (depth - 1) + extension_adding,
                 ply + 1,
                 -beta,
                 -alpha,
@@ -453,7 +441,7 @@ fn search_common(
 
             refs.table.store(
                 board.game_state.zobrist_hash,
-                depth_actual as u8,
+                depth as u8,
                 score_mv,
                 entry_type,
                 best_move,
@@ -462,12 +450,12 @@ fn search_common(
             if !curr_move.is_capture() {
                 refs.store_killers(*curr_move, ply as usize);
 
-                refs.add_history(board.turn, *curr_move, depth_actual, false);
-                refs.increament_cont_hist(depth_actual, ply, curr_move);
+                refs.add_history(board.turn, *curr_move, depth, false);
+                refs.increament_cont_hist(depth, ply, curr_move);
             }
             for quiet_move in quiet_moves {
-                refs.decreament_cont_hist(depth_actual, ply, &quiet_move);
-                refs.add_history(board.turn, quiet_move, depth_actual, true);
+                refs.decreament_cont_hist(depth, ply, &quiet_move);
+                refs.add_history(board.turn, quiet_move, depth, true);
             }
 
             return score_mv;
@@ -491,7 +479,7 @@ fn search_common(
 
     refs.get_transposition_table().store(
         board.game_state.zobrist_hash,
-        depth_actual as u8,
+        depth as u8,
         alpha,
         entry_type,
         best_move,
