@@ -14,7 +14,7 @@ use crate::engine::search::functions::{
 };
 use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 use crate::engine::search::move_ordering::{
-    get_capture_score, get_move_score, get_moves_score, BASE_CAPTURE, MVV_LVA,
+    calc_cap_score, get_capture_score, get_move_score, get_moves_score, BASE_CAPTURE, MVV_LVA,
 };
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
@@ -332,6 +332,7 @@ fn search_common(
     let mut quiet_moves_count = 0;
 
     let mut quiet_moves: Vec<MoveData> = Vec::with_capacity(move_list.len());
+    let mut capture_moves: Vec<MoveData> = Vec::with_capacity(move_list.len());
     let mut is_pvs = false;
     for i in 0..move_list.len() {
         // Stop search if time has elapsed
@@ -351,9 +352,7 @@ fn search_common(
             }
 
             let old_move = *curr_move;
-            move_score[i] = -BASE_CAPTURE
-                + ((curr_move.get_captured_piece().unwrap().get_value() * 10)
-                    - curr_move.piece_to_move.get_value());
+            move_score[i] = -BASE_CAPTURE + calc_cap_score(curr_move, refs);
             pick_move(&mut move_list, i as u8, &mut move_score);
             curr_move = move_list.get_move(i);
             if *curr_move == old_move {
@@ -471,12 +470,21 @@ fn search_common(
                 refs.decreament_cont_hist(depth, ply, &quiet_move);
                 refs.add_history(board.turn, quiet_move, depth, true);
             }
+            for cap_mv in capture_moves {
+                refs.reduce_capture_history(&cap_mv, depth)
+            }
+            if curr_move.is_capture() {
+                refs.add_capture_history(curr_move, depth);
+            }
 
             return score_mv;
         }
 
         if is_quiet_move {
             quiet_moves.push(*curr_move);
+        }
+        if curr_move.is_capture() {
+            capture_moves.push(*curr_move);
         }
 
         if score_mv > alpha {
