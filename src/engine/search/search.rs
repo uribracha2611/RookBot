@@ -153,6 +153,13 @@ pub fn search(
             &mut refs,
         );
         best_eval = eval;
+        if best_eval >= beta || best_eval <= alpha {
+            alpha = -INFINITY;
+            beta = INFINITY;
+            continue;
+        }
+        alpha = best_eval - VAL_WINDOW;
+        beta = best_eval + VAL_WINDOW;
         current_depth += 1;
     }
 
@@ -206,6 +213,13 @@ pub fn timed_search(
             break;
         }
         curr_eval = curr_depth_eval;
+        if curr_eval >= beta || curr_eval <= alpha {
+            alpha = -INFINITY;
+            beta = INFINITY;
+            continue;
+        }
+        alpha = curr_eval - VAL_WINDOW;
+        beta = curr_eval + VAL_WINDOW;
         depth += 1;
     }
 
