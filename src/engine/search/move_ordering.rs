@@ -57,7 +57,8 @@ pub fn get_move_score(
         return i32::MAX;
     }
     if mv.is_capture() {
-        BASE_CAPTURE + calc_cap_score(mv, refs)
+        BASE_CAPTURE
+            + ((mv.get_captured_piece().unwrap().get_value() * 10) - mv.piece_to_move.get_value())
     } else if let Some(killer_val) = refs.return_killer_move_score(ply as i32, *mv) {
         return killer_val;
     } else {
@@ -74,7 +75,9 @@ pub fn get_capture_score_only(
     if move_data == tt_move {
         i32::MAX
     } else {
-        BASE_CAPTURE + calc_cap_score(&move_data, refs)
+        BASE_CAPTURE
+            + ((move_data.get_captured_piece().unwrap().get_value() * 10)
+                - move_data.piece_to_move.get_value())
     }
 }
 pub fn get_capture_score(
@@ -88,7 +91,4 @@ pub fn get_capture_score(
         scores.push(get_capture_score_only(board, *mv, tt_move, refs));
     }
     scores
-}
-pub fn calc_cap_score(mv: &MoveData, refs: &SearchRefs) -> i32 {
-    mv.get_captured_piece().unwrap().get_value() + refs.get_capture_history(mv)
 }
