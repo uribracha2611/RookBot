@@ -95,6 +95,7 @@ pub struct SearchRefs<'a> {
     pub excluded_mv: Option<MoveData>,
 }
 impl SearchRefs<'_> {
+    
     pub fn new_timed_search<'a>(
         killer_moves: KillerMoves,
         start_time: &Instant,
@@ -171,6 +172,9 @@ impl SearchRefs<'_> {
         }
 
         false
+    }
+    pub fn get_killer_moves(&self,ply:i32,index:i32) -> &MoveData {
+        &self.killer_moves[ply as usize][index as usize]
     }
     #[inline(always)]
     pub fn get_eval_ply(&self, ply: i32) -> Option<i32> {

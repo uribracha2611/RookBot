@@ -18,6 +18,7 @@ use super::piece::PieceColor;
     Mul,
     Default,
     Debug,
+    Eq
 )]
 pub struct Bitboard(u64);
 
@@ -114,11 +115,11 @@ impl Bitboard {
     pub fn pawn_attack(self, color: PieceColor, opponent: Bitboard, attack_left: bool) -> Bitboard {
         let pawn_mask = self
             & match (color, attack_left) {
-                (PieceColor::WHITE, true) => !A_FILE,
-                (PieceColor::WHITE, false) => !H_FILE,
-                (PieceColor::BLACK, true) => !H_FILE,
-                (PieceColor::BLACK, false) => !A_FILE,
-            };
+            (PieceColor::WHITE, true) => !A_FILE,
+            (PieceColor::WHITE, false) => !H_FILE,
+            (PieceColor::BLACK, true) => !H_FILE,
+            (PieceColor::BLACK, false) => !A_FILE,
+        };
         let attacks = match (color, attack_left) {
             (PieceColor::WHITE, true) => (pawn_mask << 7) & opponent,
             (PieceColor::WHITE, false) => (pawn_mask << 9) & opponent,

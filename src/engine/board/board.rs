@@ -5,9 +5,10 @@ use super::{
 };
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::engine::board::piece::PieceType;
+use crate::engine::movegen::generate::in_check_after_en_passant;
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::movegen::precomputed::KNIGHT_MOVES;
+use crate::engine::movegen::precomputed::{ALIGN_MASK, KNIGHT_MOVES};
 use crate::engine::search::psqt::constants::GAMEPHASE_INC;
 use crate::engine::search::psqt::function::get_psqt;
 use crate::engine::search::psqt::weight::W;
@@ -23,12 +24,9 @@ pub struct Board {
     piece_bitboards: [[Bitboard; 6]; 2],
     all_pieces_bitboard: Bitboard,
     pub game_state: GameState,
-    pub is_check: bool,
-    pub is_double_check: bool,
-    pub attacked_square: Bitboard,
+
     pub curr_king: u8,
-    pub check_ray: Bitboard,
-    pub pinned_ray: Bitboard,
+   
     pub psqt_white: W,
     pub psqt_black: W,
     pub game_phase: i32,
@@ -80,7 +78,7 @@ impl Board {
             == 0;
     }
     pub fn is_quiet_move(self: &Board, mv: &MoveData) -> bool {
-        !mv.is_capture() && !mv.is_promotion() && !self.is_check && !self.is_move_check(&mv)
+        !mv.is_capture() && !mv.is_promotion() && !self.game_state.is_check && !self.is_move_check(&mv)
     }
     pub fn is_move_check(&self, mv: &MoveData) -> bool {
         let to = mv.to;
@@ -129,6 +127,54 @@ impl Board {
         count >= 3
     }
 
+    pub fn is_legal_move(&self, mv: &MoveData) -> bool {
+
+
+        if  self.squares[mv.from as usize]!=Option::from(mv.piece_to_move)  || (mv.is_capture() &&  self.squares[mv.get_capture_square().unwrap() as usize]!= Option::from(mv.get_captured_piece().unwrap()))  || (!mv.is_capture() && self.squares[mv.to as usize].is_some())  {
+           return   false;
+        }
+        if mv.piece_to_move.piece_type==PieceType::KING && self.game_state.attacked_square.contains_square(mv.to) {
+            return false
+        }
+
+        if mv.is_en_passant() && (Option::from(mv.to)!= self.game_state.en_passant_square || in_check_after_en_passant(&self, mv.from, mv.to, mv.get_capture_square().unwrap())){
+            return false;
+        }
+
+        if (self.game_state.is_check && mv.piece_to_move.piece_type!=PieceType::KING && !self.game_state.check_ray.contains_square(mv.to)){
+                return false;
+            }
+
+        if mv.piece_to_move.is_ortho() ||  mv.piece_to_move.is_diag(){
+
+            let move_ray=if mv.piece_to_move.piece_type==PieceType::QUEEN{
+                get_rook_attacks(mv.from as usize, self.all_pieces_bitboard) | get_bishop_attacks(mv.from as usize, self.all_pieces_bitboard)
+            } else if mv.piece_to_move.is_ortho() {get_rook_attacks(mv.from as usize, self.all_pieces_bitboard)} else {get_bishop_attacks(mv.from as usize, self.all_pieces_bitboard)};
+            if !move_ray.contains_square(mv.to) {
+                return false;
+            }
+
+        }
+
+        if mv.is_castling(){
+           let mv_castling_side=mv.get_castling_side().unwrap();
+            let curr_castling_state=if self.turn==PieceColor::WHITE {self.game_state.castle_white} else { self.game_state.castle_black };
+            if !curr_castling_state.is_allowed(&mv_castling_side)  || (self.get_all_pieces_bitboard() & mv_castling_side.required_empty(self.turn) != 0)
+                || (self.game_state.attacked_square & mv_castling_side.king_moves_trough(self.turn) != 0)
+             {
+                return false;
+            }
+
+        }
+
+
+        if(self.game_state.pinned_ray.contains_square(mv.to) && ALIGN_MASK[mv.from as usize][self.curr_king as usize]
+            != ALIGN_MASK[mv.to as usize][self.curr_king as usize]){
+            return false;
+        }
+        true
+
+    }
     pub fn from_fen(fen: &str) -> Self {
         let parts: Vec<&str> = fen.split_whitespace().collect();
 
@@ -137,6 +183,7 @@ impl Board {
             println!("Invalid fen: {}", fen);
             panic!("Invalid FEN string: insufficient parts");
         }
+
 
         // Parse piece placement string (first field of FEN)
         let piece_placement = parts[0];
@@ -155,12 +202,10 @@ impl Board {
             piece_bitboards: [[Bitboard::new(0); 6]; 2],
             all_pieces_bitboard: Bitboard::new(0),
             game_state: GameState::from_fen(&game_state_fen),
-            is_check: false,
-            is_double_check: false,
-            attacked_square: Bitboard::new(0),
+          
+
             curr_king: 0,
-            check_ray: Bitboard::new(u64::MAX),
-            pinned_ray: Bitboard::new(0),
+       
             psqt_white: W(0, 0),
             psqt_black: W(0, 0),
             game_phase: 0,

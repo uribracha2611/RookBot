@@ -1,4 +1,5 @@
 use crate::engine;
+use crate::engine::board::bitboard::Bitboard;
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::engine::board::piece::PieceColor;
 use crate::engine::board::position::Position;
@@ -13,7 +14,12 @@ pub struct GameState {
     pub fullmove_clock: u8,
     pub en_passant_file: Option<u8>,
     pub en_passant_square: Option<u8>,
+    pub attacked_square: Bitboard,
     pub zobrist_hash: u64,
+    pub is_check: bool,
+    pub is_double_check: bool,
+    pub check_ray: Bitboard,
+    pub pinned_ray: Bitboard,
 }
 impl GameState {
     pub fn new(
@@ -24,6 +30,11 @@ impl GameState {
         en_passant_file: Option<u8>,
         en_passant_square: Option<u8>,
         zobrist_hash: u64,
+        is_check: bool,
+        attacked_square: Bitboard,
+        is_double_check: bool,
+        check_ray:Bitboard,
+        pinned_ray: Bitboard,
     ) -> GameState {
         GameState {
             castle_white,
@@ -33,6 +44,12 @@ impl GameState {
             en_passant_file,
             en_passant_square,
             zobrist_hash,
+            is_check,
+            is_double_check,
+            pinned_ray,
+            check_ray,
+            attacked_square
+
         }
     }
 
@@ -140,6 +157,12 @@ impl GameState {
             en_passant_file,
             en_passant_square,
             zobrist_hash: 0,
+            attacked_square: Bitboard::new(0),
+            is_check: false,
+            is_double_check: false,
+            check_ray: Bitboard::new(u64::MAX),
+            pinned_ray: Bitboard::new(0),
+
         };
 
         game_state.init_zobrist_hash();

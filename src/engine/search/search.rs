@@ -1,21 +1,19 @@
 use std::time::{Duration, Instant};
 
 use crate::engine::board::board::Board;
-use crate::engine::board::piece::PieceColor;
-use crate::engine::board::see::static_exchange_evaluation;
-use crate::engine::movegen::generate::generate_moves;
+use crate::engine::board::piece::{PieceColor, PieceType};
+use crate::engine::movegen::constants::MAX_MOVES;
+use crate::engine::movegen::generate::setup_movegen;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
+use crate::engine::movegen::movepicker::MovePicker;
 use crate::engine::search::constants::{
-    INFINITY, MATE_VALUE, RAZOR_DEPTH, RAZOR_MARGIN, VAL_WINDOW,
+    INFINITY, MATE_VALUE, VAL_WINDOW,
 };
 use crate::engine::search::functions::{
     is_allowed_futility_pruning, is_allowed_reverse_futility_pruning, is_improving,
 };
 use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
-use crate::engine::search::move_ordering::{
-    get_capture_score, get_move_score, get_moves_score, BASE_CAPTURE, MVV_LVA,
-};
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
 use crate::engine::search::types::{CaptureHistoryTable, SearchInput, SearchOutput, SearchRefs};
@@ -30,6 +28,7 @@ pub fn quiescence_search(
     if refs.is_time_done() {
         return 0;
     }
+
 
     refs.increment_nodes_evaluated();
     let stand_pat = eval(board);
@@ -63,20 +62,13 @@ pub fn quiescence_search(
             }
         }
     }
-
-    let mut moves = generate_moves(board, true);
-
-    let mut scores = get_capture_score(board, moves, tt_move, refs);
+    setup_movegen(board);
+    let mut move_picker = MovePicker::init_captures_only(0, &tt_move, [MoveData::default(); 2]);
 
     // Iterate through the moves
-    for i in 0..moves.len() {
+    while let Some(mv_entry) = move_picker.next(board, refs) {
+        let mv = mv_entry.get_mv();
         // Pick the move to search next
-        pick_move(&mut moves, i as u8, &mut scores);
-        let mv = moves.get_move(i);
-
-        if *mv != tt_move && static_exchange_evaluation(board, mv) < 0 {
-            continue;
-        }
 
         // Check time again before making a move
 
@@ -85,9 +77,9 @@ pub fn quiescence_search(
         }
 
         // Make the move and perform recursive quiescence search
-        board.make_move(mv);
+        board.make_move(&mv);
         let score = -quiescence_search(board, -beta, -alpha, refs);
-        board.unmake_move(mv);
+        board.unmake_move(&mv);
 
         // Apply pruning if necessary
         if score >= beta {
@@ -249,14 +241,7 @@ fn search_common(
     if depth <= 0 {
         return quiescence_search(board, alpha, beta, refs);
     }
-    let mut move_list = generate_moves(board, false);
-    let is_in_check = board.is_check;
-    if move_list.len() == 0 {
-        return if board.is_check { -MATE_VALUE + ply } else { 0 };
-    }
-    if board.is_board_draw() {
-        return 0;
-    }
+
     let mut tt_move = MoveData::default();
 
     if let Some(entry) = refs
@@ -282,29 +267,29 @@ fn search_common(
     }
 
     let curr_eval = eval(board);
-    if board.is_check {
+    if board.game_state.is_check {
         refs.disable_eval_ply(ply);
     } else {
         refs.set_eval_ply(ply, curr_eval);
     }
     let improving = is_improving(refs, ply);
     let mut should_extend = false;
-    if board.is_check && refs.is_extension_allowed() {
+    if board.game_state.is_check && refs.is_extension_allowed() {
         should_extend = true;
         refs.increment_extensions();
     } else {
         refs.reset_extensions();
     }
-    if depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
-        let value = quiescence_search(board, alpha, beta, refs);
-        if (value < beta) {
-            return value;
-        }
-    }
+    // if depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
+    //     let value = quiescence_search(board, alpha, beta, refs);
+    //     if (value < beta) {
+    //         return value;
+    //     }
+    // }
     if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving) {
         return curr_eval;
     }
-    if !board.is_check && depth >= 3 {
+    if !board.game_state.is_check && depth >= 3 {
         let r = if depth > 10 {
             5
         } else if depth > 6 {
@@ -325,85 +310,74 @@ fn search_common(
         depth -= 2;
     }
 
-    let mut move_score =
-        get_moves_score(&move_list, ply as usize, board, tt_move, &*refs, board.turn);
+
     let mut best_move = MoveData::default();
     let mut entry_type = EntryType::UpperBound;
     let mut quiet_moves_count = 0;
 
-    let mut quiet_moves: Vec<MoveData> = Vec::with_capacity(move_list.len());
+    let mut quiet_moves: Vec<MoveData> = Vec::with_capacity(MAX_MOVES);
+    setup_movegen(board);
+    let mut move_picker = MovePicker::init_all_moves(ply as usize, &tt_move, [*refs.get_killer_moves(ply, 0), *refs.get_killer_moves(ply, 1)]);
+
     let mut is_pvs = false;
-    for i in 0..move_list.len() {
+    let mut i = 0;
+
+    while let Some(mv_entry) = move_picker.next(board, refs) {
+        let curr_move = mv_entry.get_mv();
+        let see_val = mv_entry.get_see_score();
         // Stop search if time has elapsed
         if refs.is_time_done() {
             return 0;
         }
 
         let mut is_quiet_move = false;
-        pick_move(&mut move_list, i as u8, &mut move_score);
 
-        let mut curr_move = move_list.get_move(i);
-        let mut see_val = 0;
-        while *curr_move != tt_move && curr_move.is_capture() {
-            see_val = static_exchange_evaluation(board, curr_move);
-            if see_val >= 0 {
-                break;
-            }
-
-            let old_move = *curr_move;
-            move_score[i] = -BASE_CAPTURE
-                + ((curr_move.get_captured_piece().unwrap().get_value() * 10)
-                    - curr_move.piece_to_move.get_value());
-            pick_move(&mut move_list, i as u8, &mut move_score);
-            curr_move = move_list.get_move(i);
-            if *curr_move == old_move {
-                break;
-            };
-        }
 
         if curr_move.is_capture()
-            && *curr_move != tt_move
+            && curr_move != tt_move
             && see_val < -25 * depth * depth
-            && !board.is_check
+            && !board.game_state.is_check
             && alpha > -MATE_VALUE + 500
             && i > 1
         {
+            i += 1;
             continue;
         }
 
-        if board.is_quiet_move(curr_move) {
+        if board.is_quiet_move(&curr_move) {
             is_quiet_move = true;
             if should_movecount_based_pruning(
                 board,
-                *curr_move,
+                curr_move,
                 depth as u32,
                 quiet_moves_count,
                 alpha,
                 improving,
             ) && is_pvs
             {
+                i += 1;
                 continue;
             }
             quiet_moves_count += 1;
         }
 
         let mut node_pv: Vec<MoveData> = Vec::new();
-        board.make_move(curr_move);
+        let prev_king = board.get_piece_bitboard(PieceColor::WHITE, PieceType::KING);
+        board.make_move(&curr_move);
 
-        if is_allowed_futility_pruning(depth as u8, alpha, curr_eval, curr_move, board)
+        if is_allowed_futility_pruning(depth as u8, alpha, curr_eval, &curr_move, board)
             && is_pvs
-            && !is_in_check
         {
-            board.unmake_move(curr_move);
+            board.unmake_move(&curr_move);
             break;
         }
 
-        refs.set_move_ply(ply, *curr_move);
+        refs.set_move_ply(ply, curr_move);
         let extension_adding = if (should_extend) { 1 } else { 0 };
         let mut score_mv = 0;
         if is_pvs && depth >= 3 {
             let new_depth =
-                reduce_depth(board, curr_move, depth as f32, i as f32, improving) as i32;
+                reduce_depth(board, &curr_move, depth as f32, i as f32, improving) as i32;
             score_mv = -search_common(
                 board,
                 new_depth,
@@ -447,11 +421,11 @@ fn search_common(
             );
         }
 
-        board.unmake_move(curr_move);
+        board.unmake_move(&curr_move);
 
         if score_mv >= beta {
             entry_type = EntryType::LowerBound;
-            best_move = *curr_move;
+            best_move = curr_move;
 
             refs.table.store(
                 board.game_state.zobrist_hash,
@@ -462,10 +436,10 @@ fn search_common(
             );
 
             if !curr_move.is_capture() {
-                refs.store_killers(*curr_move, ply as usize);
+                refs.store_killers(curr_move, ply as usize);
 
-                refs.add_history(board.turn, *curr_move, depth, false);
-                refs.increament_cont_hist(depth, ply, curr_move);
+                refs.add_history(board.turn, curr_move, depth, false);
+                refs.increament_cont_hist(depth, ply, &curr_move);
             }
             for quiet_move in quiet_moves {
                 refs.decreament_cont_hist(depth, ply, &quiet_move);
@@ -476,19 +450,23 @@ fn search_common(
         }
 
         if is_quiet_move {
-            quiet_moves.push(*curr_move);
+            quiet_moves.push(curr_move);
         }
 
         if score_mv > alpha {
             alpha = score_mv;
-            best_move = *curr_move;
+            best_move = curr_move;
             entry_type = EntryType::Exact;
             // Update PV
             pv.clear();
-            pv.push(*curr_move);
+            pv.push(curr_move);
             pv.append(&mut node_pv);
         }
         is_pvs = true;
+        i += 1;
+    }
+    if i == 0 {
+        return if board.game_state.is_check { -MATE_VALUE + ply } else { 0 };
     }
 
     refs.get_transposition_table().store(

@@ -15,7 +15,7 @@ pub fn is_allowed_futility_pruning(
         return false;
     }
 
-    if mv.is_capture() || mv.is_promotion() || board.is_check {
+    if mv.is_capture() || mv.is_promotion() || board.game_state.is_check {
         return false;
     }
     eval <= alpha - FUTILITY_MARGIN_DEPTH[(depth - 1) as usize]
@@ -31,7 +31,7 @@ pub fn is_allowed_reverse_futility_pruning(
         return false; // Lower depth threshold
     }
 
-    if board.is_check {
+    if board.game_state.is_check {
         return false; // Avoid pruning in check
     }
 

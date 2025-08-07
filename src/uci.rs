@@ -7,7 +7,6 @@ use crate::engine::perft::perft_bulk;
 use crate::engine::search::search::{search, timed_search};
 use crate::engine::search::transposition_table::TranspositionTable;
 use crate::engine::search::types::SearchInput;
-use crate::opening_book::{get_move_from_opening_book, init_book};
 use std::time::Duration;
 
 const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -32,7 +31,6 @@ pub fn handle_command(
         "ucinewgame" => {
             precompute_magics();
             precompute_movegen();
-            init_book();
             *tt_table = TranspositionTable::from_mb(64);
             return;
         }
@@ -122,13 +120,7 @@ pub fn handle_go(
     let mut btime = None;
     let mut winc = None;
     let mut binc = None;
-    if should_use_book {
-        if let Some(mv) = (get_move_from_opening_book(board)) {
-            println!("info string Book move {} score cp 0", mv.to_algebraic());
-            println!("bestmove {}", mv.to_algebraic());
-            return;
-        }
-    }
+
 
     let parts: Vec<&str> = command.split_whitespace().collect();
     let mut i = 1; // Skip the "go" part

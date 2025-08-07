@@ -2,13 +2,13 @@ pub fn perft(board: &mut Board, depth: u32) -> String {
     let mut result = String::new();
     let mut total_nodes = 0;
 
-    let move_list = generate_moves(board, false);
+    let move_list = generate_moves(board, ALLMoves);
     for mv in move_list.iter() {
-        board.make_move(mv);
+        board.make_move(&mv.get_mv());
         let nodes = perft_recursive(board, depth - 1);
-        board.unmake_move(mv);
+        board.unmake_move(&mv.get_mv());
 
-        result.push_str(&format!("{} {}\n", mv.to_algebraic(), nodes));
+        result.push_str(&format!("{} {}\n", mv.get_mv().to_algebraic(), nodes));
         total_nodes += nodes;
     }
 
@@ -21,28 +21,28 @@ fn perft_recursive(board: &mut Board, depth: u32) -> u32 {
         return 1;
     }
 
-    let move_list = generate_moves(board, false);
+    let move_list = generate_moves(board, ALLMoves);
 
     let mut nodes = 0;
     for mv in move_list.iter() {
-        board.make_move(mv);
+        board.make_move(&mv.get_mv());
         nodes += perft_recursive(board, depth - 1);
-        board.unmake_move(mv);
+        board.unmake_move(&mv.get_mv());
     }
 
     nodes
 }
 pub fn perft_bulk(board: &mut Board, depth: u32) -> u32 {
-    let move_list = generate_moves(board, false);
+    let move_list = generate_moves(board, ALLMoves);
     if depth == 1 {
         return move_list.len() as u32;
     }
     let mut nodes = 0;
 
     for mv in move_list.iter() {
-        board.make_move(mv);
+        board.make_move(&mv.get_mv());
         nodes += perft_bulk(board, depth - 1);
-        board.unmake_move(mv);
+        board.unmake_move(&mv.get_mv());
     }
 
     nodes
@@ -60,15 +60,15 @@ pub fn perft_bulk_with_zobrist_check(
         board.calc_zobrist(),
         curr_move
     );
-    let move_list = generate_moves(board, false);
+    let move_list = generate_moves(board, ALLMoves);
     if depth == 1 {
         return move_list.len() as u32;
     }
     let mut nodes = 0;
 
     for mv in move_list.iter() {
-        board.make_move(mv);
-        curr_move.push(mv.clone());
+        board.make_move(&mv.get_mv());
+        curr_move.push(mv.get_mv().clone());
         assert_eq!(
             board.game_state.zobrist_hash,
             board.calc_zobrist(),
@@ -79,7 +79,7 @@ pub fn perft_bulk_with_zobrist_check(
         );
         nodes += perft_bulk_with_zobrist_check(board, curr_move, depth - 1);
         curr_move.pop();
-        board.unmake_move(mv);
+        board.unmake_move(&mv.get_mv());
         assert_eq!(
             board.game_state.zobrist_hash,
             board.calc_zobrist(),
@@ -113,6 +113,7 @@ use crate::engine::movegen::movedata::MoveData;
 use std::io::BufRead;
 use std::sync::{Arc, Mutex};
 use std::{io, panic};
+use crate::engine::movegen::generate::MoveGenerationType::ALLMoves;
 
 pub fn check_epd_line(line: &str) -> Result<(), String> {
     let parts: Vec<&str> = line.split(';').collect();
