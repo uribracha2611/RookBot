@@ -2,3 +2,7 @@
 ./src/board_tests.rs
 ./sr/debug_functions.rs
 /src/bin
+binaries_to_test3
+tests
+8moves_v3.epd
+test_to_run.sh
