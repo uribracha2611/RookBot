@@ -1,6 +1,5 @@
-use std::time::{Duration, Instant};
-
 use crate::engine::board::board::Board;
+use crate::engine::board::piece::PieceType::KING;
 use crate::engine::board::piece::{PieceColor, PieceType};
 use crate::engine::movegen::constants::MAX_MOVES;
 use crate::engine::movegen::generate::setup_movegen;
@@ -17,6 +16,7 @@ use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
 use crate::engine::search::types::{CaptureHistoryTable, SearchInput, SearchOutput, SearchRefs};
+use std::time::{Duration, Instant};
 
 pub fn quiescence_search(
     board: &mut Board,
@@ -78,8 +78,10 @@ pub fn quiescence_search(
 
         // Make the move and perform recursive quiescence search
         board.make_move(&mv);
+        debug_assert!(board.curr_king == board.get_piece_bitboard(board.turn, KING).get_single_set_bit(), "king is setup incorrectly it should be at square {} but board.curr_king = {}", board.curr_king, board.get_piece_bitboard(board.turn, KING).get_single_set_bit());
         let score = -quiescence_search(board, -beta, -alpha, refs);
         board.unmake_move(&mv);
+        debug_assert!(board.curr_king == board.get_piece_bitboard(board.turn, KING).get_single_set_bit(), "king is setup incorrectly it should be at square {} but board.curr_king = {}", board.curr_king, board.get_piece_bitboard(board.turn, KING).get_single_set_bit());
 
         // Apply pruning if necessary
         if score >= beta {
@@ -265,7 +267,7 @@ fn search_common(
             }
         }
     }
-
+    setup_movegen(board);
     let curr_eval = eval(board);
     if board.game_state.is_check {
         refs.disable_eval_ply(ply);
@@ -298,9 +300,11 @@ fn search_common(
             3
         };
         board.make_null_move();
+        debug_assert!(board.curr_king == board.get_piece_bitboard(board.turn, KING).get_single_set_bit(), "king is setup incorrectly it should be at square {} but board.curr_king = {}", board.curr_king, board.get_piece_bitboard(board.turn, KING).get_single_set_bit());
         let null_move_score =
             -search_common(board, depth - 1 - r, ply + 1, -beta, -beta + 1, pv, refs);
         board.unmake_null_move();
+        debug_assert!(board.curr_king == board.get_piece_bitboard(board.turn, KING).get_single_set_bit(), "king is setup incorrectly it should be at square {} but board.curr_king = {}", board.curr_king, board.get_piece_bitboard(board.turn, KING).get_single_set_bit());
         if null_move_score >= beta {
             return null_move_score;
         }
@@ -316,7 +320,7 @@ fn search_common(
     let mut quiet_moves_count = 0;
 
     let mut quiet_moves: Vec<MoveData> = Vec::with_capacity(MAX_MOVES);
-    setup_movegen(board);
+
     let mut move_picker = MovePicker::init_all_moves(ply as usize, &tt_move, [*refs.get_killer_moves(ply, 0), *refs.get_killer_moves(ply, 1)]);
 
     let mut is_pvs = false;
@@ -363,12 +367,16 @@ fn search_common(
 
         let mut node_pv: Vec<MoveData> = Vec::new();
         let prev_king = board.get_piece_bitboard(PieceColor::WHITE, PieceType::KING);
+        debug_assert!(board.is_legal_move(&curr_move), "{:?} is not legal fen is {} depth is {} ply is {}", curr_move, board.to_fen(), depth, ply);
         board.make_move(&curr_move);
+        debug_assert!(board.get_piece_bitboard(board.turn, PieceType::KING).pop_count() == 1, "problem there is more than 1 king of color {} after mv {:?} fen is {} depth is {} ply is {} ", board.turn, curr_move, board.to_fen(), depth, ply);
+        debug_assert!(board.curr_king == board.get_piece_bitboard(board.turn, KING).get_single_set_bit(), "king is setup incorrectly it should be at square {} but board.curr_king = {}", board.curr_king, board.get_piece_bitboard(board.turn, KING).get_single_set_bit());
 
         if is_allowed_futility_pruning(depth as u8, alpha, curr_eval, &curr_move, board)
             && is_pvs
         {
             board.unmake_move(&curr_move);
+            debug_assert!(board.curr_king == board.get_piece_bitboard(board.turn, KING).get_single_set_bit(), "king is setup incorrectly it should be at square {} but board.curr_king = {}", board.curr_king, board.get_piece_bitboard(board.turn, KING).get_single_set_bit());
             break;
         }
 
@@ -422,7 +430,7 @@ fn search_common(
         }
 
         board.unmake_move(&curr_move);
-
+        debug_assert!(board.curr_king == board.get_piece_bitboard(board.turn, KING).get_single_set_bit(), "king is setup incorrectly it should be at square {} but board.curr_king = {}", board.curr_king, board.get_piece_bitboard(board.turn, KING).get_single_set_bit());
         if score_mv >= beta {
             entry_type = EntryType::LowerBound;
             best_move = curr_move;

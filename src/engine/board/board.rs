@@ -5,6 +5,7 @@ use super::{
 };
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::engine::board::piece::PieceType;
+use crate::engine::board::piece::PieceType::KING;
 use crate::engine::movegen::generate::in_check_after_en_passant;
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::engine::movegen::movedata::MoveData;
@@ -12,9 +13,7 @@ use crate::engine::movegen::precomputed::{ALIGN_MASK, KNIGHT_MOVES};
 use crate::engine::search::psqt::constants::GAMEPHASE_INC;
 use crate::engine::search::psqt::function::get_psqt;
 use crate::engine::search::psqt::weight::W;
-use crate::engine::search::Zobrist::constants::{
-    ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE,
-};
+use crate::engine::search::Zobrist::constants::{ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE};
 
 #[derive(Clone)]
 pub struct Board {
@@ -26,7 +25,7 @@ pub struct Board {
     pub game_state: GameState,
 
     pub curr_king: u8,
-   
+
     pub psqt_white: W,
     pub psqt_black: W,
     pub game_phase: i32,
@@ -128,52 +127,46 @@ impl Board {
     }
 
     pub fn is_legal_move(&self, mv: &MoveData) -> bool {
-
-
-        if  self.squares[mv.from as usize]!=Option::from(mv.piece_to_move)  || (mv.is_capture() &&  self.squares[mv.get_capture_square().unwrap() as usize]!= Option::from(mv.get_captured_piece().unwrap()))  || (!mv.is_capture() && self.squares[mv.to as usize].is_some())  {
-           return   false;
+        if self.squares[mv.from as usize] != Option::from(mv.piece_to_move) || (mv.is_capture() && self.squares[mv.get_capture_square().unwrap() as usize] != Option::from(mv.get_captured_piece().unwrap())) || (!mv.is_capture() && self.squares[mv.to as usize].is_some()) {
+            return false;
         }
-        if mv.piece_to_move.piece_type==PieceType::KING && self.game_state.attacked_square.contains_square(mv.to) {
-            return false
-        }
-
-        if mv.is_en_passant() && (Option::from(mv.to)!= self.game_state.en_passant_square || in_check_after_en_passant(&self, mv.from, mv.to, mv.get_capture_square().unwrap())){
+        if mv.piece_to_move.piece_type == PieceType::KING && self.game_state.attacked_square.contains_square(mv.to) {
             return false;
         }
 
-        if (self.game_state.is_check && mv.piece_to_move.piece_type!=PieceType::KING && !self.game_state.check_ray.contains_square(mv.to)){
-                return false;
-            }
+        if mv.is_en_passant() && (Option::from(mv.to) != self.game_state.en_passant_square || in_check_after_en_passant(&self, mv.from, mv.to, mv.get_capture_square().unwrap())) {
+            return false;
+        }
 
-        if mv.piece_to_move.is_ortho() ||  mv.piece_to_move.is_diag(){
+        if (self.game_state.is_check && mv.piece_to_move.piece_type != PieceType::KING && !self.game_state.check_ray.contains_square(mv.to)) {
+            return false;
+        }
 
-            let move_ray=if mv.piece_to_move.piece_type==PieceType::QUEEN{
+        if mv.piece_to_move.is_ortho() || mv.piece_to_move.is_diag() {
+            let move_ray = if mv.piece_to_move.piece_type == PieceType::QUEEN {
                 get_rook_attacks(mv.from as usize, self.all_pieces_bitboard) | get_bishop_attacks(mv.from as usize, self.all_pieces_bitboard)
-            } else if mv.piece_to_move.is_ortho() {get_rook_attacks(mv.from as usize, self.all_pieces_bitboard)} else {get_bishop_attacks(mv.from as usize, self.all_pieces_bitboard)};
+            } else if mv.piece_to_move.is_ortho() { get_rook_attacks(mv.from as usize, self.all_pieces_bitboard) } else { get_bishop_attacks(mv.from as usize, self.all_pieces_bitboard) };
             if !move_ray.contains_square(mv.to) {
                 return false;
             }
-
         }
 
-        if mv.is_castling(){
-           let mv_castling_side=mv.get_castling_side().unwrap();
-            let curr_castling_state=if self.turn==PieceColor::WHITE {self.game_state.castle_white} else { self.game_state.castle_black };
-            if !curr_castling_state.is_allowed(&mv_castling_side)  || (self.get_all_pieces_bitboard() & mv_castling_side.required_empty(self.turn) != 0)
+        if mv.is_castling() {
+            let mv_castling_side = mv.get_castling_side().unwrap();
+            let curr_castling_state = if self.turn == PieceColor::WHITE { self.game_state.castle_white } else { self.game_state.castle_black };
+            if !curr_castling_state.is_allowed(&mv_castling_side) || (self.get_all_pieces_bitboard() & mv_castling_side.required_empty(self.turn) != 0)
                 || (self.game_state.attacked_square & mv_castling_side.king_moves_trough(self.turn) != 0)
-             {
+            {
                 return false;
             }
-
         }
 
 
-        if(self.game_state.pinned_ray.contains_square(mv.to) && ALIGN_MASK[mv.from as usize][self.curr_king as usize]
-            != ALIGN_MASK[mv.to as usize][self.curr_king as usize]){
+        if (self.game_state.pinned_ray.contains_square(mv.to) && ALIGN_MASK[mv.from as usize][self.curr_king as usize]
+            != ALIGN_MASK[mv.to as usize][self.curr_king as usize]) {
             return false;
         }
         true
-
     }
     pub fn from_fen(fen: &str) -> Self {
         let parts: Vec<&str> = fen.split_whitespace().collect();
@@ -202,10 +195,9 @@ impl Board {
             piece_bitboards: [[Bitboard::new(0); 6]; 2],
             all_pieces_bitboard: Bitboard::new(0),
             game_state: GameState::from_fen(&game_state_fen),
-          
 
             curr_king: 0,
-       
+
             psqt_white: W(0, 0),
             psqt_black: W(0, 0),
             game_phase: 0,
@@ -365,7 +357,9 @@ impl Board {
 
         self.history.push(old_game_state);
         self.repetition_table.push(self.game_state.zobrist_hash);
+        self.curr_king = self.get_piece_bitboard(self.turn, KING).get_single_set_bit();
     }
+
     pub fn is_board_draw(&self) -> bool {
         self.is_threefold_repetition()
             || self.is_insufficient_material()
@@ -426,6 +420,7 @@ impl Board {
         self.game_state = self.history.pop().unwrap();
         self.repetition_table.pop();
         self.turn = self.turn.opposite();
+        self.curr_king = self.get_piece_bitboard(self.turn, KING).get_single_set_bit();
     }
 
     fn disallow_castling_if_needed(&mut self, square: u8, piece: Piece) {
@@ -434,49 +429,49 @@ impl Board {
         }
         match (square, piece.piece_color) {
             (0, PieceColor::WHITE)
-                if self
-                    .game_state
-                    .castle_white
-                    .is_allowed(&CastlingSide::Queenside) =>
-            {
-                self.game_state.disallow_castling(
-                    AllowedCastling::from(CastlingSide::Queenside),
-                    piece.piece_color,
-                );
-            }
+            if self
+                .game_state
+                .castle_white
+                .is_allowed(&CastlingSide::Queenside) =>
+                {
+                    self.game_state.disallow_castling(
+                        AllowedCastling::from(CastlingSide::Queenside),
+                        piece.piece_color,
+                    );
+                }
             (7, PieceColor::WHITE)
-                if self
-                    .game_state
-                    .castle_white
-                    .is_allowed(&CastlingSide::Kingside) =>
-            {
-                self.game_state.disallow_castling(
-                    AllowedCastling::from(CastlingSide::Kingside),
-                    piece.piece_color,
-                );
-            }
+            if self
+                .game_state
+                .castle_white
+                .is_allowed(&CastlingSide::Kingside) =>
+                {
+                    self.game_state.disallow_castling(
+                        AllowedCastling::from(CastlingSide::Kingside),
+                        piece.piece_color,
+                    );
+                }
             (56, PieceColor::BLACK)
-                if self
-                    .game_state
-                    .castle_black
-                    .is_allowed(&CastlingSide::Queenside) =>
-            {
-                self.game_state.disallow_castling(
-                    AllowedCastling::from(CastlingSide::Queenside),
-                    piece.piece_color,
-                );
-            }
+            if self
+                .game_state
+                .castle_black
+                .is_allowed(&CastlingSide::Queenside) =>
+                {
+                    self.game_state.disallow_castling(
+                        AllowedCastling::from(CastlingSide::Queenside),
+                        piece.piece_color,
+                    );
+                }
             (63, PieceColor::BLACK)
-                if self
-                    .game_state
-                    .castle_black
-                    .is_allowed(&CastlingSide::Kingside) =>
-            {
-                self.game_state.disallow_castling(
-                    AllowedCastling::from(CastlingSide::Kingside),
-                    piece.piece_color,
-                );
-            }
+            if self
+                .game_state
+                .castle_black
+                .is_allowed(&CastlingSide::Kingside) =>
+                {
+                    self.game_state.disallow_castling(
+                        AllowedCastling::from(CastlingSide::Kingside),
+                        piece.piece_color,
+                    );
+                }
             _ => {}
         }
     }
@@ -496,12 +491,14 @@ impl Board {
         self.game_state.zobrist_hash ^= ZOBRIST_SIDE_TO_MOVE;
         self.game_state.halfmove_clock = 0;
         self.game_state.fullmove_clock += 1;
+        self.curr_king = self.get_piece_bitboard(self.turn, KING).get_single_set_bit();
     }
 
     pub fn unmake_null_move(&mut self) {
         if let Some(previous_state) = self.history.pop() {
             self.game_state = previous_state;
             self.turn = self.turn.opposite();
+            self.curr_king = self.get_piece_bitboard(self.turn, KING).get_single_set_bit();
         } else {
             panic!("No previous game state to unmake null move");
         }

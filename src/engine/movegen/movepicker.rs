@@ -107,7 +107,7 @@ impl MovePicker
                 }
 
                 KillerMove1 => {
-                    if self.killer_moves[0] == MoveData::default() || !board.is_legal_move(&self.killer_moves[0]) {
+                    if self.killer_moves[0] == MoveData::default() || self.killer_moves[0] == self.tt_move || !board.is_legal_move(&self.killer_moves[0]) {
                         self.curr_stage = KillerMove2;
                         continue;
                     }
@@ -115,7 +115,7 @@ impl MovePicker
                     return Some(MoveEntry::entry_from_mv(self.killer_moves[0]));
                 }
                 KillerMove2 => {
-                    if self.killer_moves[1] == MoveData::default() || !board.is_legal_move(&self.killer_moves[0]) {
+                    if self.killer_moves[1] == MoveData::default() || self.killer_moves[1] == self.tt_move || !board.is_legal_move(&self.killer_moves[1]) {
                         self.curr_stage = GenerateQuiets;
                         continue;
                     }
@@ -129,7 +129,7 @@ impl MovePicker
                     for i in self.split..MAX_MOVES
                     {
                         let mv_entry = &mut self.moves[i];
-                        if mv_entry.get_mv() == self.tt_move {
+                        if mv_entry.get_mv() == self.tt_move || mv_entry.get_mv() == self.killer_moves[0] || mv_entry.get_mv() == self.killer_moves[1] {
                             mv_entry.set_score(-INFINITY);
                             continue;
                         }
@@ -148,7 +148,7 @@ impl MovePicker
                         let curr_entry = self.moves[index];
                         self.moves.pop_move(index);
                         self.quiet_size -= 1;
-                        if curr_entry.get_mv() == self.tt_move {
+                        if curr_entry.get_mv() == self.tt_move || curr_entry.get_mv() == self.killer_moves[0] || curr_entry.get_mv() == self.killer_moves[1] {
                             continue;
                         }
 

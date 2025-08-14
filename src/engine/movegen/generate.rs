@@ -278,9 +278,6 @@ pub fn generate_moves_from_list(board: &Board, move_list: &mut MoveList, start: 
     }
 }
 pub fn setup_movegen(board: &mut Board) {
-    board.curr_king = board
-        .get_piece_bitboard(board.turn, PieceType::KING)
-        .get_single_set_bit();
     board.game_state.attacked_square = generate_all_opp_attacks(board);
     update_check_status(board);
     board.game_state.pinned_ray = find_pinned_pieces(board);
