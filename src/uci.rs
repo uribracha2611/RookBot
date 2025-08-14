@@ -7,7 +7,6 @@ use crate::engine::perft::perft_bulk;
 use crate::engine::search::search::{search, timed_search};
 use crate::engine::search::transposition_table::TranspositionTable;
 use crate::engine::search::types::SearchInput;
-use crate::opening_book::{get_move_from_opening_book, init_book};
 use std::time::Duration;
 
 const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -15,8 +14,7 @@ const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq -
 pub fn handle_command(
     command: &str,
     board: &mut Board,
-    should_use_book: bool,
-    mut tt_table: &mut TranspositionTable,
+    tt_table: &mut TranspositionTable,
 ) {
     let first_word = command.split(" ").collect::<Vec<&str>>()[0];
     match first_word {
@@ -32,7 +30,6 @@ pub fn handle_command(
         "ucinewgame" => {
             precompute_magics();
             precompute_movegen();
-            init_book();
             *tt_table = TranspositionTable::from_mb(64);
             return;
         }
@@ -44,7 +41,7 @@ pub fn handle_command(
             handle_position(remaining_string, board)
         }
         "go" => {
-            handle_go(command, board, should_use_book, tt_table);
+            handle_go(command, board, tt_table);
         }
         "perft" => {
             let parts: Vec<&str> = command.split_whitespace().collect();
@@ -74,7 +71,7 @@ fn handle_position(command: String, board: &mut Board) {
         // If the command is "startpos", set the board to the starting position.
         "startpos" => {
             *board = Board::from_fen(STARTPOS_FEN); // Assuming STARTPOS_FEN is a constant for the standard starting position
-                                                    // If moves follow, apply them
+            // If moves follow, apply them
             if parts.len() > 1 && parts[1] == "moves" {
                 let moves = parts[2..].to_vec(); // Collect all moves
                 apply_moves(board, &moves); // Assuming you have a function to apply moves
@@ -86,7 +83,7 @@ fn handle_position(command: String, board: &mut Board) {
             if parts.len() > 1 {
                 let fen = parts[1..7].join(" "); // Join the rest of the parts to form the full FEN string
                 *board = Board::from_fen(&fen); // Set the board using the FEN string
-                                                // If moves follow, apply them
+                // If moves follow, apply them
                 if parts.len() > 2 && parts.get(7) == Some(&"moves") {
                     let moves = parts[8..].to_vec(); // Collect all moves
                     apply_moves(board, &moves); // Apply the moves on top of the FEN
@@ -113,7 +110,6 @@ fn apply_moves(board: &mut Board, moves: &Vec<&str>) {
 pub fn handle_go(
     command: &str,
     board: &mut Board,
-    should_use_book: bool,
     tt_table: &mut TranspositionTable,
 ) {
     let mut depth = None;
@@ -122,13 +118,7 @@ pub fn handle_go(
     let mut btime = None;
     let mut winc = None;
     let mut binc = None;
-    if should_use_book {
-        if let Some(mv) = (get_move_from_opening_book(board)) {
-            println!("info string Book move {} score cp 0", mv.to_algebraic());
-            println!("bestmove {}", mv.to_algebraic());
-            return;
-        }
-    }
+
 
     let parts: Vec<&str> = command.split_whitespace().collect();
     let mut i = 1; // Skip the "go" part
