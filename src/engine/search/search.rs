@@ -18,7 +18,7 @@ use crate::engine::search::move_ordering::{
 };
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
-use crate::engine::search::types::{CaptureHistoryTable, SearchInput, SearchOutput, SearchRefs};
+use crate::engine::search::types::{SearchInput, SearchOutput, SearchRefs};
 
 pub fn quiescence_search(
     board: &mut Board,
@@ -134,14 +134,13 @@ pub fn search(
     tt_table: &mut TranspositionTable,
 ) -> SearchOutput {
     let mut current_depth = 1;
-    let history_table = [[[0; 64]; 64]; 2];
+
     let mut principal_variation: Vec<MoveData> = Vec::new();
     let mut best_eval = -INFINITY;
-    let killer_moves = [[MoveData::default(); 2]; 256];
-    let cap_hist: CaptureHistoryTable = [[[0; 12]; 64]; 12];
+
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
-    let mut refs = SearchRefs::new_depth_search(killer_moves, history_table, cap_hist, tt_table);
+    let mut refs = SearchRefs::new_depth_search(tt_table);
     while current_depth <= input.depth {
         let eval = search_common(
             board,
@@ -179,8 +178,8 @@ pub fn timed_search(
     tt_table: &mut TranspositionTable,
 ) -> SearchOutput {
     let mut pv = Vec::new();
-    let killer_moves = [[MoveData::default(); 2]; 256];
-    let history_table = [[[0; 64]; 64]; 2];
+
+
     let mut curr_eval = 0;
     let move_time = if is_move_time {
         time_limit
@@ -192,14 +191,10 @@ pub fn timed_search(
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
     let start_time = Instant::now();
-    let cap_hist: CaptureHistoryTable = [[[0; 12]; 64]; 12];
 
     let mut refs = SearchRefs::new_timed_search(
-        killer_moves,
         &start_time,
         &move_time,
-        history_table,
-        cap_hist,
         tt_table,
     );
     while depth <= max_depth {

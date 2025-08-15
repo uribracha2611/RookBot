@@ -6,7 +6,6 @@ use crate::engine::search::transposition_table::TranspositionTable;
 use std::ops::Neg;
 use std::time::{Duration, Instant};
 
-pub type CaptureHistoryTable = [[[i32; 12]; 64]; 12];
 #[derive(Copy, Clone)]
 
 pub struct SearchStackEntry {
@@ -85,57 +84,50 @@ pub struct SearchRefs<'a> {
     start_time: Option<Instant>,
     time_limit: Option<Duration>,
     history_table: [[[i32; 64]; 64]; 2],
-    caphist: CaptureHistoryTable,
     eval_stack: [Option<i32>; 256],
     move_stack: [Option<MoveData>; 256],
     current_extensions: i32,
     continuation_history: Vec<Vec<i32>>,
     pub table: &'a mut TranspositionTable,
-    pub excluded_mv: Option<MoveData>,
+
 }
 impl SearchRefs<'_> {
     pub fn new_timed_search<'a>(
-        killer_moves: KillerMoves,
         start_time: &Instant,
         time_limit: &Duration,
-        history_table: [[[i32; 64]; 64]; 2],
-        cap_hist: CaptureHistoryTable,
         transposition_table: &'a mut TranspositionTable,
     ) -> SearchRefs<'a> {
+        let killer_moves: KillerMoves = [[MoveData::default(); 2]; 256];
+        let history_table = [[[0; 64]; 64]; 2];
         SearchRefs {
             killer_moves,
             nodes_evaluated: 0,
             start_time: Some(*start_time),
             time_limit: Some(*time_limit),
             history_table,
-            caphist: cap_hist,
             eval_stack: [None; 256],
             move_stack: [None; 256],
             current_extensions: 0,
             table: transposition_table,
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
-            excluded_mv: None,
         }
     }
     pub fn new_depth_search(
-        killer_moves: KillerMoves,
-        history_table: [[[i32; 64]; 64]; 2],
-        cap_hist: CaptureHistoryTable,
         transposition_table: &'_ mut TranspositionTable,
     ) -> SearchRefs<'_> {
+        let killer_moves: KillerMoves = [[MoveData::default(); 2]; 256];
+        let history_table = [[[0; 64]; 64]; 2];
         SearchRefs {
             killer_moves,
             nodes_evaluated: 0,
             start_time: None,
             time_limit: None,
             history_table,
-            caphist: cap_hist,
             eval_stack: [None; 256],
             move_stack: [None; 256],
             current_extensions: 0,
             table: transposition_table, // Removed &mut here
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
-            excluded_mv: None,
         }
     }
 
@@ -277,28 +269,5 @@ impl SearchRefs<'_> {
     #[inline(always)]
     pub fn reset_extensions(&mut self) {
         self.current_extensions = 0;
-    }
-
-    #[inline(always)]
-    pub fn add_capture_history(&mut self, mv: &MoveData, depth: i32) {
-        let captured_piece_index = mv.get_captured_piece().unwrap().to_history_index();
-        let capture_piece_index = mv.piece_to_move.to_history_index();
-        let square_index = mv.get_capture_square().unwrap();
-        self.caphist[captured_piece_index][square_index as usize][capture_piece_index] +=
-            depth * depth;
-    }
-    pub fn reduce_capture_history(&mut self, mv: &MoveData, depth: i32) {
-        let captured_piece_index = mv.get_captured_piece().unwrap().to_history_index();
-        let capture_piece_index = mv.piece_to_move.to_history_index();
-        let square_index = mv.get_capture_square().unwrap();
-        self.caphist[captured_piece_index][square_index as usize]
-            [capture_piece_index] -= depth * depth;
-    }
-    pub fn get_capture_history(&self, mv: &MoveData) -> i32 {
-        let captured_piece_index = mv.get_captured_piece().unwrap().to_history_index();
-        let capture_piece_index = mv.piece_to_move.to_history_index();
-        let square_index = mv.get_capture_square().unwrap();
-        self.caphist[captured_piece_index][square_index as usize]
-            [capture_piece_index]
     }
 }
