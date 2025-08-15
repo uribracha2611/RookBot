@@ -3,7 +3,7 @@
 !Cargo.toml
 !Cargo.lock
 !README.md
-
+*~
 !src/
 !src/**/*
 src/bin/*
