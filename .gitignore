@@ -1,11 +1,9 @@
 *
 !.gitignore
-
-
 !Cargo.toml
 !Cargo.lock
-
-
-!/src/
-
 !README.md
+
+!src/
+!src/**/*
+src/bin/*
