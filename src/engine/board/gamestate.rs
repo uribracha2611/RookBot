@@ -1,9 +1,7 @@
-use crate::engine;
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::engine::board::piece::PieceColor;
 use crate::engine::board::position::Position;
-use crate::engine::movegen::movedata::MoveType::Castling;
-use crate::engine::search::Zobrist::constants::{ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT};
+use crate::engine::search::zobrist::constants::{ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct GameState {
@@ -37,7 +35,6 @@ impl GameState {
     }
 
     pub fn disallow_castling(&mut self, side: AllowedCastling, color: PieceColor) {
-        let old_hash = self.zobrist_hash;
         let (old_white_castle, old_black_castle) = (self.castle_white, self.castle_black);
         let old_castling_index =
             GameState::zobrist_castling_index(old_white_castle, old_black_castle);

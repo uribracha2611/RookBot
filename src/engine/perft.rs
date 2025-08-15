@@ -68,7 +68,7 @@ pub fn perft_bulk_with_zobrist_check(
 
     for mv in move_list.iter() {
         board.make_move(mv);
-        curr_move.push(mv.clone());
+        curr_move.push(*mv);
         assert_eq!(
             board.game_state.zobrist_hash,
             board.calc_zobrist(),
@@ -124,7 +124,7 @@ pub fn check_epd_line(line: &str) -> Result<(), String> {
     let board = Arc::new(Mutex::new(Board::from_fen(fen)));
 
     for depth_and_result in parts.iter().skip(1) {
-        let depth_and_result: Vec<&str> = depth_and_result.trim().split_whitespace().collect();
+        let depth_and_result: Vec<&str> = depth_and_result.split_whitespace().collect();
         if depth_and_result.len() < 2 {
             continue;
         }

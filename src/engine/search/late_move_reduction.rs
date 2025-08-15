@@ -29,8 +29,6 @@ pub fn reduce_depth(
     }
 }
 pub fn should_movecount_based_pruning(
-    board: &Board,
-    mv: MoveData,
     depth: u32,
     moves_played_so_far: i32,
     best_score: i32,

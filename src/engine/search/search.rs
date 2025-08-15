@@ -14,7 +14,7 @@ use crate::engine::search::functions::{
 };
 use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 use crate::engine::search::move_ordering::{
-    get_capture_score, get_move_score, get_moves_score, BASE_CAPTURE, MVV_LVA,
+    get_capture_score, get_moves_score, BASE_CAPTURE,
 };
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
@@ -66,7 +66,7 @@ pub fn quiescence_search(
 
     let mut moves = generate_moves(board, true);
 
-    let mut scores = get_capture_score(board, moves, tt_move, refs);
+    let mut scores = get_capture_score(moves, tt_move);
 
     // Iterate through the moves
     for i in 0..moves.len() {
@@ -129,7 +129,7 @@ pub fn pick_move(ml: &mut MoveList, start_index: u8, scores: &mut Vec<i32>) {
 }
 
 pub fn search(
-    mut board: &mut Board,
+    board: &mut Board,
     input: &mut SearchInput,
     tt_table: &mut TranspositionTable,
 ) -> SearchOutput {
@@ -138,13 +138,13 @@ pub fn search(
     let mut principal_variation: Vec<MoveData> = Vec::new();
     let mut best_eval = -INFINITY;
     let killer_moves = [[MoveData::default(); 2]; 256];
-    let mut cap_hist: CaptureHistoryTable = [[[0; 12]; 64]; 12];
+    let cap_hist: CaptureHistoryTable = [[[0; 12]; 64]; 12];
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
     let mut refs = SearchRefs::new_depth_search(killer_moves, history_table, cap_hist, tt_table);
     while current_depth <= input.depth {
         let eval = search_common(
-            &mut board,
+            board,
             current_depth as i32,
             0,
             alpha,
@@ -297,7 +297,7 @@ fn search_common(
     }
     if depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
         let value = quiescence_search(board, alpha, beta, refs);
-        if (value < beta) {
+        if value < beta {
             return value;
         }
     }
@@ -326,7 +326,7 @@ fn search_common(
     }
 
     let mut move_score =
-        get_moves_score(&move_list, ply as usize, board, tt_move, &*refs, board.turn);
+        get_moves_score(&move_list, ply as usize, board, tt_move, &*refs);
     let mut best_move = MoveData::default();
     let mut entry_type = EntryType::UpperBound;
     let mut quiet_moves_count = 0;
@@ -353,7 +353,7 @@ fn search_common(
             let old_move = *curr_move;
             move_score[i] = -BASE_CAPTURE
                 + ((curr_move.get_captured_piece().unwrap().get_value() * 10)
-                    - curr_move.piece_to_move.get_value());
+                - curr_move.piece_to_move.get_value());
             pick_move(&mut move_list, i as u8, &mut move_score);
             curr_move = move_list.get_move(i);
             if *curr_move == old_move {
@@ -374,8 +374,6 @@ fn search_common(
         if board.is_quiet_move(curr_move) {
             is_quiet_move = true;
             if should_movecount_based_pruning(
-                board,
-                *curr_move,
                 depth as u32,
                 quiet_moves_count,
                 alpha,
@@ -399,8 +397,8 @@ fn search_common(
         }
 
         refs.set_move_ply(ply, *curr_move);
-        let extension_adding = if (should_extend) { 1 } else { 0 };
-        let mut score_mv = 0;
+        let extension_adding = if should_extend { 1 } else { 0 };
+        let mut score_mv;
         if is_pvs && depth >= 3 {
             let new_depth =
                 reduce_depth(board, curr_move, depth as f32, i as f32, improving) as i32;

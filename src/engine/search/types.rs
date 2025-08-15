@@ -1,4 +1,3 @@
-use crate::engine;
 use crate::engine::board::piece::PieceColor;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::constants::MAX_EXTENSIONS;
@@ -122,8 +121,8 @@ impl SearchRefs<'_> {
         killer_moves: KillerMoves,
         history_table: [[[i32; 64]; 64]; 2],
         cap_hist: CaptureHistoryTable,
-        transposition_table: &mut TranspositionTable,
-    ) -> SearchRefs {
+        transposition_table: &'_ mut TranspositionTable,
+    ) -> SearchRefs<'_> {
         SearchRefs {
             killer_moves,
             nodes_evaluated: 0,
@@ -285,21 +284,21 @@ impl SearchRefs<'_> {
         let captured_piece_index = mv.get_captured_piece().unwrap().to_history_index();
         let capture_piece_index = mv.piece_to_move.to_history_index();
         let square_index = mv.get_capture_square().unwrap();
-        self.caphist[captured_piece_index][square_index as usize][capture_piece_index as usize] +=
+        self.caphist[captured_piece_index][square_index as usize][capture_piece_index] +=
             depth * depth;
     }
     pub fn reduce_capture_history(&mut self, mv: &MoveData, depth: i32) {
         let captured_piece_index = mv.get_captured_piece().unwrap().to_history_index();
         let capture_piece_index = mv.piece_to_move.to_history_index();
         let square_index = mv.get_capture_square().unwrap();
-        self.caphist[captured_piece_index as usize][square_index as usize]
-            [capture_piece_index as usize] -= depth * depth;
+        self.caphist[captured_piece_index][square_index as usize]
+            [capture_piece_index] -= depth * depth;
     }
     pub fn get_capture_history(&self, mv: &MoveData) -> i32 {
         let captured_piece_index = mv.get_captured_piece().unwrap().to_history_index();
         let capture_piece_index = mv.piece_to_move.to_history_index();
         let square_index = mv.get_capture_square().unwrap();
-        self.caphist[captured_piece_index as usize][square_index as usize]
-            [capture_piece_index as usize]
+        self.caphist[captured_piece_index][square_index as usize]
+            [capture_piece_index]
     }
 }

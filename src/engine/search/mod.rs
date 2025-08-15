@@ -1,4 +1,4 @@
-pub mod Zobrist;
+pub mod zobrist;
 pub mod constants;
 mod functions;
 mod late_move_reduction;

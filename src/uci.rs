@@ -31,7 +31,6 @@ pub fn handle_command(
             precompute_magics();
             precompute_movegen();
             *tt_table = TranspositionTable::from_mb(64);
-            return;
         }
         "d" => {
             println!("{}", board.to_stockfish_string());

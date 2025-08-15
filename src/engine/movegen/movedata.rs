@@ -7,7 +7,6 @@ use crate::engine::board::castling::constants::{
 use crate::engine::board::castling::types::CastlingSide;
 use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::board::position::Position;
-use crate::engine::movegen;
 use crate::engine::movegen::generate;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -72,9 +71,9 @@ impl MoveData {
         let notation = algebraic.to_uppercase();
         if notation == "E1G1"
             && (board.squares[4].unwrap().piece_type == PieceType::KING
-                && board.squares[4].unwrap().piece_color == PieceColor::WHITE)
+            && board.squares[4].unwrap().piece_color == PieceColor::WHITE)
             && (board.squares[7].unwrap().piece_type == PieceType::ROOK
-                && board.squares[7].unwrap().piece_color == PieceColor::WHITE)
+            && board.squares[7].unwrap().piece_color == PieceColor::WHITE)
         {
             MoveData {
                 from: WHITE_KINGSIDE_KING_START,
@@ -87,9 +86,9 @@ impl MoveData {
             }
         } else if notation == "E1C1"
             && (board.squares[4].unwrap().piece_type == PieceType::KING
-                && board.squares[4].unwrap().piece_color == PieceColor::WHITE)
+            && board.squares[4].unwrap().piece_color == PieceColor::WHITE)
             && (board.squares[0].unwrap().piece_type == PieceType::ROOK
-                && board.squares[0].unwrap().piece_color == PieceColor::WHITE)
+            && board.squares[0].unwrap().piece_color == PieceColor::WHITE)
         {
             MoveData {
                 from: WHITE_QUEENSIDE_KING_START,
@@ -102,9 +101,9 @@ impl MoveData {
             }
         } else if notation == "E8G8"
             && (board.squares[60].unwrap().piece_type == PieceType::KING
-                && board.squares[60].unwrap().piece_color == PieceColor::BLACK)
+            && board.squares[60].unwrap().piece_color == PieceColor::BLACK)
             && (board.squares[63].unwrap().piece_type == PieceType::ROOK
-                && board.squares[63].unwrap().piece_color == PieceColor::BLACK)
+            && board.squares[63].unwrap().piece_color == PieceColor::BLACK)
         {
             MoveData {
                 from: BLACK_KINGSIDE_KING_START,
@@ -117,9 +116,9 @@ impl MoveData {
             }
         } else if notation == "E8C8"
             && (board.squares[60].unwrap().piece_type == PieceType::KING
-                && board.squares[60].unwrap().piece_color == PieceColor::BLACK)
+            && board.squares[60].unwrap().piece_color == PieceColor::BLACK)
             && (board.squares[56].unwrap().piece_type == PieceType::ROOK
-                && board.squares[56].unwrap().piece_color == PieceColor::BLACK)
+            && board.squares[56].unwrap().piece_color == PieceColor::BLACK)
         {
             MoveData {
                 from: BLACK_QUEENSIDE_KING_START,
@@ -230,7 +229,7 @@ impl MoveData {
         match &self.move_type {
             MoveType::Capture(_) => Some(self.to),
             MoveType::EnPassant(_, square) => Some(*square),
-            MoveType::PromotionCapture(promo_capture) => Some(self.to),
+            MoveType::PromotionCapture(_) => Some(self.to),
             _ => None,
         }
     }
@@ -283,9 +282,9 @@ impl MoveData {
     // Get the captured piece if it's a capture move
     pub fn get_captured_piece(&self) -> Option<Piece> {
         match &self.move_type {
-            MoveType::Capture(piece) => Some(piece.clone()),
-            MoveType::EnPassant(piece, _) => Some(piece.clone()),
-            MoveType::PromotionCapture(promo_capture) => Some(promo_capture.captured_piece.clone()),
+            MoveType::Capture(piece) => Some(*piece),
+            MoveType::EnPassant(piece, _) => Some(*piece),
+            MoveType::PromotionCapture(promo_capture) => Some(promo_capture.captured_piece),
             _ => None,
         }
     }
@@ -293,8 +292,8 @@ impl MoveData {
     // Get the promoted piece if it's a promotion move
     pub fn get_promoted_piece(&self) -> Option<Piece> {
         match &self.move_type {
-            MoveType::Promotion(piece) => Some(piece.clone()),
-            MoveType::PromotionCapture(promo_capture) => Some(promo_capture.promoted_piece.clone()),
+            MoveType::Promotion(piece) => Some(*piece),
+            MoveType::PromotionCapture(promo_capture) => Some(promo_capture.promoted_piece),
             _ => None,
         }
     }

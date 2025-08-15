@@ -16,7 +16,7 @@ impl Position {
 
     /// Converts a linear index (0-63) to a `Position`. Returns `None` if invalid square.
     pub fn from_sqr(sqr: i8) -> Option<Self> {
-        if sqr >= 0 && sqr < 64 {
+        if (0..64).contains(&sqr) {
             Some(Position::new(sqr % 8, sqr / 8))
         } else {
             None
@@ -46,7 +46,7 @@ impl Position {
         let chars: Vec<char> = notation.chars().collect();
         let file = chars[0].to_ascii_lowercase();
         let rank = chars[1];
-        if file < 'a' || file > 'h' || rank < '1' || rank > '8' {
+        if !('a'..='h').contains(&file) || !('1'..='8').contains(&rank) {
             return None;
         }
         let x = (file as i8) - b'a' as i8;

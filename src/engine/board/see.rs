@@ -48,7 +48,7 @@ pub fn static_exchange_evaluation(board: &Board, curr_mv: &MoveData) -> i32 {
                 &mut curr_turn_attackers,
                 &mut opp_attackers,
                 initial_turn,
-                (piece_captures, initial_square as u8),
+                (piece_captures, initial_square),
             );
         }
     }
@@ -80,7 +80,7 @@ pub fn static_exchange_evaluation(board: &Board, curr_mv: &MoveData) -> i32 {
                     &mut curr_turn_attackers,
                     &mut opp_attackers,
                     initial_turn,
-                    (piece_captures, initial_square as u8),
+                    (piece_captures, initial_square),
                 );
             }
         }

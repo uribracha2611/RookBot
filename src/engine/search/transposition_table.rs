@@ -1,8 +1,5 @@
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::constants::MATE_VALUE;
-use std::sync::{LazyLock, Mutex};
-
-const MB_SIZE: usize = 128 * 1024 * 1024; // 128 MB
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum EntryType {
@@ -74,7 +71,7 @@ impl TranspositionTable {
         }
     }
 
-    pub fn get_TT_move(&self, hash: u64) -> Option<MoveData> {
+    pub fn get_tt_move(&self, hash: u64) -> Option<MoveData> {
         let index = (hash as usize) % self.table.len();
         if let Some(entry) = self.table[index] {
             if entry.hash == hash {

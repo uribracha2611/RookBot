@@ -14,7 +14,7 @@ impl Default for MoveList {
 }
 
 impl MoveList {
-    pub fn iter(&self) -> MoveListIterator {
+    pub fn iter(&'_ self) -> MoveListIterator<'_> {
         MoveListIterator {
             movelist: self,
             index: 0,
@@ -61,10 +61,9 @@ impl MoveList {
     }
     pub fn find_move_by_start_end_square(self, from: u8, to: u8) -> Option<MoveData> {
         for i in 0..MAX_MOVES {
-            if let mv = self.moves[i] {
-                if mv.from == from && mv.to == to {
-                    return Some(mv);
-                }
+            let mv = self.moves[i];
+            if mv.from == from && mv.to == to {
+                return Some(mv);
             }
         }
         None

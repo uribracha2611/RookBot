@@ -119,13 +119,13 @@ impl Bitboard {
                 (PieceColor::BLACK, true) => !H_FILE,
                 (PieceColor::BLACK, false) => !A_FILE,
             };
-        let attacks = match (color, attack_left) {
+        
+        match (color, attack_left) {
             (PieceColor::WHITE, true) => (pawn_mask << 7) & opponent,
             (PieceColor::WHITE, false) => (pawn_mask << 9) & opponent,
             (PieceColor::BLACK, true) => (pawn_mask >> 7) & opponent,
             (PieceColor::BLACK, false) => (pawn_mask >> 9) & opponent,
-        };
-        attacks
+        }
     }
 
     #[inline(always)]

@@ -141,21 +141,21 @@ impl fmt::Debug for Piece {
         write!(
             f,
             "{}{}",
-            self.piece_color.to_string(),
-            self.piece_type.to_string()
+            self.piece_color,
+            self.piece_type
         )
     }
 }
 
 impl fmt::Debug for PieceType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self)
     }
 }
 
 impl fmt::Debug for PieceColor {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.to_string())
+        write!(f, "{}", self)
     }
 }
 

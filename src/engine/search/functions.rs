@@ -2,7 +2,6 @@ use crate::engine::board::board::Board;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::constants::FUTILITY_MARGIN_DEPTH;
 use crate::engine::search::types::SearchRefs;
-use std::thread::current;
 
 pub fn is_allowed_futility_pruning(
     depth: u8,
