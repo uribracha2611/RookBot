@@ -41,11 +41,7 @@ impl TranspositionTable {
     ) {
         let index = (hash as usize) % self.table.len();
 
-        if let Some(existing_entry) = &self.table[index] {
-            if existing_entry.depth >= depth {
-                return; // Do not store if the existing entry has a greater or equal depth
-            }
-        }
+       
         self.table[index] = Some(Entry {
             hash,
             depth,
