@@ -239,6 +239,7 @@ fn search_common(
     if refs.is_time_done() {
         return 0;
     }
+    let mut best_score = -INFINITY;
 
     refs.increment_nodes_evaluated();
     if depth <= 0 {
@@ -444,7 +445,20 @@ fn search_common(
 
         board.unmake_move(curr_move);
 
-        if score_mv >= beta {
+
+        if score_mv >= best_score {
+            best_score = score_mv;
+            if score_mv > alpha {
+                alpha = score_mv;
+                best_move = *curr_move;
+                entry_type = EntryType::Exact;
+                // Update PV
+                pv.clear();
+                pv.push(*curr_move);
+                pv.append(&mut node_pv);
+            }
+        }
+        if alpha >= beta {
             entry_type = EntryType::LowerBound;
             best_move = *curr_move;
 
@@ -469,20 +483,6 @@ fn search_common(
 
             return score_mv;
         }
-
-        if is_quiet_move {
-            quiet_moves.push(*curr_move);
-        }
-
-        if score_mv > alpha {
-            alpha = score_mv;
-            best_move = *curr_move;
-            entry_type = EntryType::Exact;
-            // Update PV
-            pv.clear();
-            pv.push(*curr_move);
-            pv.append(&mut node_pv);
-        }
         is_pvs = true;
     }
 
@@ -494,5 +494,5 @@ fn search_common(
         best_move,
     );
 
-    alpha
+    best_score
 }
