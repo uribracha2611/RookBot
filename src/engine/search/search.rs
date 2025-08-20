@@ -393,8 +393,8 @@ fn search_common(
 
         refs.set_move_ply(ply, *curr_move);
         let extension_adding = if should_extend { 1 } else { 0 };
-        let mut score_mv;
-        if is_pvs && depth >= 3 {
+        let mut score_mv = 0;
+        if depth >= 3 && is_pvs {
             let new_depth =
                 reduce_depth(board, curr_move, depth as f32, i as f32, improving) as i32;
             score_mv = -search_common(
@@ -406,7 +406,7 @@ fn search_common(
                 &mut node_pv,
                 refs,
             );
-            if score_mv > alpha && score_mv < beta {
+            if score_mv > alpha {
                 score_mv = -search_common(
                     board,
                     (depth - 1) + extension_adding,
@@ -416,19 +416,20 @@ fn search_common(
                     &mut node_pv,
                     refs,
                 );
-                if score_mv > alpha && score_mv < beta {
-                    score_mv = -search_common(
-                        board,
-                        (depth - 1) + extension_adding,
-                        ply + 1,
-                        -beta,
-                        -alpha,
-                        &mut node_pv,
-                        refs,
-                    );
-                }
             }
-        } else {
+        } else if is_pvs
+        {
+            score_mv = -search_common(
+                board,
+                (depth - 1) + extension_adding,
+                ply + 1,
+                -alpha - 1,
+                -alpha,
+                &mut node_pv,
+                refs,
+            );
+        }
+        if !is_pvs || score_mv > alpha {
             score_mv = -search_common(
                 board,
                 (depth - 1) + extension_adding,
@@ -439,6 +440,7 @@ fn search_common(
                 refs,
             );
         }
+
 
         board.unmake_move(curr_move);
 
