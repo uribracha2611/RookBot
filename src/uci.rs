@@ -1,3 +1,4 @@
+use crate::constants::FENS_FOR_BENCH;
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor;
 use crate::engine::movegen::magic::precomputed::precompute_magics;
@@ -7,7 +8,7 @@ use crate::engine::perft::perft_bulk;
 use crate::engine::search::search::{search, timed_search};
 use crate::engine::search::transposition_table::TranspositionTable;
 use crate::engine::search::types::SearchInput;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -58,12 +59,41 @@ pub fn handle_command(
             }
         }
 
+        "bench" => {
+            bench();
+        }
         _ => {
             println!("Unknown command: {}", command);
         }
     }
 }
 
+fn bench() {
+    let mut total_time: Duration = Duration::from_millis(0);
+    let mut total_nodes: u64 = 0;
+    
+
+    for pos in FENS_FOR_BENCH {
+        let mut tt_table = TranspositionTable::from_mb(64);
+        let mut board = Board::from_fen(pos);
+        let now = Instant::now();
+        let res = search(&mut board, &mut SearchInput { depth: 7 }, &mut tt_table);
+        total_time += now.elapsed();
+        total_nodes += res.nodes_evaluated as u64;
+    }
+
+    // Calculate total time in seconds as a float.
+    let total_time_seconds: f64 = total_time.as_millis() as f64 / 1000.0;
+
+    // Calculate NPS as a float first for precision.
+    let nps_float: f64 = total_nodes as f64 / total_time_seconds;
+
+    // Cast the float result to a u64, which truncates the decimal.
+    let nps_integer: u64 = nps_float as u64;
+
+    println!("total nodes searched is {} time taken is {} ms nps is {}",
+             total_nodes, total_time.as_millis(), nps_integer);
+}
 fn handle_position(command: String, board: &mut Board) {
     let parts: Vec<&str> = command.split(" ").collect();
     match parts[0] {
