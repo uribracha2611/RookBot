@@ -75,7 +75,17 @@ impl SearchOutput {
     }
 }
 pub struct SearchInput {
-    pub depth: u8,
+    pub depth: Option<u8>,
+    pub move_time: Option<Duration>,
+}
+impl SearchInput {
+    pub fn depth_input(depth: u8) -> SearchInput
+    {
+        SearchInput { move_time: None, depth: Some(depth) }
+    }
+    pub fn time_input(move_time: Duration) -> SearchInput {
+        SearchInput { move_time: Some(move_time), depth: None }
+    }
 }
 
 pub struct SearchRefs<'a> {
@@ -93,7 +103,6 @@ pub struct SearchRefs<'a> {
 }
 impl SearchRefs<'_> {
     pub fn new_timed_search<'a>(
-        start_time: &Instant,
         time_limit: &Duration,
         transposition_table: &'a mut TranspositionTable,
     ) -> SearchRefs<'a> {
@@ -102,7 +111,7 @@ impl SearchRefs<'_> {
         SearchRefs {
             killer_moves,
             nodes_evaluated: 0,
-            start_time: Some(*start_time),
+            start_time: Some(Instant::now()),
             time_limit: Some(*time_limit),
             history_table,
             eval_stack: [None; 256],
@@ -129,6 +138,16 @@ impl SearchRefs<'_> {
             table: transposition_table, // Removed &mut here
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
         }
+    }
+    #[inline(always)]
+    pub fn is_time_elapsed_iterative_search(&self) -> bool {
+        if let Some(start_time) = self.start_time {
+            if let Some(time) = self.time_limit {
+                return start_time.elapsed() * 2 > time;
+            }
+            return false;
+        }
+        return false;
     }
 
     #[inline(always)]
