@@ -292,8 +292,8 @@ fn search_common(
         refs.reset_extensions();
     }
     if depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
-        let value = quiescence_search(board, alpha, beta, refs);
-        if value < beta {
+        let value = quiescence_search(board, alpha - 1, alpha, refs);
+        if value <= alpha {
             return value;
         }
     }
@@ -446,7 +446,7 @@ fn search_common(
         board.unmake_move(curr_move);
 
 
-        if score_mv >= best_score {
+        if score_mv > best_score {
             best_score = score_mv;
             if score_mv > alpha {
                 alpha = score_mv;
@@ -458,6 +458,7 @@ fn search_common(
                 pv.append(&mut node_pv);
             }
         }
+        is_pvs = true;
         if alpha >= beta {
             entry_type = EntryType::LowerBound;
             best_move = *curr_move;
@@ -465,7 +466,7 @@ fn search_common(
             refs.table.store(
                 board.game_state.zobrist_hash,
                 depth as u8,
-                score_mv,
+                best_score,
                 entry_type,
                 best_move,
             );
@@ -483,16 +484,19 @@ fn search_common(
 
             return score_mv;
         }
-        is_pvs = true;
+
+        if is_quiet_move {
+            quiet_moves.push(*curr_move);
+        }
     }
 
     refs.get_transposition_table().store(
         board.game_state.zobrist_hash,
         depth as u8,
-        alpha,
+        best_score,
         entry_type,
         best_move,
     );
 
-    best_score
+    alpha
 }
