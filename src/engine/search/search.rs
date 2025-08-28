@@ -1,5 +1,3 @@
-use std::time::{Duration, Instant};
-
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor;
 use crate::engine::board::see::static_exchange_evaluation;
@@ -19,6 +17,7 @@ use crate::engine::search::move_ordering::{
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
 use crate::engine::search::types::{SearchInput, SearchOutput, SearchRefs};
+use std::time::Duration;
 
 pub fn quiescence_search(
     board: &mut Board,
@@ -137,11 +136,16 @@ pub fn search(
 
     let mut principal_variation: Vec<MoveData> = Vec::new();
     let mut best_eval = -INFINITY;
-
+    let is_depth_search = input.depth.is_some();
+    let max_depth = input.depth.unwrap_or(64);
+    let move_time = input.move_time.unwrap_or(Duration::from_millis(0));
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
-    let mut refs = SearchRefs::new_depth_search(tt_table);
-    while current_depth <= input.depth {
+    let mut refs = if is_depth_search { SearchRefs::new_depth_search(tt_table) } else { SearchRefs::new_timed_search(&move_time, tt_table) };
+    while current_depth <= max_depth {
+        if refs.is_time_elapsed_iterative_search() {
+            break;
+        }
         let eval = search_common(
             board,
             current_depth as i32,
@@ -170,61 +174,6 @@ pub fn search(
     }
 }
 
-pub fn timed_search(
-    board: &mut Board,
-    time_limit: Duration,
-    increment: Duration,
-    is_move_time: bool,
-    tt_table: &mut TranspositionTable,
-) -> SearchOutput {
-    let mut pv = Vec::new();
-
-
-    let mut curr_eval = 0;
-    let move_time = if is_move_time {
-        time_limit
-    } else {
-        time_limit / 40 + increment / 2
-    };
-    let max_depth = 256;
-    let mut depth = 1;
-    let mut alpha = -INFINITY;
-    let mut beta = INFINITY;
-    let start_time = Instant::now();
-
-    let mut refs = SearchRefs::new_timed_search(
-        &start_time,
-        &move_time,
-        tt_table,
-    );
-    while depth <= max_depth {
-        if start_time.elapsed() * 2 > move_time {
-            break;
-        }
-
-        let curr_depth_eval = search_common(board, depth, 0, alpha, beta, &mut pv, &mut refs);
-
-        if start_time.elapsed() >= move_time {
-            break;
-        }
-        curr_eval = curr_depth_eval;
-        if curr_eval >= beta || curr_eval <= alpha {
-            alpha = -INFINITY;
-            beta = INFINITY;
-            continue;
-        }
-        alpha = curr_eval - VAL_WINDOW;
-        beta = curr_eval + VAL_WINDOW;
-        depth += 1;
-    }
-
-    SearchOutput {
-        nodes_evaluated: refs.get_nodes_evaluated(),
-        principal_variation: pv,
-        eval: curr_eval,
-        depth: depth - 1,
-    }
-}
 
 fn search_common(
     board: &mut Board,
@@ -300,7 +249,7 @@ fn search_common(
     if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving) {
         return curr_eval;
     }
-    if !board.is_check && depth >= 3 {
+    if !board.is_check && depth >= 3 && curr_eval >= beta {
         let r = if depth > 10 {
             5
         } else if depth > 6 {

@@ -1,11 +1,10 @@
 use crate::constants::FENS_FOR_BENCH;
 use crate::engine::board::board::Board;
-use crate::engine::board::piece::PieceColor;
 use crate::engine::movegen::magic::precomputed::precompute_magics;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::precomputed::precompute_movegen;
 use crate::engine::perft::perft_bulk;
-use crate::engine::search::search::{search, timed_search};
+use crate::engine::search::search::search;
 use crate::engine::search::transposition_table::TranspositionTable;
 use crate::engine::search::types::SearchInput;
 use std::time::{Duration, Instant};
@@ -71,13 +70,13 @@ pub fn handle_command(
 fn bench() {
     let mut total_time: Duration = Duration::from_millis(0);
     let mut total_nodes: u64 = 0;
-    
+
 
     for pos in FENS_FOR_BENCH {
         let mut tt_table = TranspositionTable::from_mb(64);
         let mut board = Board::from_fen(pos);
         let now = Instant::now();
-        let res = search(&mut board, &mut SearchInput { depth: 7 }, &mut tt_table);
+        let res = search(&mut board, &mut SearchInput::depth_input(7), &mut tt_table);
         total_time += now.elapsed();
         total_nodes += res.nodes_evaluated as u64;
     }
@@ -195,39 +194,31 @@ pub fn handle_go(
         i += 1;
     }
 
-    let time_limit = if let Some(move_time) = movetime {
-        move_time
+
+    let mut search_input = if let Some(wtime) = wtime {
+        SearchInput::time_input(wtime / 40 + winc.unwrap_or(Duration::from_millis(0)) / 2)
+    } else if let Some(btime) = btime {
+        SearchInput::time_input(btime / 40 + binc.unwrap_or(Duration::from_millis(0)) / 2)
+    } else if let Some(movetime) = movetime {
+        SearchInput::time_input(movetime)
+    } else if let Some(depth) = depth {
+        SearchInput::depth_input(depth as u8)
     } else {
-        match board.turn {
-            PieceColor::WHITE => wtime.unwrap_or(Duration::from_secs(60)),
-            PieceColor::BLACK => btime.unwrap_or(Duration::from_secs(60)),
-        }
-    };
-    let increment = match board.turn {
-        PieceColor::WHITE => winc.unwrap_or(Duration::from_secs(0)),
-        PieceColor::BLACK => binc.unwrap_or(Duration::from_secs(0)),
+        panic!("only depth, movetime,winc and binc supported so far for go command");
     };
 
+
     let mut board_clone = board.clone();
-    let time_test = std::time::Instant::now();
-    let result = if movetime.is_some() || wtime.is_some() || btime.is_some() {
-        timed_search(
-            &mut board_clone,
-            time_limit,
-            increment,
-            movetime.is_some(),
-            tt_table,
-        )
-    } else {
-        let search_depth = depth.unwrap();
-        search(
-            board,
-            &mut SearchInput {
-                depth: search_depth as u8,
-            },
-            tt_table,
-        )
-    };
+    let time_test = Instant::now();
+
+
+    let result = search(
+        &mut board_clone,
+        &mut search_input,
+        tt_table,
+    );
+
+
     let pv = result
         .principal_variation
         .iter()
