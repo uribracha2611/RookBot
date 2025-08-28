@@ -1,3 +1,3 @@
 pub mod engine;
 pub mod uci;
-mod constants;
+pub mod constants;
