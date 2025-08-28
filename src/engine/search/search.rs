@@ -248,7 +248,7 @@ fn search_common(
     if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving) {
         return curr_eval;
     }
-    if !board.is_check && depth >= 3 {
+    if !board.is_check && depth >= 3 && curr_eval >= beta {
         let r = if depth > 10 {
             5
         } else if depth > 6 {
