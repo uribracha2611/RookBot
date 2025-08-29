@@ -146,6 +146,7 @@ pub fn search(
         if refs.is_time_elapsed_iterative_search() {
             break;
         }
+
         let eval = search_common(
             board,
             current_depth as i32,
@@ -155,6 +156,7 @@ pub fn search(
             &mut principal_variation,
             &mut refs,
         );
+
         best_eval = eval;
         if best_eval >= beta || best_eval <= alpha {
             alpha = -INFINITY;
@@ -394,21 +396,7 @@ fn search_common(
 
         board.unmake_move(curr_move);
 
-
-        if score_mv > best_score {
-            best_score = score_mv;
-            if score_mv > alpha {
-                alpha = score_mv;
-                best_move = *curr_move;
-                entry_type = EntryType::Exact;
-                // Update PV
-                pv.clear();
-                pv.push(*curr_move);
-                pv.append(&mut node_pv);
-            }
-        }
-
-        if alpha >= beta {
+        if score_mv >= beta {
             entry_type = EntryType::LowerBound;
             best_move = *curr_move;
 
@@ -433,6 +421,19 @@ fn search_common(
 
             return score_mv;
         }
+        if score_mv > best_score {
+            best_score = score_mv;
+            if score_mv > alpha {
+                alpha = score_mv;
+                best_move = *curr_move;
+                entry_type = EntryType::Exact;
+                // Update PV
+                pv.clear();
+                pv.push(*curr_move);
+                pv.append(&mut node_pv);
+            }
+        }
+
 
         if is_quiet_move {
             quiet_moves.push(*curr_move);
@@ -448,5 +449,5 @@ fn search_common(
         best_move,
     );
 
-    alpha
+    best_score
 }

@@ -1,11 +1,17 @@
+# Ignore everything
 *
-*~
 
+# Do not ignore .gitignore and other top-level files
 !.gitignore
 !Cargo.toml
 !Cargo.lock
 !README.md
 
+# Do not ignore the src directory itself
 !src/
-src/bin/
-src/SEE.txt
+
+# Now that src/ is "un-ignored," you can define what to ignore within it.
+src/* # Ignore everything inside src/
+!src/bin/ # But do not ignore the bin/ sub-directory
+!src/SEE.txt # And do not ignore this specific file
+!src/constants.rs # And do not ignore this file
