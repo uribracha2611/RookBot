@@ -407,7 +407,7 @@ fn search_common(
                 pv.append(&mut node_pv);
             }
         }
-        is_pvs = true;
+
         if alpha >= beta {
             entry_type = EntryType::LowerBound;
             best_move = *curr_move;
@@ -437,6 +437,7 @@ fn search_common(
         if is_quiet_move {
             quiet_moves.push(*curr_move);
         }
+        is_pvs = true;
     }
 
     refs.get_transposition_table().store(
