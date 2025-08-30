@@ -146,7 +146,7 @@ pub fn search(
         if refs.is_time_elapsed_iterative_search() {
             break;
         }
-
+        let old_pv = principal_variation.clone();
         let eval = search_common(
             board,
             current_depth as i32,
@@ -156,6 +156,10 @@ pub fn search(
             &mut principal_variation,
             &mut refs,
         );
+        if refs.is_time_done() {
+            principal_variation = old_pv;
+            break;
+        }
 
         best_eval = eval;
         if best_eval >= beta || best_eval <= alpha {
