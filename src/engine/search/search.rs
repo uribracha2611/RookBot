@@ -407,7 +407,7 @@ fn search_common(
             refs.table.store(
                 board.game_state.zobrist_hash,
                 depth as u8,
-                best_score,
+                score_mv,
                 entry_type,
                 best_move,
             );
