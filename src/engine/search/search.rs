@@ -147,7 +147,9 @@ pub fn search(
             break;
         }
 
-        let eval = widen(board, &mut refs, best_eval, current_depth, &mut principal_variation);
+        let widen_result = widen(board, &mut refs, best_eval, current_depth, principal_variation);
+        let eval = widen_result.0;
+        principal_variation = widen_result.1;
         if refs.is_time_done() {
             break;
         }
@@ -165,9 +167,10 @@ pub fn search(
         depth: (current_depth - 1) as i32,
     }
 }
-fn widen(board: &mut Board, refs: &mut SearchRefs, curr_eval: i32, current_depth: u8, principal_variation: &mut Vec<MoveData>) -> i32
+fn widen(board: &mut Board, refs: &mut SearchRefs, curr_eval: i32, current_depth: u8, mut principal_variation: Vec<MoveData>) -> (i32, Vec<MoveData>)
 {
     if curr_eval != -INFINITY && curr_eval < MATE_VALUE - 100 {
+        let prev_pv = principal_variation.clone();
         let mut margin = VAL_WINDOW;
         let mut last_score = curr_eval;
         while margin < 500 {
@@ -179,15 +182,15 @@ fn widen(board: &mut Board, refs: &mut SearchRefs, curr_eval: i32, current_depth
                 0,
                 alpha,
                 beta,
-                principal_variation,
+                &mut principal_variation,
                 refs,
             );
             if refs.is_time_elapsed_iterative_search() {
-                return eval;
+                return (curr_eval, prev_pv);
             }
             last_score = eval;
             if last_score > alpha && last_score < beta {
-                return last_score;
+                return (last_score, principal_variation);
             }
             if last_score > MATE_VALUE - 100 {
                 break;
@@ -195,15 +198,16 @@ fn widen(board: &mut Board, refs: &mut SearchRefs, curr_eval: i32, current_depth
             margin *= 2;
         }
     }
-    search_common(
+    let eval = search_common(
         board,
         current_depth as i32,
         0,
         -INFINITY,
         INFINITY,
-        principal_variation,
+        &mut principal_variation,
         refs,
-    )
+    );
+    (eval, principal_variation)
 }
 
 fn search_common(
