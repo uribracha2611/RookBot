@@ -146,29 +146,15 @@ pub fn search(
         if refs.is_time_elapsed_iterative_search() {
             break;
         }
-        let old_pv = principal_variation.clone();
-        let eval = search_common(
-            board,
-            current_depth as i32,
-            0,
-            alpha,
-            beta,
-            &mut principal_variation,
-            &mut refs,
-        );
+
+        let eval = widen(board, &mut refs, best_eval, current_depth, &mut principal_variation);
         if refs.is_time_done() {
-            principal_variation = old_pv;
             break;
         }
 
+
         best_eval = eval;
-        if best_eval >= beta || best_eval <= alpha {
-            alpha = -INFINITY;
-            beta = INFINITY;
-            continue;
-        }
-        alpha = best_eval - VAL_WINDOW;
-        beta = best_eval + VAL_WINDOW;
+
         current_depth += 1;
     }
 
@@ -179,7 +165,46 @@ pub fn search(
         depth: (current_depth - 1) as i32,
     }
 }
-
+fn widen(board: &mut Board, refs: &mut SearchRefs, curr_eval: i32, current_depth: u8, principal_variation: &mut Vec<MoveData>) -> i32
+{
+    if curr_eval != -INFINITY && curr_eval < MATE_VALUE - 100 {
+        let mut margin = VAL_WINDOW;
+        let mut last_score = curr_eval;
+        while margin < 500 {
+            let alpha = last_score - margin;
+            let beta = last_score + margin;
+            let eval = search_common(
+                board,
+                current_depth as i32,
+                0,
+                alpha,
+                beta,
+                principal_variation,
+                refs,
+            );
+            if refs.is_time_elapsed_iterative_search() {
+                return eval;
+            }
+            last_score = eval;
+            if last_score > alpha && last_score < beta {
+                return last_score;
+            }
+            if last_score > MATE_VALUE - 100 {
+                break;
+            }
+            margin *= 2;
+        }
+    }
+    search_common(
+        board,
+        current_depth as i32,
+        0,
+        -INFINITY,
+        INFINITY,
+        principal_variation,
+        refs,
+    )
+}
 
 fn search_common(
     board: &mut Board,
