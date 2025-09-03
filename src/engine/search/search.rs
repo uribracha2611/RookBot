@@ -311,7 +311,10 @@ fn search_common(
                 break;
             };
         }
-
+        if is_allowed_futility_pruning(depth as u8, alpha, curr_eval, curr_move, board)
+            && is_pvs {
+            break;
+        }
         if curr_move.is_capture()
             && *curr_move != tt_move
             && see_val < -25 * depth * depth
@@ -339,13 +342,6 @@ fn search_common(
         let mut node_pv: Vec<MoveData> = Vec::new();
         board.make_move(curr_move);
 
-        if is_allowed_futility_pruning(depth as u8, alpha, curr_eval, curr_move, board)
-            && is_pvs
-            && !is_in_check
-        {
-            board.unmake_move(curr_move);
-            break;
-        }
 
         refs.set_move_ply(ply, *curr_move);
         let extension_adding = if should_extend { 1 } else { 0 };
