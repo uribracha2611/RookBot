@@ -30,7 +30,7 @@ pub fn quiescence_search(
         return 0;
     }
 
-    refs.increment_nodes_evaluated();
+
     let stand_pat = eval(board);
     let mut best_val = stand_pat;
 
@@ -83,6 +83,7 @@ pub fn quiescence_search(
             return 0;
         }
 
+        refs.increment_nodes_evaluated();
         // Make the move and perform recursive quiescence search
         board.make_move(mv);
         let score = -quiescence_search(board, -beta, -alpha, refs);
@@ -196,7 +197,7 @@ fn search_common(
     }
     let mut best_score = -INFINITY;
 
-    refs.increment_nodes_evaluated();
+
     if depth <= 0 {
         return quiescence_search(board, alpha, beta, refs);
     }
@@ -285,11 +286,6 @@ fn search_common(
     let mut quiet_moves: Vec<MoveData> = Vec::with_capacity(move_list.len());
     let mut is_pvs = false;
     for i in 0..move_list.len() {
-        // Stop search if time has elapsed
-        if refs.is_time_done() {
-            return 0;
-        }
-
         let mut is_quiet_move = false;
         pick_move(&mut move_list, i as u8, &mut move_score);
 
@@ -338,7 +334,7 @@ fn search_common(
             }
             quiet_moves_count += 1;
         }
-
+        refs.increment_nodes_evaluated();
         let mut node_pv: Vec<MoveData> = Vec::new();
         board.make_move(curr_move);
 
