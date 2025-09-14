@@ -26,7 +26,7 @@ pub fn quiescence_search(
     refs: &mut SearchRefs,
 ) -> i32 {
     // Check if time has exceeded
-    if refs.is_time_done() {
+    if refs.is_time_done() || refs.is_nodes_exceeded() {
         return 0;
     }
 
@@ -64,11 +64,13 @@ pub fn quiescence_search(
     }
 
     let mut moves = generate_moves(board, true);
-
     let mut scores = get_capture_score(moves, tt_move);
 
     // Iterate through the moves
     for i in 0..moves.len() {
+        if refs.is_nodes_exceeded() {
+            return 0;
+        }
         // Pick the move to search next
         pick_move(&mut moves, i as u8, &mut scores);
         let mv = moves.get_move(i);
@@ -138,11 +140,15 @@ pub fn search(
     let mut principal_variation: Vec<MoveData> = Vec::new();
     let mut best_eval = -INFINITY;
     let is_depth_search = input.depth.is_some();
+    let is_move_count_search = input.node_count.is_some();
     let max_depth = input.depth.unwrap_or(64);
+    let node_count = input.node_count.unwrap_or(0);
     let move_time = input.move_time.unwrap_or(Duration::from_millis(0));
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
-    let mut refs = if is_depth_search { SearchRefs::new_depth_search(tt_table) } else { SearchRefs::new_timed_search(&move_time, tt_table) };
+    let mut refs = if is_depth_search { SearchRefs::new_depth_search(tt_table) } else if is_move_count_search {
+        SearchRefs::new_node_search(node_count, tt_table)
+    } else { SearchRefs::new_timed_search(&move_time, tt_table) };
     while current_depth <= max_depth {
         if refs.is_time_elapsed_iterative_search() {
             break;
@@ -157,7 +163,7 @@ pub fn search(
             &mut principal_variation,
             &mut refs,
         );
-        if refs.is_time_done() {
+        if refs.is_time_done() || refs.is_nodes_exceeded() {
             principal_variation = old_pv;
             break;
         }
@@ -192,7 +198,7 @@ fn search_common(
     refs: &mut SearchRefs,
 ) -> i32 {
     // Stop search if time has elapsed
-    if refs.is_time_done() {
+    if refs.is_time_done() || refs.is_nodes_exceeded() {
         return 0;
     }
     let mut best_score = -INFINITY;
@@ -286,6 +292,9 @@ fn search_common(
     let mut quiet_moves: Vec<MoveData> = Vec::with_capacity(move_list.len());
     let mut is_pvs = false;
     for i in 0..move_list.len() {
+        if refs.is_nodes_exceeded() {
+            return 0;
+        }
         let mut is_quiet_move = false;
         pick_move(&mut move_list, i as u8, &mut move_score);
 

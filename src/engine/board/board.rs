@@ -324,7 +324,7 @@ impl Board {
     pub fn is_board_draw(&self) -> bool {
         self.is_threefold_repetition()
             || self.is_insufficient_material()
-            || self.game_state.halfmove_clock >= 50
+            || self.game_state.halfmove_clock >= 100
     }
     fn handle_en_passant(&mut self, mv: &MoveData) {
         if let Some(file) = self.game_state.en_passant_file {

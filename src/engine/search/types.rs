@@ -45,7 +45,7 @@ impl Neg for ChosenMove {
     }
 }
 pub struct SearchOutput {
-    pub nodes_evaluated: i32,
+    pub nodes_evaluated: u64,
     pub principal_variation: Vec<MoveData>,
     pub eval: i32,
     pub depth: i32,
@@ -53,7 +53,7 @@ pub struct SearchOutput {
 
 impl SearchOutput {
     pub fn new(
-        nodes_evaluated: i32,
+        nodes_evaluated: u64,
         principal_variation: Vec<MoveData>,
         eval: i32,
         depth: i32,
@@ -66,7 +66,7 @@ impl SearchOutput {
         }
     }
 
-    pub fn get_nodes_evaluated(&self) -> i32 {
+    pub fn get_nodes_evaluated(&self) -> u64 {
         self.nodes_evaluated
     }
 
@@ -77,22 +77,27 @@ impl SearchOutput {
 pub struct SearchInput {
     pub depth: Option<u8>,
     pub move_time: Option<Duration>,
+    pub node_count: Option<u64>,
 }
 impl SearchInput {
     pub fn depth_input(depth: u8) -> SearchInput
     {
-        SearchInput { move_time: None, depth: Some(depth) }
+        SearchInput { move_time: None, depth: Some(depth), node_count: None }
     }
     pub fn time_input(move_time: Duration) -> SearchInput {
-        SearchInput { move_time: Some(move_time), depth: None }
+        SearchInput { move_time: Some(move_time), depth: None, node_count: None }
+    }
+    pub fn node_count_input(node_count: u64) -> SearchInput {
+        SearchInput { move_time: None, depth: None, node_count: Some(node_count) }
     }
 }
 
 pub struct SearchRefs<'a> {
     killer_moves: KillerMoves,
-    nodes_evaluated: i32,
+    nodes_evaluated: u64,
     start_time: Option<Instant>,
     time_limit: Option<Duration>,
+    nodes_limit: Option<u64>,
     history_table: [[[i32; 64]; 64]; 2],
     eval_stack: [Option<i32>; 256],
     move_stack: [Option<MoveData>; 256],
@@ -113,6 +118,7 @@ impl SearchRefs<'_> {
             nodes_evaluated: 0,
             start_time: Some(Instant::now()),
             time_limit: Some(*time_limit),
+            nodes_limit: None,
             history_table,
             eval_stack: [None; 256],
             move_stack: [None; 256],
@@ -131,6 +137,7 @@ impl SearchRefs<'_> {
             nodes_evaluated: 0,
             start_time: None,
             time_limit: None,
+            nodes_limit: None,
             history_table,
             eval_stack: [None; 256],
             move_stack: [None; 256],
@@ -138,6 +145,33 @@ impl SearchRefs<'_> {
             table: transposition_table, // Removed &mut here
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
         }
+    }
+    pub fn new_node_search(node_count: u64,
+                           transposition_table: &'_ mut TranspositionTable) -> SearchRefs<'_>
+    {
+        let killer_moves: KillerMoves = [[MoveData::default(); 2]; 256];
+        let history_table = [[[0; 64]; 64]; 2];
+        SearchRefs {
+            killer_moves,
+            nodes_evaluated: 0,
+            start_time: None,
+            time_limit: None,
+            nodes_limit: Some(node_count),
+            history_table,
+            eval_stack: [None; 256],
+            move_stack: [None; 256],
+            current_extensions: 0,
+            table: transposition_table, // Removed &mut here
+            continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
+        }
+    }
+
+    #[inline(always)]
+    pub fn is_nodes_exceeded(&self) -> bool {
+        if let Some(node_limit) = self.nodes_limit {
+            return self.nodes_evaluated >= node_limit;
+        }
+        false
     }
     #[inline(always)]
     pub fn is_time_elapsed_iterative_search(&self) -> bool {
@@ -171,7 +205,7 @@ impl SearchRefs<'_> {
         self.history_table[color as usize][mv.from as usize][mv.to as usize]
     }
     #[inline(always)]
-    pub fn get_nodes_evaluated(&self) -> i32 {
+    pub fn get_nodes_evaluated(&self) -> u64 {
         self.nodes_evaluated
     }
     #[inline(always)]

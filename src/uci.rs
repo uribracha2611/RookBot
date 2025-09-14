@@ -146,6 +146,7 @@ pub fn handle_go(
     let mut btime = None;
     let mut winc = None;
     let mut binc = None;
+    let mut nodes = None;
 
 
     let parts: Vec<&str> = command.split_whitespace().collect();
@@ -189,6 +190,12 @@ pub fn handle_go(
                     i += 1;
                 }
             }
+            "nodes" => {
+                if i + 1 < parts.len() {
+                    nodes = Some(parts[i + 1].parse::<u64>().unwrap());
+                    i += 1;
+                }
+            }
             _ => {}
         }
         i += 1;
@@ -203,8 +210,10 @@ pub fn handle_go(
         SearchInput::time_input(movetime)
     } else if let Some(depth) = depth {
         SearchInput::depth_input(depth as u8)
+    } else if let Some(nodes) = nodes {
+        SearchInput::node_count_input(nodes)
     } else {
-        panic!("only depth, movetime,winc and binc supported so far for go command");
+        panic!("only depth, movetime, winc, binc and nodes supported so far for go command");
     };
 
 
