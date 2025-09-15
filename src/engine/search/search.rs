@@ -4,9 +4,7 @@ use crate::engine::board::see::static_exchange_evaluation;
 use crate::engine::movegen::generate::generate_moves;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
-use crate::engine::search::constants::{
-    INFINITY, MATE_VALUE, RAZOR_DEPTH, RAZOR_MARGIN, VAL_WINDOW,
-};
+use crate::engine::search::constants::{INFINITY, MATE_VALUE, RAZOR_DEPTH, RAZOR_MARGIN, VAL_WINDOW};
 use crate::engine::search::functions::{
     is_allowed_futility_pruning, is_allowed_reverse_futility_pruning, is_improving,
 };
@@ -25,6 +23,9 @@ pub fn quiescence_search(
     beta: i32,
     refs: &mut SearchRefs,
 ) -> i32 {
+    debug_assert!(alpha < beta);
+    debug_assert!(alpha >= -INFINITY);
+    debug_assert!(beta <= INFINITY);
     // Check if time has exceeded
     if refs.is_time_done() || refs.is_nodes_exceeded() {
         return 0;
@@ -74,6 +75,7 @@ pub fn quiescence_search(
         // Pick the move to search next
         pick_move(&mut moves, i as u8, &mut scores);
         let mv = moves.get_move(i);
+
 
         if *mv != tt_move && static_exchange_evaluation(board, mv) < 0 {
             continue;
@@ -197,6 +199,10 @@ fn search_common(
     pv: &mut Vec<MoveData>,
     refs: &mut SearchRefs,
 ) -> i32 {
+    debug_assert!(ply >= 0);
+    debug_assert!(alpha < beta);
+    debug_assert!(alpha >= -INFINITY);
+    debug_assert!(beta <= INFINITY);
     // Stop search if time has elapsed
     if refs.is_time_done() || refs.is_nodes_exceeded() {
         return 0;
@@ -253,7 +259,7 @@ fn search_common(
     } else {
         refs.reset_extensions();
     }
-    if depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
+    if alpha.abs() < 2000 && depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
         let value = quiescence_search(board, alpha - 1, alpha, refs);
         if value <= alpha {
             return value;

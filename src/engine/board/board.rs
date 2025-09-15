@@ -38,6 +38,9 @@ pub struct Board {
 
 impl Board {
     fn remove_piece(&mut self, square: u8, piece: Piece) {
+        debug_assert!(self.squares[square as usize] == Some(piece));
+        debug_assert!(self.get_piece_bitboard(piece.piece_color, piece.piece_type).contains_square(square));
+        debug_assert!(self.get_color_bitboard(piece.piece_color).contains_square(square));
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update zobrist hash before removing the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
@@ -54,9 +57,15 @@ impl Board {
         self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type)
             .clear_square(square);
         self.all_pieces_bitboard.clear_square(square);
+        debug_assert!(self.squares[square as usize].is_none());
+        debug_assert!(!self.get_piece_bitboard(piece.piece_color, piece.piece_type).contains_square(square));
+        debug_assert!(!self.get_color_bitboard(piece.piece_color).contains_square(square));
     }
 
     fn add_piece(&mut self, square: u8, piece: Piece) {
+        debug_assert!(self.squares[square as usize].is_none());
+        debug_assert!(!self.get_piece_bitboard(piece.piece_color, piece.piece_type).contains_square(square));
+        debug_assert!(!self.get_color_bitboard(piece.piece_color).contains_square(square));
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update zobrist hash before adding the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
@@ -72,6 +81,9 @@ impl Board {
         self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type)
             .set_square(square);
         self.all_pieces_bitboard.set_square(square);
+        debug_assert!(self.squares[square as usize] == Some(piece));
+        debug_assert!(self.get_piece_bitboard(piece.piece_color, piece.piece_type).contains_square(square));
+        debug_assert!(self.get_color_bitboard(piece.piece_color).contains_square(square));
     }
 
     pub fn detect_pawns_only(&self, piece_color: PieceColor) -> bool {
@@ -320,6 +332,8 @@ impl Board {
 
         self.history.push(old_game_state);
         self.repetition_table.push(self.game_state.zobrist_hash);
+        debug_assert!(self.squares[mv.from as usize].is_none());
+        debug_assert!((mv.is_promotion() && self.squares[mv.to as usize] == Some(mv.get_promoted_piece().unwrap())) || (!mv.is_promotion() && self.squares[mv.to as usize] == Some(mv.piece_to_move)));
     }
     pub fn is_board_draw(&self) -> bool {
         self.is_threefold_repetition()
@@ -381,6 +395,8 @@ impl Board {
         self.game_state = self.history.pop().unwrap();
         self.repetition_table.pop();
         self.turn = self.turn.opposite();
+        debug_assert!(self.squares[mv.from as usize] == Some(mv.piece_to_move));
+        debug_assert!((!mv.is_capture() && self.squares[mv.to as usize].is_none()) || (mv.is_capture() && self.squares[mv.get_capture_square().unwrap() as usize] == Some(mv.get_captured_piece().unwrap())));
     }
 
     fn disallow_castling_if_needed(&mut self, square: u8, piece: Piece) {
