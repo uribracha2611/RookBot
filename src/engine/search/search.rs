@@ -260,7 +260,7 @@ fn search_common(
         refs.reset_extensions();
     }
     if alpha.abs() < 2000 && depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
-        let value = quiescence_search(board, alpha - 1, alpha, refs);
+        let value = quiescence_search(board, alpha, alpha + 1, refs);
         if value <= alpha {
             return value;
         }
