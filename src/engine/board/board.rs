@@ -334,6 +334,7 @@ impl Board {
         self.repetition_table.push(self.game_state.zobrist_hash);
         debug_assert!(self.squares[mv.from as usize].is_none());
         debug_assert!((mv.is_promotion() && self.squares[mv.to as usize] == Some(mv.get_promoted_piece().unwrap())) || (!mv.is_promotion() && self.squares[mv.to as usize] == Some(mv.piece_to_move)));
+        debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
     }
     pub fn is_board_draw(&self) -> bool {
         self.is_threefold_repetition()
@@ -395,6 +396,7 @@ impl Board {
         self.game_state = self.history.pop().unwrap();
         self.repetition_table.pop();
         self.turn = self.turn.opposite();
+        debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
         debug_assert!(self.squares[mv.from as usize] == Some(mv.piece_to_move));
         debug_assert!((!mv.is_capture() && self.squares[mv.to as usize].is_none()) || (mv.is_capture() && self.squares[mv.get_capture_square().unwrap() as usize] == Some(mv.get_captured_piece().unwrap())));
     }
@@ -467,12 +469,14 @@ impl Board {
         self.game_state.zobrist_hash ^= ZOBRIST_SIDE_TO_MOVE;
         self.game_state.halfmove_clock = 0;
         self.game_state.fullmove_clock += 1;
+        debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
     }
 
     pub fn unmake_null_move(&mut self) {
         if let Some(previous_state) = self.history.pop() {
             self.game_state = previous_state;
             self.turn = self.turn.opposite();
+            debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
         } else {
             panic!("No previous game state to unmake null move");
         }
@@ -534,5 +538,33 @@ impl Board {
         }
 
         zobrist
+    }
+    pub fn calc_eval(&self) -> (i32, i32, i32, i32) {
+        let mut eval_white_mg = 0;
+        let mut eval_black_mg = 0;
+        let mut eval_white_eg = 0;
+        let mut eval_black_eg = 0;
+        for sqr in (0..64) {
+            if let Some(piece) = self.squares[sqr] {
+                let psqt = get_psqt(sqr, piece);
+                if piece.piece_color == PieceColor::WHITE {
+                    eval_white_mg += psqt.get_middle_game();
+                    eval_white_eg += psqt.get_end_game();
+                } else {
+                    eval_black_mg += psqt.get_middle_game();
+                    eval_black_eg += psqt.get_end_game();
+                }
+            }
+        }
+        (eval_white_mg, eval_white_eg, eval_black_mg, eval_black_eg)
+    }
+    pub fn calc_gamephase(&self) -> i32 {
+        let mut gamephase = 0;
+        for sqr in (0..64) {
+            if let Some(piece) = self.squares[sqr] {
+                gamephase += GAMEPHASE_INC[piece.piece_type as usize];
+            }
+        }
+        gamephase
     }
 }

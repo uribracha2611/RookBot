@@ -41,7 +41,7 @@ impl TranspositionTable {
     ) {
         let index = (hash as usize) % self.table.len();
 
-       
+
         self.table[index] = Some(Entry {
             hash,
             depth,

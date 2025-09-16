@@ -111,6 +111,8 @@ pub fn quiescence_search(
 }
 
 pub fn eval(board: &Board) -> i32 {
+    debug_assert!(board.calc_eval() == (board.psqt_white.get_middle_game(), board.psqt_white.get_end_game(), board.psqt_black.get_middle_game(), board.psqt_black.get_end_game()));
+    debug_assert!(board.calc_gamephase() == board.game_phase);
     let mg_phase = board.game_phase.min(24);
     let eg_phase = 24 - mg_phase;
     let mg_score = board.psqt_white.get_middle_game() - board.psqt_black.get_middle_game();
