@@ -1,7 +1,7 @@
 use crate::engine::board::bitboard::Bitboard;
 use crate::engine::board::board::Board;
 use crate::engine::board::castling::types::CastlingSide;
-use crate::engine::board::piece::PieceType::PAWN;
+use crate::engine::board::piece::PieceType::{BISHOP, PAWN, QUEEN, ROOK};
 use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::board::position::Position;
 use crate::engine::board::see::get_piece_value;
@@ -734,17 +734,9 @@ pub fn in_check_after_en_passant(
     target_square: u8,
     ep_capture_square: u8,
 ) -> bool {
-    let enemy_ortho = board.get_piece_bitboard(board.turn.opposite(), PieceType::ROOK)
-        | board.get_piece_bitboard(board.turn.opposite(), PieceType::QUEEN);
-
-    if enemy_ortho != Bitboard::new(0) {
-        let masked_blockers = board.get_all_pieces_bitboard()
-            ^ (Bitboard::create_from_square(ep_capture_square)
-            | Bitboard::create_from_square(start_square)
-            | Bitboard::create_from_square(target_square));
-        let rook_attacks = get_rook_attacks(board.curr_king as usize, masked_blockers);
-        return (rook_attacks & enemy_ortho) != Bitboard::new(0);
-    }
-
-    false
+    let ortho_attackers = board.get_piece_bitboard(board.turn.opposite(), ROOK) | board.get_piece_bitboard(board.turn.opposite(), QUEEN);
+    let diag_attackers = board.get_piece_bitboard(board.turn.opposite(), BISHOP) | board.get_piece_bitboard(board.turn.opposite(), QUEEN);
+    let blockers = (board.get_all_pieces_bitboard() ^ Bitboard::create_from_square(start_square)) ^ Bitboard::create_from_square(target_square) ^ Bitboard::create_from_square(ep_capture_square);
+    let king_attacks = (get_rook_attacks(board.curr_king as usize, blockers) & ortho_attackers) | (get_bishop_attacks(board.curr_king as usize, blockers) & diag_attackers);
+    king_attacks != 0
 }

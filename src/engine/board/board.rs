@@ -4,7 +4,9 @@ use super::{
     piece::{Piece, PieceColor},
 };
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
+use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::board::piece::PieceType;
+use crate::engine::board::piece::PieceType::{BISHOP, KNIGHT, PAWN, QUEEN, ROOK};
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::precomputed::KNIGHT_MOVES;
@@ -209,48 +211,42 @@ impl Board {
     }
 
     pub fn is_insufficient_material(&self) -> bool {
-        let pieces_without_white_king = self.get_color_bitboard(PieceColor::WHITE)
-            & !self.get_piece_bitboard(PieceColor::WHITE, PieceType::KING);
-        let pieces_without_black_king = self.get_color_bitboard(PieceColor::BLACK)
-            & !self.get_piece_bitboard(PieceColor::BLACK, PieceType::KING);
-
-        let piece_count_white_without_king = pieces_without_white_king.pop_count();
-        let piece_count_black_without_king = pieces_without_black_king.pop_count();
-
-        // If both sides have more than one non-king piece, checkmate is possible
-        if piece_count_white_without_king > 1 || piece_count_black_without_king > 1 {
+        if self.get_piece_bitboard(WHITE, PAWN) | self.get_piece_bitboard(BLACK, PAWN) != 0 {
+            return false;
+        }
+        let white_queen = self.get_piece_bitboard(WHITE, QUEEN);
+        let black_queen = self.get_piece_bitboard(BLACK, QUEEN);
+        if white_queen | black_queen != 0 {
             return false;
         }
 
-        // If neither side has any piece besides the king, it's a draw
-        if piece_count_white_without_king == 0 && piece_count_black_without_king == 0 {
-            return true;
+        let white_bishop = self.get_piece_bitboard(WHITE, BISHOP);
+        let black_bishop = self.get_piece_bitboard(BLACK, BISHOP);
+        let white_knight = self.get_piece_bitboard(WHITE, KNIGHT);
+        let white_rook = self.get_piece_bitboard(WHITE, ROOK);
+        let black_knight = self.get_piece_bitboard(BLACK, KNIGHT);
+        let black_rook = self.get_piece_bitboard(BLACK, ROOK);
+        let bishops = white_bishop | black_bishop;
+        let knights = white_knight | black_knight;
+        let rooks = white_rook | black_rook;
+        if rooks == 0 {
+            if bishops == 0 {
+                if white_knight.pop_count() < 3 && black_knight.pop_count() < 3 {
+                    return true;
+                }
+            } else if knights == 0 && white_bishop.pop_count().abs_diff(black_bishop.pop_count()) < 2 || (white_bishop | white_knight).pop_count() == 1 && (black_bishop | black_knight).pop_count() == 1 {
+                return true;
+            }
+        } else if white_rook.pop_count() == 1 && black_rook == 0 {
+            if (white_knight | white_bishop) == 0 && ((black_knight | black_bishop).pop_count() == 1 || (black_knight | black_bishop).pop_count() == 2) {
+                return true;
+            }
+        } else if white_rook == 0 && black_rook.pop_count() == 1 && (black_knight | black_bishop) == 0 && ((white_knight | white_bishop).pop_count() == 1 || (white_knight | white_bishop).pop_count() == 2) {
+            return true
         }
-
-        // Get the single piece for each side, if it exists
-        let white_piece = if piece_count_white_without_king == 0 {
-            None
-        } else {
-            self.squares[pieces_without_white_king.get_single_set_bit() as usize]
-        };
-
-        let black_piece = if piece_count_black_without_king == 0 {
-            None
-        } else {
-            self.squares[pieces_without_black_king.get_single_set_bit() as usize]
-        };
-
-        // Check if each side has only a knight or bishop (this covers different-colored bishops case)
-        let white_draw_bool = white_piece.is_none_or(|piece| {
-            piece.piece_type == PieceType::BISHOP || piece.piece_type == PieceType::KNIGHT
-        });
-
-        let black_draw_bool = black_piece.is_none_or(|piece| {
-            piece.piece_type == PieceType::BISHOP || piece.piece_type == PieceType::KNIGHT
-        });
-
-        white_draw_bool && black_draw_bool
+        false
     }
+
 
     pub fn to_fen(&self) -> String {
         let mut fen = String::new();
@@ -338,7 +334,6 @@ impl Board {
     }
     pub fn is_board_draw(&self) -> bool {
         self.is_threefold_repetition()
-            || self.is_insufficient_material()
             || self.game_state.halfmove_clock >= 100
     }
     fn handle_en_passant(&mut self, mv: &MoveData) {

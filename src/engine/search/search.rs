@@ -1,5 +1,6 @@
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor;
+use crate::engine::board::piece::PieceType::KING;
 use crate::engine::board::see::static_exchange_evaluation;
 use crate::engine::movegen::generate::generate_moves;
 use crate::engine::movegen::movedata::MoveData;
@@ -113,6 +114,9 @@ pub fn quiescence_search(
 pub fn eval(board: &Board) -> i32 {
     debug_assert!(board.calc_eval() == (board.psqt_white.get_middle_game(), board.psqt_white.get_end_game(), board.psqt_black.get_middle_game(), board.psqt_black.get_end_game()));
     debug_assert!(board.calc_gamephase() == board.game_phase);
+    if board.is_insufficient_material() {
+        return 0;
+    }
     let mg_phase = board.game_phase.min(24);
     let eg_phase = 24 - mg_phase;
     let mg_score = board.psqt_white.get_middle_game() - board.psqt_black.get_middle_game();
@@ -216,7 +220,7 @@ fn search_common(
         return quiescence_search(board, alpha, beta, refs);
     }
     let mut move_list = generate_moves(board, false);
-    let is_in_check = board.is_check;
+
     if move_list.len() == 0 {
         return if board.is_check { -MATE_VALUE + ply } else { 0 };
     }
@@ -319,7 +323,9 @@ fn search_common(
                 + ((curr_move.get_captured_piece().unwrap().get_value() * 10)
                 - curr_move.piece_to_move.get_value());
             pick_move(&mut move_list, i as u8, &mut move_score);
+
             curr_move = move_list.get_move(i);
+            debug_assert!(curr_move.to != board.get_piece_bitboard(board.turn.opposite(), KING).pop_lsb(), "move is {:?} and fen is {}", curr_move, board.to_fen());
             if *curr_move == old_move {
                 break;
             };
