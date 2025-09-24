@@ -1,6 +1,5 @@
 use crate::engine::board::board::Board;
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::search::types::SearchRefs;
 
 pub fn is_allowed_futility_pruning(
     depth: u8,
@@ -37,27 +36,27 @@ pub fn is_allowed_reverse_futility_pruning(
     let rep_margin = margin * (depth as i32); // Lower margin
     eval - rep_margin >= beta
 }
-pub fn is_improving(refs: &SearchRefs, ply: i32) -> bool {
-    if ply < 2 {
-        return false;
-    }
-    if let (Some(this_depth_eval), Some(two_moves_ago_eval)) =
-        (refs.get_eval_ply(ply), refs.get_eval_ply(ply - 2))
-    {
-        if this_depth_eval > two_moves_ago_eval {
-            return true;
-        }
-    }
-    if ply < 4 {
-        return false;
-    }
-    if let (Some(this_depth_eval), Some(four_moves_ago_eval)) =
-        (refs.get_eval_ply(ply), refs.get_eval_ply(ply - 4))
-    {
-        if this_depth_eval > four_moves_ago_eval {
-            return true;
-        }
-    }
-
-    false
-}
+// pub fn is_improving(refs: &SearchRefs, ply: i32) -> bool {
+//     if ply < 2 {
+//         return false;
+//     }
+//     if let (Some(this_depth_eval), Some(two_moves_ago_eval)) =
+//         (refs.get_eval_ply(ply), refs.get_eval_ply(ply - 2))
+//     {
+//         if this_depth_eval > two_moves_ago_eval {
+//             return true;
+//         }
+//     }
+//     if ply < 4 {
+//         return false;
+//     }
+//     if let (Some(this_depth_eval), Some(four_moves_ago_eval)) =
+//         (refs.get_eval_ply(ply), refs.get_eval_ply(ply - 4))
+//     {
+//         if this_depth_eval > four_moves_ago_eval {
+//             return true;
+//         }
+//     }
+//
+//     false
+// }

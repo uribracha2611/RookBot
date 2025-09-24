@@ -1,7 +1,5 @@
-use crate::engine::board::board::Board;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
-use crate::engine::search::types::SearchRefs;
 
 pub const MVV_LVA: [[u32; 6]; 6] = [
     [10, 11, 12, 13, 14, 15], // Victim: PAWN
@@ -31,34 +29,21 @@ pub fn store_killers(killer_moves: &mut KillerMoves, mv: MoveData, ply: usize) {
 }
 pub fn get_moves_score(
     moves: &MoveList,
-    ply: usize,
-    board: &Board,
-    tt_move: MoveData,
-    refs: &SearchRefs,
 ) -> Vec<i32> {
     let mut scores = Vec::with_capacity(moves.len());
     for mv in moves.iter() {
-        scores.push(get_move_score(mv, ply, tt_move, board, refs));
+        scores.push(get_move_score(mv));
     }
     scores
 }
 pub fn get_move_score(
     mv: &MoveData,
-    ply: usize,
-    tt_move: MoveData,
-    board: &Board,
-    refs: &SearchRefs,
 ) -> i32 {
-    if *mv == tt_move {
-        return i32::MAX;
-    }
     if mv.is_capture() {
         BASE_CAPTURE
             + ((mv.get_captured_piece().unwrap().get_value() * 10) - mv.piece_to_move.get_value())
-    } else if let Some(killer_val) = refs.return_killer_move_score(ply as i32, *mv) {
-        killer_val
     } else {
-        refs.get_history_value(mv, board.turn) + refs.get_cont_history(ply as i32, mv)
+        0
     }
 }
 

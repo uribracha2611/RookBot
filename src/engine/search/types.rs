@@ -1,6 +1,5 @@
 use crate::engine::board::piece::PieceColor;
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::search::constants::MAX_EXTENSIONS;
 use crate::engine::search::move_ordering::{KillerMoves, BASE_KILLER};
 use crate::engine::search::transposition_table::TranspositionTable;
 use std::ops::Neg;
@@ -99,10 +98,7 @@ pub struct SearchRefs<'a> {
     time_limit: Option<Duration>,
     nodes_limit: Option<u64>,
     history_table: [[[i32; 64]; 64]; 2],
-    eval_stack: [Option<i32>; 256],
-    move_stack: [Option<MoveData>; 256],
-    current_extensions: i32,
-    continuation_history: Vec<Vec<i32>>,
+
     pub table: &'a mut TranspositionTable,
 
 }
@@ -120,11 +116,8 @@ impl SearchRefs<'_> {
             time_limit: Some(*time_limit),
             nodes_limit: None,
             history_table,
-            eval_stack: [None; 256],
-            move_stack: [None; 256],
-            current_extensions: 0,
             table: transposition_table,
-            continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
+
         }
     }
     pub fn new_depth_search(
@@ -139,11 +132,8 @@ impl SearchRefs<'_> {
             time_limit: None,
             nodes_limit: None,
             history_table,
-            eval_stack: [None; 256],
-            move_stack: [None; 256],
-            current_extensions: 0,
             table: transposition_table, // Removed &mut here
-            continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
+
         }
     }
     pub fn new_node_search(node_count: u64,
@@ -158,11 +148,8 @@ impl SearchRefs<'_> {
             time_limit: None,
             nodes_limit: Some(node_count),
             history_table,
-            eval_stack: [None; 256],
-            move_stack: [None; 256],
-            current_extensions: 0,
             table: transposition_table, // Removed &mut here
-            continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
+
         }
     }
 
@@ -193,12 +180,8 @@ impl SearchRefs<'_> {
         self.nodes_evaluated += 1;
     }
     #[inline(always)]
-    pub fn add_history(&mut self, color: PieceColor, mv: MoveData, depth: i32, is_malus: bool) {
-        if is_malus {
-            self.history_table[color as usize][mv.from as usize][mv.to as usize] -= depth * depth;
-        } else {
-            self.history_table[color as usize][mv.from as usize][mv.to as usize] += depth * depth;
-        }
+    pub fn add_history(&mut self, color: PieceColor, mv: MoveData, depth: i32) {
+        self.history_table[color as usize][mv.from as usize][mv.to as usize] += depth * depth;
     }
     #[inline(always)]
     pub fn get_history_value(&self, mv: &MoveData, color: PieceColor) -> i32 {
@@ -216,26 +199,10 @@ impl SearchRefs<'_> {
 
         false
     }
-    #[inline(always)]
-    pub fn get_eval_ply(&self, ply: i32) -> Option<i32> {
-        if ply >= 256 {
-            return None;
-        }
-        self.eval_stack[ply as usize]
-    }
-
-    pub fn set_eval_ply(&mut self, ply: i32, eval: i32) {
-        self.eval_stack[ply as usize] = Some(eval);
-    }
-    pub fn disable_eval_ply(&mut self, ply: i32) {
-        self.eval_stack[ply as usize] = None;
-    }
-    pub fn set_move_ply(&mut self, ply: i32, move_data: MoveData) {
-        self.move_stack[ply as usize] = Some(move_data);
-    }
-    pub fn get_move_ply(&self, ply: i32) -> Option<MoveData> {
-        self.move_stack[ply as usize]
-    }
+    // #[inline(always)]
+    // pub fn get_move_ply(&self, ply: i32) -> Option<MoveData> {
+    //     self.move_stack[ply as usize]
+    // }
     fn cont_hist_index(mv_1: &MoveData, mv_2: &MoveData) -> usize {
         let to1 = mv_1.to as usize;
         let to2 = mv_2.to as usize;
@@ -243,51 +210,51 @@ impl SearchRefs<'_> {
         let piece2 = mv_2.piece_to_move;
         ((to1 * 12 + piece1.to_history_index()) * 64 + to2) * 12 + piece2.to_history_index()
     }
-    pub fn increament_cont_hist(&mut self, depth: i32, ply: i32, mv: &MoveData) {
-        if ply >= 1 {
-            if let Some(stack_mv) = &mut self.move_stack[(ply - 1) as usize] {
-                let index = Self::cont_hist_index(mv, stack_mv);
-                self.continuation_history[0][index] += depth * depth;
-            }
-        }
+    // pub fn increament_cont_hist(&mut self, depth: i32, ply: i32, mv: &MoveData) {
+    //     if ply >= 1 {
+    //         if let Some(stack_mv) = &mut self.move_stack[(ply - 1) as usize] {
+    //             let index = Self::cont_hist_index(mv, stack_mv);
+    //             self.continuation_history[0][index] += depth * depth;
+    //         }
+    //     }
+    //
+    //     if ply >= 2 {
+    //         if let Some(stack_mv) = &mut self.move_stack[(ply - 2) as usize] {
+    //             let index = Self::cont_hist_index(mv, stack_mv);
+    //             self.continuation_history[1][index] += depth * depth;
+    //         }
+    //     }
+    // }
+    // pub fn decreament_cont_hist(&mut self, depth: i32, ply: i32, mv: &MoveData) {
+    //     if ply >= 1 {
+    //         if let Some(stack_mv) = &mut self.move_stack[(ply - 1) as usize] {
+    //             let index = Self::cont_hist_index(mv, stack_mv);
+    //             self.continuation_history[0][index] -= depth * depth;
+    //         }
+    //     }
+    //
+    //     if ply >= 2 {
+    //         if let Some(stack_mv) = &mut self.move_stack[(ply - 2) as usize] {
+    //             let index = Self::cont_hist_index(mv, stack_mv);
+    //             self.continuation_history[1][index] -= depth * depth;
+    //         }
+    //     }
+    // }
 
-        if ply >= 2 {
-            if let Some(stack_mv) = &mut self.move_stack[(ply - 2) as usize] {
-                let index = Self::cont_hist_index(mv, stack_mv);
-                self.continuation_history[1][index] += depth * depth;
-            }
-        }
-    }
-    pub fn decreament_cont_hist(&mut self, depth: i32, ply: i32, mv: &MoveData) {
-        if ply >= 1 {
-            if let Some(stack_mv) = &mut self.move_stack[(ply - 1) as usize] {
-                let index = Self::cont_hist_index(mv, stack_mv);
-                self.continuation_history[0][index] -= depth * depth;
-            }
-        }
-
-        if ply >= 2 {
-            if let Some(stack_mv) = &mut self.move_stack[(ply - 2) as usize] {
-                let index = Self::cont_hist_index(mv, stack_mv);
-                self.continuation_history[1][index] -= depth * depth;
-            }
-        }
-    }
-
-    pub fn get_cont_history(&self, ply: i32, mv: &MoveData) -> i32 {
-        let mut cont = 0;
-        if ply >= 1 {
-            if let Some(stack_mv) = self.move_stack[(ply - 1) as usize] {
-                cont += self.continuation_history[0][Self::cont_hist_index(mv, &stack_mv)];
-            }
-        }
-        if ply >= 2 {
-            if let Some(stack_mv) = self.move_stack[(ply - 2) as usize] {
-                cont += self.continuation_history[1][Self::cont_hist_index(mv, &stack_mv)]
-            }
-        }
-        cont
-    }
+    // pub fn get_cont_history(&self, ply: i32, mv: &MoveData) -> i32 {
+    //     let mut cont = 0;
+    //     if ply >= 1 {
+    //         if let Some(stack_mv) = self.move_stack[(ply - 1) as usize] {
+    //             cont += self.continuation_history[0][Self::cont_hist_index(mv, &stack_mv)];
+    //         }
+    //     }
+    //     if ply >= 2 {
+    //         if let Some(stack_mv) = self.move_stack[(ply - 2) as usize] {
+    //             cont += self.continuation_history[1][Self::cont_hist_index(mv, &stack_mv)]
+    //         }
+    //     }
+    //     cont
+    // }
 
     pub fn store_killers(&mut self, mv: MoveData, ply: usize) {
         let first_killer = self.killer_moves[ply][0];
@@ -311,16 +278,16 @@ impl SearchRefs<'_> {
         }
         None
     }
-    #[inline(always)]
-    pub fn increment_extensions(&mut self) {
-        self.current_extensions += 1;
-    }
-    #[inline(always)]
-    pub fn is_extension_allowed(&self) -> bool {
-        self.current_extensions <= MAX_EXTENSIONS
-    }
-    #[inline(always)]
-    pub fn reset_extensions(&mut self) {
-        self.current_extensions = 0;
-    }
+    //     #[inline(always)]
+    //     pub fn increment_extensions(&mut self) {
+    //         self.current_extensions += 1;
+    //     }
+    //     #[inline(always)]
+    //     pub fn is_extension_allowed(&self) -> bool {
+    //         self.current_extensions <= MAX_EXTENSIONS
+    //     }
+    //     #[inline(always)]
+    //     pub fn reset_extensions(&mut self) {
+    //         self.current_extensions = 0;
+    //     }
 }
