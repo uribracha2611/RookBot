@@ -6,7 +6,7 @@ use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
 use crate::engine::search::constants::{INFINITY, MATE_VALUE};
 use crate::engine::search::move_ordering::{get_capture_score, get_moves_score};
-use crate::engine::search::transposition_table::EntryType::UpperBound;
+use crate::engine::search::transposition_table::EntryType::{LowerBound, UpperBound};
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
 use crate::engine::search::types::{SearchInput, SearchOutput, SearchRefs};
 use std::time::Duration;
@@ -24,7 +24,6 @@ pub fn quiescence_search(
     if refs.is_time_done() || refs.is_nodes_exceeded() {
         return 0;
     }
-
 
     let stand_pat = eval(board);
     let mut best_val = stand_pat;
@@ -70,7 +69,6 @@ pub fn quiescence_search(
         pick_move(&mut moves, i, &mut scores);
         let mv = moves.get_move(i);
 
-
         if *mv != tt_move && static_exchange_evaluation(board, mv) < 0 {
             continue;
         }
@@ -105,7 +103,15 @@ pub fn quiescence_search(
 }
 
 pub fn eval(board: &Board) -> i32 {
-    debug_assert!(board.calc_eval() == (board.psqt_white.get_middle_game(), board.psqt_white.get_end_game(), board.psqt_black.get_middle_game(), board.psqt_black.get_end_game()));
+    debug_assert!(
+        board.calc_eval()
+            == (
+                board.psqt_white.get_middle_game(),
+                board.psqt_white.get_end_game(),
+                board.psqt_black.get_middle_game(),
+                board.psqt_black.get_end_game()
+            )
+    );
     debug_assert!(board.calc_gamephase() == board.game_phase);
     if board.is_insufficient_material() {
         return 0;
@@ -122,11 +128,11 @@ pub fn eval(board: &Board) -> i32 {
         -score
     }
 }
-pub fn pick_move(ml: &mut MoveList, start_index: usize, scores: &mut Vec<i32>) {
+pub fn pick_move(ml: &mut MoveList, start_index: usize, scores: &mut [i32]) {
     for i in (start_index + 1)..(ml.len()) {
-        if scores[i as usize] > scores[start_index as usize] {
-            ml.swap(start_index as usize, i as usize);
-            scores.swap(start_index as usize, i as usize);
+        if scores[i] > scores[start_index] {
+            ml.swap(start_index, i);
+            scores.swap(start_index, i);
         }
     }
 }
@@ -147,9 +153,13 @@ pub fn search(
     let move_time = input.move_time.unwrap_or(Duration::from_millis(0));
     let alpha = -INFINITY;
     let beta = INFINITY;
-    let mut refs = if is_depth_search { SearchRefs::new_depth_search(tt_table) } else if is_move_count_search {
+    let mut refs = if is_depth_search {
+        SearchRefs::new_depth_search(tt_table)
+    } else if is_move_count_search {
         SearchRefs::new_node_search(node_count, tt_table)
-    } else { SearchRefs::new_timed_search(&move_time, tt_table) };
+    } else {
+        SearchRefs::new_timed_search(&move_time, tt_table)
+    };
     while current_depth <= max_depth {
         if refs.is_time_elapsed_iterative_search() {
             break;
@@ -181,7 +191,6 @@ pub fn search(
     }
 }
 
-
 fn search_common(
     board: &mut Board,
     mut depth: i32,
@@ -201,7 +210,6 @@ fn search_common(
     }
     let mut best_score = -INFINITY;
 
-
     if depth <= 0 {
         return eval(board);
     }
@@ -214,9 +222,28 @@ fn search_common(
         return 0;
     }
 
-
+    if let Some(entry) = refs
+        .get_transposition_table()
+        .retrieve(board.game_state.zobrist_hash)
+    {
+        if ply > 0 && entry.depth >= depth as u8 {
+            match entry.entry_type {
+                EntryType::Exact => return entry.eval,
+                UpperBound => {
+                    if entry.eval <= alpha {
+                        return entry.eval;
+                    }
+                }
+                EntryType::LowerBound => {
+                    if entry.eval >= beta {
+                        return entry.eval;
+                    }
+                }
+            }
+        }
+    }
     let mut best_move = MoveData::default();
-
+    let mut entry_type = EntryType::UpperBound;
     let mut scores = get_moves_score(&move_list);
     for i in 0..move_list.len() {
         if refs.is_nodes_exceeded() {
@@ -225,33 +252,28 @@ fn search_common(
         pick_move(&mut move_list, i, &mut scores);
         let curr_move = move_list.get_move(i);
 
-
         refs.increment_nodes_evaluated();
         let mut node_pv: Vec<MoveData> = Vec::new();
         board.make_move(curr_move);
 
-
-        let score_mv = -search_common(
-            board,
-            depth - 1,
-            ply + 1,
-            -beta,
-            -alpha,
-            &mut node_pv,
-            refs,
-        );
-
+        let score_mv = -search_common(board, depth - 1, ply + 1, -beta, -alpha, &mut node_pv, refs);
 
         board.unmake_move(curr_move);
 
         if score_mv >= beta {
-            best_move = *curr_move;
-
+            refs.get_transposition_table().store(
+                board.game_state.zobrist_hash,
+                depth as u8,
+                score_mv,
+                LowerBound,
+                *curr_move,
+            );
             return score_mv;
         }
         if score_mv > best_score {
             best_score = score_mv;
             if score_mv > alpha {
+                entry_type = EntryType::Exact;
                 alpha = score_mv;
                 best_move = *curr_move;
 
@@ -263,6 +285,12 @@ fn search_common(
         }
     }
 
-
+    refs.get_transposition_table().store(
+        board.game_state.zobrist_hash,
+        depth as u8,
+        best_score,
+        entry_type,
+        best_move,
+    );
     best_score
 }
