@@ -1,5 +1,6 @@
 use crate::constants::FENS_FOR_BENCH;
 use crate::engine::board::board::Board;
+use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::movegen::magic::precomputed::precompute_magics;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::precomputed::precompute_movegen;
@@ -202,10 +203,10 @@ pub fn handle_go(
     }
 
 
-    let mut search_input = if let Some(wtime) = wtime {
-        SearchInput::time_input(wtime / 40 + winc.unwrap_or(Duration::from_millis(0)) / 2)
-    } else if let Some(btime) = btime {
-        SearchInput::time_input(btime / 40 + binc.unwrap_or(Duration::from_millis(0)) / 2)
+    let mut search_input = if let Some(wtime) = wtime && board.turn == WHITE {
+        SearchInput::time_input(wtime / 20 + winc.unwrap_or_default() / 2)
+    } else if let Some(btime) = btime && board.turn == BLACK {
+        SearchInput::time_input(btime / 20 + binc.unwrap_or_default() / 2)
     } else if let Some(movetime) = movetime {
         SearchInput::time_input(movetime)
     } else if let Some(depth) = depth {
@@ -217,12 +218,11 @@ pub fn handle_go(
     };
 
 
-    let mut board_clone = board.clone();
     let time_test = Instant::now();
 
 
     let result = search(
-        &mut board_clone,
+        board,
         &mut search_input,
         tt_table,
     );
