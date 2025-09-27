@@ -5,6 +5,7 @@ use crate::engine::search::move_ordering::{KillerMoves, BASE_KILLER};
 use crate::engine::search::transposition_table::TranspositionTable;
 use std::ops::Neg;
 use std::time::{Duration, Instant};
+const HISTORY_MAX: i32 = 16_384;
 
 #[derive(Copy, Clone)]
 
@@ -194,11 +195,11 @@ impl SearchRefs<'_> {
     }
     #[inline(always)]
     pub fn add_history(&mut self, color: PieceColor, mv: MoveData, depth: i32, is_malus: bool) {
-        if is_malus {
-            self.history_table[color as usize][mv.from as usize][mv.to as usize] -= depth * depth;
-        } else {
-            self.history_table[color as usize][mv.from as usize][mv.to as usize] += depth * depth;
-        }
+        let sign = if is_malus { -1 } else { 1 };
+        let bonus = (Self::calculate_history_bonus(depth) * sign).clamp(-HISTORY_MAX, HISTORY_MAX);
+
+
+        self.history_table[color as usize][mv.from as usize][mv.to as usize] += bonus - self.history_table[color as usize][mv.from as usize][mv.to as usize] * bonus.abs() / HISTORY_MAX;
     }
     #[inline(always)]
     pub fn get_history_value(&self, mv: &MoveData, color: PieceColor) -> i32 {
@@ -223,7 +224,10 @@ impl SearchRefs<'_> {
         }
         self.eval_stack[ply as usize]
     }
-
+    #[inline(always)]
+    pub fn calculate_history_bonus(depth: i32) -> i32 {
+        depth * depth
+    }
     pub fn set_eval_ply(&mut self, ply: i32, eval: i32) {
         self.eval_stack[ply as usize] = Some(eval);
     }
