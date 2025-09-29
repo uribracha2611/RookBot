@@ -247,36 +247,21 @@ impl SearchRefs<'_> {
         let piece2 = mv_2.piece_to_move;
         ((to1 * 12 + piece1.to_history_index()) * 64 + to2) * 12 + piece2.to_history_index()
     }
-    pub fn increament_cont_hist(&mut self, depth: i32, ply: i32, mv: &MoveData) {
-        if ply >= 1 {
-            if let Some(stack_mv) = &mut self.move_stack[(ply - 1) as usize] {
-                let index = Self::cont_hist_index(mv, stack_mv);
-                self.continuation_history[0][index] += depth * depth;
-            }
-        }
+    #[inline(always)]
+    pub fn add_cont_hist(&mut self, depth: i32, ply: i32, mv: &MoveData, is_malus: bool) {
+        let sign = if is_malus { -1 } else { 1 };
+        let bonus = (Self::calculate_history_bonus(depth) * sign);
 
-        if ply >= 2 {
-            if let Some(stack_mv) = &mut self.move_stack[(ply - 2) as usize] {
-                let index = Self::cont_hist_index(mv, stack_mv);
-                self.continuation_history[1][index] += depth * depth;
+        for ply_index in 1..=2 {
+            if (ply >= ply_index) {
+                if let Some(stack_mv) = &mut self.move_stack[(ply - ply_index) as usize] {
+                    let index = Self::cont_hist_index(mv, stack_mv);
+                    self.continuation_history[(ply_index - 1) as usize][index] += bonus;
+                }
             }
         }
     }
-    pub fn decreament_cont_hist(&mut self, depth: i32, ply: i32, mv: &MoveData) {
-        if ply >= 1 {
-            if let Some(stack_mv) = &mut self.move_stack[(ply - 1) as usize] {
-                let index = Self::cont_hist_index(mv, stack_mv);
-                self.continuation_history[0][index] -= depth * depth;
-            }
-        }
 
-        if ply >= 2 {
-            if let Some(stack_mv) = &mut self.move_stack[(ply - 2) as usize] {
-                let index = Self::cont_hist_index(mv, stack_mv);
-                self.continuation_history[1][index] -= depth * depth;
-            }
-        }
-    }
 
     pub fn get_cont_history(&self, ply: i32, mv: &MoveData) -> i32 {
         let mut cont = 0;

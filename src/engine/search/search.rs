@@ -431,10 +431,10 @@ fn search_common(
                 refs.store_killers(*curr_move, ply as usize);
 
                 refs.add_history(board.turn, *curr_move, depth, false);
-                refs.increament_cont_hist(depth, ply, curr_move);
+                refs.add_cont_hist(depth, ply, curr_move, false);
             }
             for quiet_move in quiet_moves {
-                refs.decreament_cont_hist(depth, ply, &quiet_move);
+                refs.add_cont_hist(depth, ply, &quiet_move, true);
                 refs.add_history(board.turn, quiet_move, depth, true);
             }
 
