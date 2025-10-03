@@ -149,7 +149,7 @@ pub fn search(
     let mut best_eval = -INFINITY;
     let is_depth_search = input.depth.is_some();
     let is_move_count_search = input.node_count.is_some();
-    let max_depth = input.depth.unwrap_or(64);
+    let max_depth = input.depth.unwrap_or(63);
     let node_count = input.node_count.unwrap_or(0);
     let move_time = input.move_time.unwrap_or(Duration::from_millis(0));
     let mut alpha = -INFINITY;
@@ -367,7 +367,7 @@ fn search_common(
         let mut score_mv = 0;
         if depth >= 3 && is_pvs {
             let new_depth =
-                reduce_depth(board, curr_move, depth as f32, i as f32, improving) as i32;
+                reduce_depth(board, curr_move, depth, i as i32, improving);
             score_mv = -search_common(
                 board,
                 new_depth,

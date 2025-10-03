@@ -15,3 +15,4 @@ src/* # Ignore everything inside src/
 !src/bin/ # But do not ignore the bin/ sub-directory
 !src/SEE.txt # And do not ignore this specific file
 !src/constants.rs # And do not ignore this file
+!src/lmr_table.bin

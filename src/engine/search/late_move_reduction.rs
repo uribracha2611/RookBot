@@ -1,31 +1,31 @@
 use crate::engine::board::board::Board;
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::search::constants::MATE_VALUE;
+use crate::engine::search::constants::{LMR_TABLE, MATE_VALUE};
 use num_traits::abs;
+use num_traits::real::Real;
 
 pub fn reduce_depth(
     board: &Board,
     mv: &MoveData,
-    depth: f32,
-    moves_played: f32,
+    depth: i32,
+    moves_played: i32,
     improving: bool,
-) -> f32 {
+) -> i32 {
     if mv.is_capture() || mv.is_promotion() {
         if board.is_check {
-            depth - 2.0
+            depth - 2
         } else {
-            depth - 3.0
+            depth - 3
         }
     } else {
-        let reg_reduction = depth - (0.7844 + (depth.ln() * moves_played.ln()) / 2.4696);
+        let move_index = moves_played.min(63);
+        let reg_reduction = LMR_TABLE[depth as usize][move_index as usize] as i32;
 
-        let actual_reduction = if !improving {
-            reg_reduction - 1.0
+        if !improving {
+            reg_reduction - 1
         } else {
             reg_reduction
-        };
-
-        actual_reduction.clamp(1.0, depth.floor())
+        }
     }
 }
 pub fn should_movecount_based_pruning(
