@@ -37,27 +37,17 @@ pub fn is_allowed_reverse_futility_pruning(
     let rep_margin = margin * (depth as i32); // Lower margin
     eval - rep_margin >= beta
 }
-pub fn is_improving(refs: &SearchRefs, ply: i32) -> bool {
-    if ply < 2 {
+#[inline(always)]
+pub fn is_improving(board: &Board, eval: i32, refs: &SearchRefs, ply: i32) -> bool {
+    if board.is_check {
         return false;
     }
-    if let (Some(this_depth_eval), Some(two_moves_ago_eval)) =
-        (refs.get_eval_ply(ply), refs.get_eval_ply(ply - 2))
-    {
-        if this_depth_eval > two_moves_ago_eval {
-            return true;
-        }
-    }
-    if ply < 4 {
-        return false;
-    }
-    if let (Some(this_depth_eval), Some(four_moves_ago_eval)) =
-        (refs.get_eval_ply(ply), refs.get_eval_ply(ply - 4))
-    {
-        if this_depth_eval > four_moves_ago_eval {
-            return true;
-        }
-    }
-
-    false
+    return if ply >= 2 && let Some(two_moves_ago) = refs.get_eval_ply(ply - 2) {
+        eval > two_moves_ago
+    } else if ply >= 4 && let Some(four_moves_ago) = refs.get_eval_ply(ply - 4) {
+        eval > four_moves_ago
+    } else {
+        true
+    };
 }
+

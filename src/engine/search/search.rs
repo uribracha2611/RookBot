@@ -257,7 +257,7 @@ fn search_common(
     } else {
         refs.set_eval_ply(ply, curr_eval);
     }
-    let improving = is_improving(refs, ply);
+    let improving = is_improving(board, curr_eval, refs, ply);
     let mut should_extend = false;
     if board.is_check && refs.is_extension_allowed() {
         should_extend = true;
