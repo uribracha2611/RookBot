@@ -10,9 +10,7 @@ use crate::engine::search::functions::{
     is_allowed_futility_pruning, is_allowed_reverse_futility_pruning, is_improving,
 };
 use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
-use crate::engine::search::move_ordering::{
-    get_capture_score, get_moves_score, BASE_CAPTURE,
-};
+use crate::engine::search::move_ordering::{capture_formula, get_capture_score, get_moves_score, BASE_CAPTURE};
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
 use crate::engine::search::types::{SearchInput, SearchOutput, SearchRefs};
@@ -320,8 +318,7 @@ fn search_common(
 
             let old_move = *curr_move;
             move_score[i] = -BASE_CAPTURE
-                + ((curr_move.get_captured_piece().unwrap().get_value() * 10)
-                - curr_move.piece_to_move.get_value());
+                + capture_formula(curr_move);
             pick_move(&mut move_list, i as u8, &mut move_score);
 
             curr_move = move_list.get_move(i);
