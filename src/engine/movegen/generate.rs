@@ -6,14 +6,11 @@ use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::board::position::Position;
 use crate::engine::board::see::get_piece_value;
 use crate::engine::movegen;
-use crate::engine::movegen::constants::{RANK_1, RANK_8};
+use crate::engine::movegen::constants::{ALIGN_MASK, KING_MOVES, KNIGHT_MOVES, RANK_1, RANK_8, SQR_A_B_MASK};
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::engine::movegen::movedata::{CastlingMove, MoveData, MoveType, PromotionCaptureStruct};
 use crate::engine::movegen::movelist::MoveList;
-use crate::engine::movegen::precomputed;
-use crate::engine::movegen::precomputed::{
-    ALIGN_MASK, SQR_A_B_MASK,
-};
+
 
 pub fn generate_all_opp_attacks(board: &Board) -> Bitboard {
     let opp_color = board.turn.opposite();
@@ -44,7 +41,7 @@ pub fn get_attacking_pieces(board: &Board, square: u8, piece_color: PieceColor) 
 
     attackers |= pawn_attackers;
     // Check for knight attacks
-    attackers |= movegen::precomputed::KNIGHT_MOVES[square as usize]
+    attackers |= movegen::constants::KNIGHT_MOVES[square as usize]
         & board.get_piece_bitboard(piece_color.opposite(), PieceType::KNIGHT);
 
     // Check for bishop attacks
@@ -61,7 +58,7 @@ pub fn get_attacking_pieces(board: &Board, square: u8, piece_color: PieceColor) 
         & board.get_piece_bitboard(piece_color.opposite(), PieceType::QUEEN);
 
     // Check for king attacks
-    attackers |= precomputed::KING_MOVES[square as usize]
+    attackers |= KING_MOVES[square as usize]
         & board.get_piece_bitboard(piece_color.opposite(), PieceType::KING);
 
     attackers
@@ -82,7 +79,7 @@ pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> 
     }
 
     // Check for knight attacks
-    let mut knight_attackers = precomputed::KNIGHT_MOVES[square as usize]
+    let mut knight_attackers = KNIGHT_MOVES[square as usize]
         & board.get_piece_bitboard(piece_color, PieceType::KNIGHT);
 
     while knight_attackers != 0 {
@@ -117,7 +114,7 @@ pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> 
         let start_square = queen_attackers.pop_lsb();
         attackers.push((Piece::new(piece_color, PieceType::QUEEN), start_square));
     }
-    let mut king_attacks = precomputed::KING_MOVES[square as usize]
+    let mut king_attacks = KING_MOVES[square as usize]
         & board.get_piece_bitboard(piece_color, PieceType::KING);
     while king_attacks != 0 {
         let start_square = king_attacks.pop_lsb();
@@ -165,7 +162,7 @@ fn generate_piece_attack_bitboard(
             let mut knights = piece_bitboard;
             while knights != 0 {
                 let from_sqr = knights.pop_lsb();
-                attacks |= precomputed::KNIGHT_MOVES[from_sqr as usize];
+                attacks |= KNIGHT_MOVES[from_sqr as usize];
             }
             attacks
         }
@@ -202,7 +199,7 @@ fn generate_piece_attack_bitboard(
             let mut kings = piece_bitboard;
             while kings != 0 {
                 let from_sqr = kings.pop_lsb();
-                attacks |= precomputed::KING_MOVES[from_sqr as usize];
+                attacks |= KING_MOVES[from_sqr as usize];
             }
             attacks
         }
@@ -280,7 +277,7 @@ pub fn generate_knight_move(board: &Board, move_list: &mut MoveList, only_captur
     };
     while *knights != 0 {
         let from_sqr = knights.pop_lsb();
-        let mut moves = precomputed::KNIGHT_MOVES[from_sqr as usize]
+        let mut moves = KNIGHT_MOVES[from_sqr as usize]
             & !blockers
             & board.check_ray
             & quiet_bitboard;
@@ -321,7 +318,7 @@ pub fn generate_king_move(board: &Board, move_list: &mut MoveList, only_captures
         Bitboard::new(u64::MAX)
     };
     let from_sqr = kings.pop_lsb();
-    let mut moves = precomputed::KING_MOVES[from_sqr as usize]
+    let mut moves = KING_MOVES[from_sqr as usize]
         & !blockers
         & !board.attacked_square
         & quiet_bitboard;

@@ -216,7 +216,7 @@ impl SearchRefs<'_> {
     #[inline(always)]
     pub fn is_time_done(&self) -> bool {
         if let (Some(start_time), Some(time_limit)) = (self.start_time, self.time_limit) {
-            return self.nodes_evaluated % 8192 == 0 && start_time.elapsed() >= time_limit;
+            return self.nodes_evaluated % 1024 == 0 && start_time.elapsed() >= time_limit;
         }
 
         false

@@ -53,11 +53,11 @@ impl Bitboard {
     }
 
     /// Set a specific bit on the bitboard.
-    pub fn set(&mut self, bit: u64) {
+    pub const fn set(&mut self, bit: u64) {
         self.0 |= bit;
     }
 
-    pub fn set_square(&mut self, square: u8) {
+    pub const fn set_square(&mut self, square: u8) {
         let bit: u64 = 1u64 << square;
         self.set(bit);
     }
@@ -114,12 +114,12 @@ impl Bitboard {
     pub fn pawn_attack(self, color: PieceColor, opponent: Bitboard, attack_left: bool) -> Bitboard {
         let pawn_mask = self
             & match (color, attack_left) {
-                (PieceColor::WHITE, true) => !A_FILE,
-                (PieceColor::WHITE, false) => !H_FILE,
-                (PieceColor::BLACK, true) => !H_FILE,
-                (PieceColor::BLACK, false) => !A_FILE,
-            };
-        
+            (PieceColor::WHITE, true) => !A_FILE,
+            (PieceColor::WHITE, false) => !H_FILE,
+            (PieceColor::BLACK, true) => !H_FILE,
+            (PieceColor::BLACK, false) => !A_FILE,
+        };
+
         match (color, attack_left) {
             (PieceColor::WHITE, true) => (pawn_mask << 7) & opponent,
             (PieceColor::WHITE, false) => (pawn_mask << 9) & opponent,

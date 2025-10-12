@@ -3,7 +3,7 @@ use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::movegen::magic::precomputed::precompute_magics;
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::movegen::precomputed::precompute_movegen;
+
 use crate::engine::perft::perft_bulk;
 use crate::engine::search::search::search;
 use crate::engine::search::transposition_table::TranspositionTable;
@@ -30,7 +30,6 @@ pub fn handle_command(
         }
         "ucinewgame" => {
             precompute_magics();
-            precompute_movegen();
             *tt_table = TranspositionTable::from_mb(64);
         }
         "d" => {

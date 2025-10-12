@@ -10,7 +10,7 @@ num-traits = "0.2.19"
 
 
 derive_more = { version = "2.0.1", features = ["full"] }
-
+const_for = "0.1.5"
 [profile.perf]
 inherits = "release"
 debug = true

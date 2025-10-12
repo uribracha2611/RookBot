@@ -9,14 +9,23 @@ pub struct Position {
 }
 
 impl Position {
+    pub const fn add_position_const(self, other: Position) -> Position {
+        Position { x: self.x + other.x, y: self.y + other.y }
+    }
+    pub const fn sub_position_const(self, other: Position) -> Position {
+        Position { x: self.x - other.x, y: self.y - other.y }
+    }
+    pub const fn mul_position_const(self, other: i8) -> Position {
+        Position { x: self.x * other, y: self.y * other }
+    }
     /// Creates a new `Position` without bounds checking.
-    pub fn new(x: i8, y: i8) -> Self {
+    pub const fn new(x: i8, y: i8) -> Self {
         Position { x, y }
     }
 
     /// Converts a linear index (0-63) to a `Position`. Returns `None` if invalid square.
-    pub fn from_sqr(sqr: i8) -> Option<Self> {
-        if (0..64).contains(&sqr) {
+    pub const fn from_sqr(sqr: i8) -> Option<Self> {
+        if sqr >= 0 && sqr < 64 {
             Some(Position::new(sqr % 8, sqr / 8))
         } else {
             None
@@ -31,7 +40,7 @@ impl Position {
     }
 
     /// Converts a `Position` to a linear index (0-63). Returns `None` if out of bounds.
-    pub fn to_sqr(&self) -> Option<i8> {
+    pub const fn to_sqr(&self) -> Option<i8> {
         if self.x >= 0 && self.x < 8 && self.y >= 0 && self.y < 8 {
             Some(self.y * 8 + self.x)
         } else {

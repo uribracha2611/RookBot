@@ -1,8 +1,8 @@
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::{Piece, PieceColor, PieceType};
+use crate::engine::movegen::constants::DIR_SQUARES;
 use crate::engine::movegen::generate::{find_hidden_attackers, get_attackers_vec};
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::movegen::precomputed::DIR_SQUARES;
 
 // Define piece values
 pub const PAWN_VALUE: i32 = 100;
