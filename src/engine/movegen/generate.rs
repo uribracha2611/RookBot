@@ -1,7 +1,7 @@
 use crate::engine::board::bitboard::Bitboard;
 use crate::engine::board::board::Board;
 use crate::engine::board::castling::types::CastlingSide;
-use crate::engine::board::piece::PieceType::{BISHOP, PAWN, QUEEN, ROOK};
+use crate::engine::board::piece::PieceType::{BISHOP, KING, PAWN, QUEEN, ROOK};
 use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::board::position::Position;
 use crate::engine::board::see::get_piece_value;
@@ -206,14 +206,14 @@ fn generate_piece_attack_bitboard(
     }
 }
 pub fn update_check_status(board: &mut Board) {
-    board.is_double_check = false;
+    board.game_state.is_double_check = false;
     let king_square = board.curr_king;
 
-    board.is_check = board.attacked_square.contains_square(king_square);
-    if board.is_check {
+    board.game_state.is_check = board.attacked_square.contains_square(king_square);
+    if board.game_state.is_check {
         let attackers = get_attacking_pieces(board, king_square, board.turn);
         if attackers.pop_count() > 1 {
-            board.is_double_check = true;
+            board.game_state.is_double_check = true;
         } else {
             let checker_square = attackers.get_single_set_bit();
             let mut valid_moves = Bitboard::new(0);
@@ -225,7 +225,7 @@ pub fn update_check_status(board: &mut Board) {
                 && checker_piece.piece_type != PieceType::QUEEN
             {
                 valid_moves.set_square(checker_square);
-                board.check_ray = Bitboard::new(1 << checker_square)
+                board.game_state.check_ray = Bitboard::new(1 << checker_square)
             } else {
                 // If the checker is a sliding piece, calculate the alignment mask between the king and the checker
                 let align_mask = SQR_A_B_MASK[king_square as usize][checker_square as usize];
@@ -236,11 +236,11 @@ pub fn update_check_status(board: &mut Board) {
                 // Add the alignment mask to the valid moves
                 valid_moves |= align_mask;
 
-                board.check_ray = valid_moves;
+                board.game_state.check_ray = valid_moves;
             }
         }
     } else {
-        board.check_ray = Bitboard::new(u64::MAX);
+        board.game_state.check_ray = Bitboard::new(u64::MAX);
     }
 }
 pub fn generate_moves(board: &mut Board, only_captures: bool) -> MoveList {
@@ -249,11 +249,11 @@ pub fn generate_moves(board: &mut Board, only_captures: bool) -> MoveList {
         .get_single_set_bit();
     board.attacked_square = generate_all_opp_attacks(board);
     update_check_status(board);
-    board.pinned_ray = find_pinned_pieces(board);
+    board.game_state.pinned_ray = find_pinned_pieces(board);
 
     let mut move_list = MoveList::new();
     generate_king_move(board, &mut move_list, only_captures);
-    if !board.is_double_check {
+    if !board.game_state.is_double_check {
         generate_knight_move(board, &mut move_list, only_captures);
 
         generate_pawn_moves(board, &mut move_list, only_captures);
@@ -264,7 +264,7 @@ pub fn generate_moves(board: &mut Board, only_captures: bool) -> MoveList {
     move_list
 }
 fn is_pinned(board: &Board, sqr: u8) -> bool {
-    board.pinned_ray.contains_square(sqr)
+    board.game_state.pinned_ray.contains_square(sqr)
 }
 pub fn generate_knight_move(board: &Board, move_list: &mut MoveList, only_captures: bool) {
     let knights = &mut board.get_piece_bitboard(board.turn, PieceType::KNIGHT);
@@ -279,7 +279,7 @@ pub fn generate_knight_move(board: &Board, move_list: &mut MoveList, only_captur
         let from_sqr = knights.pop_lsb();
         let mut moves = KNIGHT_MOVES[from_sqr as usize]
             & !blockers
-            & board.check_ray
+            & board.game_state.check_ray
             & quiet_bitboard;
         if is_pinned(board, from_sqr) {
             moves &= ALIGN_MASK[from_sqr as usize][board.curr_king as usize];
@@ -355,7 +355,7 @@ pub fn generate_king_move(board: &Board, move_list: &mut MoveList, only_captures
     if !only_captures {
         for side in castling_options.iter() {
             if castling_rights.is_allowed(side)
-                && !board.is_check
+                && !board.game_state.is_check
                 && (board.get_all_pieces_bitboard() & side.required_empty(board.turn) == 0)
                 && (board.attacked_square & side.king_moves_trough(board.turn) == 0)
             {
@@ -429,9 +429,9 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
     let blockers = board.get_all_pieces_bitboard();
     let promotion_bitboard = get_promotion_bitboard(board.turn);
     if !only_captures {
-        let mut double_pushes = pawns.pawn_double_push(&board.turn, blockers) & board.check_ray;
+        let mut double_pushes = pawns.pawn_double_push(&board.turn, blockers) & board.game_state.check_ray;
         let mut single_pushes =
-            pawns.pawn_push(&board.turn) & !blockers & !opp_pieces & board.check_ray;
+            pawns.pawn_push(&board.turn) & !blockers & !opp_pieces & board.game_state.check_ray;
         let mut single_pushes_promote = single_pushes & promotion_bitboard;
         single_pushes &= !promotion_bitboard;
         while single_pushes != 0 {
@@ -479,7 +479,7 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
     }
     let is_left: [bool; 2] = [true, false];
     for left in is_left.iter() {
-        let mut attacks = pawns.pawn_attack(board.turn, opp_pieces, *left) & board.check_ray;
+        let mut attacks = pawns.pawn_attack(board.turn, opp_pieces, *left) & board.game_state.check_ray;
         let mut promote_attacks = attacks & promotion_bitboard;
         attacks &= !promotion_bitboard;
         while attacks != 0 {
@@ -606,7 +606,7 @@ pub fn get_rook_moves(board: &Board, move_list: &mut MoveList, only_captures: bo
     while *rooks != 0 {
         let from_sqr = rooks.pop_lsb();
         let mut moves = get_rook_attacks(from_sqr as usize, blockers)
-            & board.check_ray
+            & board.game_state.check_ray
             & !board.get_color_bitboard(board.turn)
             & quiet_bitboard;
         if is_pinned(board, from_sqr) {
@@ -649,7 +649,7 @@ pub fn get_bishop_moves(board: &Board, move_list: &mut MoveList, only_captures: 
     while *bishops != 0 {
         let from_sqr = bishops.pop_lsb();
         let mut moves = get_bishop_attacks(from_sqr as usize, blockers)
-            & board.check_ray
+            & board.game_state.check_ray
             & !our_pieces
             & quiet_bitboard;
         if is_pinned(board, from_sqr) {
@@ -694,7 +694,7 @@ pub fn get_queen_moves(board: &Board, move_list: &mut MoveList, only_captures: b
         let from_sqr = queens.pop_lsb();
         let mut moves = (get_bishop_attacks(from_sqr as usize, blockers)
             | get_rook_attacks(from_sqr as usize, blockers))
-            & board.check_ray
+            & board.game_state.check_ray
             & !our_pieces
             & quiet_bitboard;
         moves &= !our_pieces;
@@ -736,4 +736,20 @@ pub fn in_check_after_en_passant(
     let blockers = (board.get_all_pieces_bitboard() ^ Bitboard::create_from_square(start_square)) ^ Bitboard::create_from_square(target_square) ^ Bitboard::create_from_square(ep_capture_square);
     let king_attacks = (get_rook_attacks(board.curr_king as usize, blockers) & ortho_attackers) | (get_bishop_attacks(board.curr_king as usize, blockers) & diag_attackers);
     king_attacks != 0
+}
+pub fn is_legal_moves(board: &Board, mv: &MoveData) -> bool {
+    if board.squares[mv.from as usize] != Some(mv.piece_to_move) {
+        return false;
+    }
+    if let Some(capture_square) = mv.get_capture_square() && let Some(capture_piece) = mv.get_captured_piece() && board.squares[capture_square as usize] != Some(capture_piece) {
+        return false;
+    }
+    if (is_pinned(board, mv.from) || board.game_state.is_check) && ALIGN_MASK[mv.from as usize][board.curr_king as usize]
+        != ALIGN_MASK[mv.to as usize][board.curr_king as usize] {
+        return false;
+    }
+    if mv.piece_to_move.piece_type == KING && board.attacked_square.contains_square(mv.to) {
+        return false;
+    }
+    return true;
 }

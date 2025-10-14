@@ -25,12 +25,8 @@ pub struct Board {
     piece_bitboards: [[Bitboard; 6]; 2],
     all_pieces_bitboard: Bitboard,
     pub game_state: GameState,
-    pub is_check: bool,
-    pub is_double_check: bool,
     pub attacked_square: Bitboard,
     pub curr_king: u8,
-    pub check_ray: Bitboard,
-    pub pinned_ray: Bitboard,
     pub psqt_white: W,
     pub psqt_black: W,
     pub game_phase: i32,
@@ -94,7 +90,7 @@ impl Board {
             == 0
     }
     pub fn is_quiet_move(self: &Board, mv: &MoveData) -> bool {
-        !mv.is_capture() && !mv.is_promotion() && !self.is_check && !self.is_move_check(mv)
+        !mv.is_capture() && !mv.is_promotion() && !self.game_state.is_check && !self.is_move_check(mv)
     }
     pub fn is_move_check(&self, mv: &MoveData) -> bool {
         let to = mv.to;
@@ -169,12 +165,8 @@ impl Board {
             piece_bitboards: [[Bitboard::new(0); 6]; 2],
             all_pieces_bitboard: Bitboard::new(0),
             game_state: GameState::from_fen(&game_state_fen),
-            is_check: false,
-            is_double_check: false,
-            attacked_square: Bitboard::new(0),
             curr_king: 0,
-            check_ray: Bitboard::new(u64::MAX),
-            pinned_ray: Bitboard::new(0),
+            attacked_square: Bitboard::new(0),
             psqt_white: W(0, 0),
             psqt_black: W(0, 0),
             game_phase: 0,

@@ -17,8 +17,7 @@ use super::piece::PieceColor;
     Shr,
     Mul,
     Default,
-    Debug,
-)]
+    Debug, Eq)]
 pub struct Bitboard(u64);
 
 impl PartialEq<u64> for Bitboard {

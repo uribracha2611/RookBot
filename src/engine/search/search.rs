@@ -220,7 +220,7 @@ fn search_common(
     let mut move_list = generate_moves(board, false);
 
     if move_list.len() == 0 {
-        return if board.is_check { -MATE_VALUE + ply } else { 0 };
+        return if board.game_state.is_check { -MATE_VALUE + ply } else { 0 };
     }
     if board.is_board_draw() {
         return 0;
@@ -250,14 +250,14 @@ fn search_common(
     }
 
     let curr_eval = eval(board);
-    if board.is_check {
+    if board.game_state.is_check {
         refs.disable_eval_ply(ply);
     } else {
         refs.set_eval_ply(ply, curr_eval);
     }
     let improving = is_improving(board, curr_eval, refs, ply);
     let mut should_extend = false;
-    if board.is_check && refs.is_extension_allowed() {
+    if board.game_state.is_check && refs.is_extension_allowed() {
         should_extend = true;
         refs.increment_extensions();
     } else {
@@ -272,7 +272,7 @@ fn search_common(
     if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving) {
         return curr_eval;
     }
-    if !board.is_check && depth >= 3 && curr_eval >= beta {
+    if !board.game_state.is_check && depth >= 3 && curr_eval >= beta {
         let r = if depth > 10 {
             5
         } else if depth > 6 {
@@ -334,7 +334,7 @@ fn search_common(
         if curr_move.is_capture()
             && *curr_move != tt_move
             && see_val < -25 * depth * depth
-            && !board.is_check
+            && !board.game_state.is_check
             && alpha > -MATE_VALUE + 500
             && i > 1
         {

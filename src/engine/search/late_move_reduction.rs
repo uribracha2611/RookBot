@@ -12,7 +12,7 @@ pub fn reduce_depth(
     improving: bool,
 ) -> i32 {
     if mv.is_capture() || mv.is_promotion() {
-        if board.is_check {
+        if board.game_state.is_check {
             depth - 2
         } else {
             depth - 3

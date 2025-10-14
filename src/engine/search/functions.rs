@@ -13,7 +13,7 @@ pub fn is_allowed_futility_pruning(
         return false;
     }
 
-    if mv.is_capture() || mv.is_promotion() || board.is_check {
+    if mv.is_capture() || mv.is_promotion() || board.game_state.is_check {
         return false;
     }
     eval <= alpha - (100 + ((depth as i32) * 150))
@@ -29,7 +29,7 @@ pub fn is_allowed_reverse_futility_pruning(
         return false; // Lower depth threshold
     }
 
-    if board.is_check {
+    if board.game_state.is_check {
         return false; // Avoid pruning in check
     }
 
@@ -39,7 +39,7 @@ pub fn is_allowed_reverse_futility_pruning(
 }
 #[inline(always)]
 pub fn is_improving(board: &Board, eval: i32, refs: &SearchRefs, ply: i32) -> bool {
-    if board.is_check {
+    if board.game_state.is_check {
         return false;
     }
     return if ply >= 2 && let Some(two_moves_ago) = refs.get_eval_ply(ply - 2) {
