@@ -205,11 +205,18 @@ fn generate_piece_attack_bitboard(
         }
     }
 }
-pub fn update_check_status(board: &mut Board) {
-    board.game_state.is_double_check = false;
+pub fn update_check(board: &mut Board) {
+    board.curr_king = board
+        .get_piece_bitboard(board.turn, PieceType::KING)
+        .get_single_set_bit();
+    board.attacked_square = generate_all_opp_attacks(board);
     let king_square = board.curr_king;
 
     board.game_state.is_check = board.attacked_square.contains_square(king_square);
+}
+pub fn update_check_status(board: &mut Board) {
+    board.game_state.is_double_check = false;
+    let king_square = board.curr_king;
     if board.game_state.is_check {
         let attackers = get_attacking_pieces(board, king_square, board.turn);
         if attackers.pop_count() > 1 {
@@ -244,10 +251,6 @@ pub fn update_check_status(board: &mut Board) {
     }
 }
 pub fn generate_moves(board: &mut Board, only_captures: bool) -> MoveList {
-    board.curr_king = board
-        .get_piece_bitboard(board.turn, PieceType::KING)
-        .get_single_set_bit();
-    board.attacked_square = generate_all_opp_attacks(board);
     update_check_status(board);
     board.game_state.pinned_ray = find_pinned_pieces(board);
 

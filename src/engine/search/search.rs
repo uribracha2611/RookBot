@@ -2,7 +2,7 @@ use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor;
 use crate::engine::board::piece::PieceType::KING;
 use crate::engine::board::see::static_exchange_evaluation;
-use crate::engine::movegen::generate::generate_moves;
+use crate::engine::movegen::generate::{generate_moves, update_check};
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
 use crate::engine::search::constants::{INFINITY, MATE_VALUE, RAZOR_DEPTH, RAZOR_MARGIN, VAL_WINDOW};
@@ -62,7 +62,7 @@ pub fn quiescence_search(
             }
         }
     }
-
+    update_check(board);
     let mut moves = generate_moves(board, true);
     let mut scores = get_capture_score(moves, tt_move);
 
@@ -212,18 +212,22 @@ fn search_common(
         return 0;
     }
     let mut best_score = -INFINITY;
-
-
+    update_check(board);
+    if board.game_state.is_check && depth < 63 {
+        depth += 1;
+    }
     if depth <= 0 {
         return quiescence_search(board, alpha, beta, refs);
+    }
+
+
+    if board.is_board_draw() {
+        return 0;
     }
     let mut move_list = generate_moves(board, false);
 
     if move_list.len() == 0 {
         return if board.game_state.is_check { -MATE_VALUE + ply } else { 0 };
-    }
-    if board.is_board_draw() {
-        return 0;
     }
     let mut tt_move = MoveData::default();
 
@@ -256,13 +260,7 @@ fn search_common(
         refs.set_eval_ply(ply, curr_eval);
     }
     let improving = is_improving(board, curr_eval, refs, ply);
-    let mut should_extend = false;
-    if board.game_state.is_check && refs.is_extension_allowed() {
-        should_extend = true;
-        refs.increment_extensions();
-    } else {
-        refs.reset_extensions();
-    }
+
     if alpha.abs() < 2000 && depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
         let value = quiescence_search(board, alpha, alpha + 1, refs);
         if value <= alpha {
@@ -360,7 +358,7 @@ fn search_common(
 
 
         refs.set_move_ply(ply, *curr_move);
-        let extension_adding = if should_extend { 1 } else { 0 };
+
         let mut score_mv = 0;
         if depth >= 3 && is_pvs {
             let new_depth =
@@ -377,7 +375,7 @@ fn search_common(
             if score_mv > alpha {
                 score_mv = -search_common(
                     board,
-                    (depth - 1) + extension_adding,
+                    (depth - 1),
                     ply + 1,
                     -alpha - 1,
                     -alpha,
@@ -389,7 +387,7 @@ fn search_common(
         {
             score_mv = -search_common(
                 board,
-                (depth - 1) + extension_adding,
+                (depth - 1),
                 ply + 1,
                 -alpha - 1,
                 -alpha,
@@ -400,7 +398,7 @@ fn search_common(
         if !is_pvs || score_mv > alpha {
             score_mv = -search_common(
                 board,
-                (depth - 1) + extension_adding,
+                (depth - 1),
                 ply + 1,
                 -beta,
                 -alpha,

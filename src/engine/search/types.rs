@@ -1,6 +1,5 @@
 use crate::engine::board::piece::PieceColor;
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::search::constants::MAX_EXTENSIONS;
 use crate::engine::search::move_ordering::{KillerMoves, BASE_KILLER};
 use crate::engine::search::transposition_table::TranspositionTable;
 use std::time::{Duration, Instant};
@@ -106,7 +105,6 @@ pub struct SearchRefs<'a> {
     history_table: [[[i32; 64]; 64]; 2],
     eval_stack: [Option<i32>; 256],
     move_stack: [Option<MoveData>; 256],
-    current_extensions: i32,
     continuation_history: Vec<Vec<i32>>,
     pub table: &'a mut TranspositionTable,
 
@@ -127,7 +125,6 @@ impl SearchRefs<'_> {
             history_table,
             eval_stack: [None; 256],
             move_stack: [None; 256],
-            current_extensions: 0,
             table: transposition_table,
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
         }
@@ -146,7 +143,6 @@ impl SearchRefs<'_> {
             history_table,
             eval_stack: [None; 256],
             move_stack: [None; 256],
-            current_extensions: 0,
             table: transposition_table, // Removed &mut here
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
         }
@@ -165,7 +161,6 @@ impl SearchRefs<'_> {
             history_table,
             eval_stack: [None; 256],
             move_stack: [None; 256],
-            current_extensions: 0,
             table: transposition_table, // Removed &mut here
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
         }
@@ -303,17 +298,5 @@ impl SearchRefs<'_> {
             }
         }
         None
-    }
-    #[inline(always)]
-    pub fn increment_extensions(&mut self) {
-        self.current_extensions += 1;
-    }
-    #[inline(always)]
-    pub fn is_extension_allowed(&self) -> bool {
-        self.current_extensions <= MAX_EXTENSIONS
-    }
-    #[inline(always)]
-    pub fn reset_extensions(&mut self) {
-        self.current_extensions = 0;
     }
 }

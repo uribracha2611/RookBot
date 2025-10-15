@@ -1,7 +1,7 @@
 pub fn perft(board: &mut Board, depth: u32) -> String {
     let mut result = String::new();
     let mut total_nodes = 0;
-
+    update_check(board);
     let move_list = generate_moves(board, false);
     for mv in move_list.iter() {
         board.make_move(mv);
@@ -20,7 +20,7 @@ fn perft_recursive(board: &mut Board, depth: u32) -> u32 {
     if depth == 0 {
         return 1;
     }
-
+    update_check(board);
     let move_list = generate_moves(board, false);
 
     let mut nodes = 0;
@@ -33,6 +33,7 @@ fn perft_recursive(board: &mut Board, depth: u32) -> u32 {
     nodes
 }
 pub fn perft_bulk(board: &mut Board, depth: u32) -> u32 {
+    update_check(board);
     let move_list = generate_moves(board, false);
     if depth == 1 {
         return move_list.len() as u32;
@@ -60,6 +61,7 @@ pub fn perft_bulk_with_zobrist_check(
         board.calc_zobrist(),
         curr_move
     );
+    update_check(board);
     let move_list = generate_moves(board, false);
     if depth == 1 {
         return move_list.len() as u32;
@@ -108,7 +110,7 @@ pub fn perft_with_timing(fen: &str, depth: u32) -> String {
     )
 }
 use crate::engine::board::board::Board;
-use crate::engine::movegen::generate::generate_moves;
+use crate::engine::movegen::generate::{generate_moves, update_check};
 use crate::engine::movegen::movedata::MoveData;
 use std::io::BufRead;
 use std::sync::{Arc, Mutex};
