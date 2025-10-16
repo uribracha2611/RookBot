@@ -229,12 +229,17 @@ fn search_common(
     if move_list.len() == 0 {
         return if board.game_state.is_check { -MATE_VALUE + ply } else { 0 };
     }
+    if move_list.len() == 1 && refs.excluded_mv.is_some() {
+        return alpha;
+    }
     let mut tt_move = MoveData::default();
+    let mut tt_entry = None;
 
     if let Some(entry) = refs
         .get_transposition_table()
-        .retrieve(board.game_state.zobrist_hash)
+        .retrieve(board.game_state.zobrist_hash) && refs.excluded_mv.is_none()
     {
+        tt_entry = Some(entry);
         tt_move = entry.best_move;
         if ply > 0 && entry.depth >= depth as u8 {
             match entry.entry_type {
@@ -261,16 +266,16 @@ fn search_common(
     }
     let improving = is_improving(board, curr_eval, refs, ply);
 
-    if alpha.abs() < 2000 && depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
+    if alpha.abs() < 2000 && depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta && refs.excluded_mv.is_none() {
         let value = quiescence_search(board, alpha, alpha + 1, refs);
         if value <= alpha {
             return value;
         }
     }
-    if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving) {
+    if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving) && refs.excluded_mv.is_none() {
         return curr_eval;
     }
-    if !board.game_state.is_check && depth >= 3 && curr_eval >= beta {
+    if !board.game_state.is_check && depth >= 3 && curr_eval >= beta && refs.excluded_mv.is_none() {
         let r = if depth > 10 {
             5
         } else if depth > 6 {
@@ -287,7 +292,7 @@ fn search_common(
         }
     }
 
-    if tt_move == MoveData::default() && depth > 5 {
+    if tt_move == MoveData::default() && depth > 5 && refs.excluded_mv.is_none() {
         depth -= 2;
     }
 
@@ -303,10 +308,15 @@ fn search_common(
         if refs.is_nodes_exceeded() {
             return 0;
         }
+        let mut extension = 0;
+
         let mut is_quiet_move = false;
         pick_move(&mut move_list, i as u8, &mut move_score);
 
         let mut curr_move = move_list.get_move(i);
+        if let Some(excluded) = refs.excluded_mv && excluded == *curr_move {
+            continue;
+        }
         let mut see_val = 0;
         while *curr_move != tt_move && curr_move.is_capture() {
             see_val = static_exchange_evaluation(board, curr_move);
@@ -338,6 +348,22 @@ fn search_common(
         {
             continue;
         }
+        if tt_move == *curr_move &&
+            refs.excluded_mv.is_none() &&
+            ply > 0 &&
+            depth >= 8 &&
+            let Some(entry) = tt_entry &&
+            matches!(entry.entry_type,EntryType::Exact | EntryType::LowerBound) &&
+            entry.eval.abs() < 9000 {
+            let singular_depth = (depth - 1) / 2;
+            let singular_beta = (entry.eval - depth * 2).max(-MATE_VALUE - 1);
+            refs.excluded_mv = Some(*curr_move);
+            let score = search_common(board, singular_depth, ply, singular_beta - 1, singular_beta, &mut Vec::new(), refs);
+            refs.excluded_mv = None;
+            if score < singular_beta {
+                extension += 1;
+            }
+        }
 
         if board.is_quiet_move(curr_move) {
             is_quiet_move = true;
@@ -365,7 +391,7 @@ fn search_common(
                 reduce_depth(board, curr_move, depth, i as i32, improving);
             score_mv = -search_common(
                 board,
-                new_depth,
+                new_depth + extension,
                 ply + 1,
                 -alpha - 1,
                 -alpha,
@@ -375,7 +401,7 @@ fn search_common(
             if score_mv > alpha {
                 score_mv = -search_common(
                     board,
-                    (depth - 1),
+                    (depth - 1) + extension,
                     ply + 1,
                     -alpha - 1,
                     -alpha,
@@ -387,7 +413,7 @@ fn search_common(
         {
             score_mv = -search_common(
                 board,
-                (depth - 1),
+                (depth - 1) + extension,
                 ply + 1,
                 -alpha - 1,
                 -alpha,
@@ -398,7 +424,7 @@ fn search_common(
         if !is_pvs || score_mv > alpha {
             score_mv = -search_common(
                 board,
-                (depth - 1),
+                (depth - 1) + extension,
                 ply + 1,
                 -beta,
                 -alpha,

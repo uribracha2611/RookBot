@@ -107,7 +107,7 @@ pub struct SearchRefs<'a> {
     move_stack: [Option<MoveData>; 256],
     continuation_history: Vec<Vec<i32>>,
     pub table: &'a mut TranspositionTable,
-
+    pub excluded_mv: Option<MoveData>,
 }
 impl SearchRefs<'_> {
     pub fn new_timed_search<'a>(
@@ -127,6 +127,7 @@ impl SearchRefs<'_> {
             move_stack: [None; 256],
             table: transposition_table,
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
+            excluded_mv: None,
         }
     }
     pub fn new_depth_search(
@@ -145,6 +146,7 @@ impl SearchRefs<'_> {
             move_stack: [None; 256],
             table: transposition_table, // Removed &mut here
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
+            excluded_mv: None,
         }
     }
     pub fn new_node_search(node_count: u64,
@@ -163,6 +165,7 @@ impl SearchRefs<'_> {
             move_stack: [None; 256],
             table: transposition_table, // Removed &mut here
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
+            excluded_mv: None,
         }
     }
 
