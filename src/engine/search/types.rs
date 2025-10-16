@@ -225,7 +225,7 @@ impl SearchRefs<'_> {
     }
     #[inline(always)]
     pub fn calculate_history_bonus(depth: i32) -> i32 {
-        depth * depth
+        300 * depth - 250
     }
     pub fn set_eval_ply(&mut self, ply: i32, eval: i32) {
         self.eval_stack[ply as usize] = Some(eval);
@@ -255,7 +255,7 @@ impl SearchRefs<'_> {
             if (ply >= ply_index) {
                 if let Some(stack_mv) = &mut self.move_stack[(ply - ply_index) as usize] {
                     let index = Self::cont_hist_index(mv, stack_mv);
-                    self.continuation_history[(ply_index - 1) as usize][index] += bonus;
+                    self.continuation_history[(ply_index - 1) as usize][index] += bonus - self.continuation_history[(ply_index - 1) as usize][index] * bonus.abs() / HISTORY_MAX;
                 }
             }
         }
