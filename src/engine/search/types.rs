@@ -36,48 +36,8 @@ impl SearchOutput {
         &self.principal_variation
     }
 }
-pub struct SearchInfo {
-    lmr_table: [[i32; 64]; 64],
-}
-impl Default for SearchInfo {
-    fn default() -> Self {
-        SearchInfo { lmr_table: Self::build_table() }
-    }
-}
 
 
-impl SearchInfo {
-    #[inline(always)]
-    pub fn get_lmr(&self, depth: i32, move_count: i32) -> i32
-    {
-        self.lmr_table[depth as usize][move_count as usize]
-    }
-    fn calc_formula(depth: usize, move_count: usize) -> i32 {
-        if depth < 3 || move_count == 0 {
-            return depth as i32;
-        }
-        let reduction = (depth as f64) - (0.7844 + ((depth as f64).ln() * (move_count as f64).ln()) / 2.4696);
-        if reduction <= 0.0 {
-            0
-        } else {
-            reduction as i32
-        }
-    }
-    fn build_table() -> [[i32; 64]; 64] {
-        let mut table = [[0i32; 64]; 64];
-        let mut depth = 0;
-        let mut move_count = 0;
-        while depth < 64 {
-            move_count = 0;
-            while move_count < 64 {
-                table[depth][move_count] = Self::calc_formula(depth, move_count);
-                move_count += 1;
-            }
-            depth += 1;
-        }
-        table
-    }
-}
 pub struct SearchInput {
     pub depth: Option<u8>,
     pub move_time: Option<Duration>,

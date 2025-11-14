@@ -1,7 +1,6 @@
 use crate::constants::FENS_FOR_BENCH;
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
-use crate::engine::movegen::magic::precomputed::precompute_magics;
 use crate::engine::movegen::movedata::MoveData;
 
 use crate::engine::perft::perft_bulk;
@@ -29,7 +28,6 @@ pub fn handle_command(
             std::process::exit(0);
         }
         "ucinewgame" => {
-            precompute_magics();
             *tt_table = TranspositionTable::from_mb(64);
         }
         "d" => {

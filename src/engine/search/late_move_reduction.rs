@@ -13,19 +13,14 @@ pub fn reduce_depth(
 ) -> i32 {
     if mv.is_capture() || mv.is_promotion() {
         if board.game_state.is_check {
-            depth - 2
+            2
         } else {
-            depth - 3
+            3
         }
     } else {
         let move_index = moves_played.min(63);
-        let reg_reduction = LMR_TABLE[depth as usize][move_index as usize] as i32;
-
-        if !improving {
-            reg_reduction - 1
-        } else {
-            reg_reduction
-        }
+        let lmr_num = unsafe { LMR_TABLE[depth as usize][move_index as usize] };
+        lmr_num + !improving as i32
     }
 }
 pub fn should_movecount_based_pruning(

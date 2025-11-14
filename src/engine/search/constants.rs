@@ -6,19 +6,19 @@ pub const MATE_VALUE: i32 = 10000;
 pub const RAZOR_MARGIN: i32 = 300;
 pub const RAZOR_DEPTH: i32 = 3;
 pub const MAX_EXTENSIONS: i32 = 5;
-pub const LMR_TABLE: [[u8; 64]; 64] =
-    {
-        let mut row_index = 0;
-        let mut col_index = 0;
-        let mut table = [[0; 64]; 64];
-        let raw_info = include_bytes!("../../lmr_table.bin");
-        while row_index < 64 {
-            col_index = 0;
-            while col_index < 64 {
-                table[row_index][col_index] = raw_info[row_index * 64 + col_index];
-                col_index += 1;
+
+
+pub static mut LMR_TABLE: [[i32; 64]; 64] = [[0; 64]; 64];
+pub fn init_lmr() {
+    for depth in 0..64 {
+        for move_count in 0..64 {
+            if depth < 3 || move_count < 1 {
+                unsafe { LMR_TABLE[depth][move_count] = 1 };
+            } else {
+                unsafe {
+                    LMR_TABLE[depth][move_count] = ((0.7844 + ((depth as f64).ln() * (move_count as f64).ln()) / 2.4696)).ceil() as i32;
+                }
             }
-            row_index += 1;
         }
-        table
-    };
+    }
+}

@@ -362,7 +362,8 @@ fn search_common(
         let mut score_mv = 0;
         if depth >= 3 && is_pvs {
             let new_depth =
-                reduce_depth(board, curr_move, depth, i as i32, improving);
+                depth - reduce_depth(board, curr_move, depth, i as i32, improving);
+         
             score_mv = -search_common(
                 board,
                 new_depth,
