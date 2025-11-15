@@ -360,10 +360,10 @@ fn search_common(
         refs.set_move_ply(ply, *curr_move);
 
         let mut score_mv = 0;
-        if depth >= 3 && is_pvs {
+        if depth >= 3 && !curr_move.is_capture() && !curr_move.is_promotion() && is_pvs {
             let new_depth =
                 depth - reduce_depth(board, curr_move, depth, i as i32, improving);
-         
+
             score_mv = -search_common(
                 board,
                 new_depth,
