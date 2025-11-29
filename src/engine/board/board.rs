@@ -6,7 +6,7 @@ use super::{
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::board::piece::PieceType;
-use crate::engine::board::piece::PieceType::{BISHOP, KNIGHT, PAWN, QUEEN, ROOK};
+use crate::engine::board::piece::PieceType::{BISHOP, KING, KNIGHT, PAWN, QUEEN, ROOK};
 use crate::engine::movegen::constants::KNIGHT_MOVES;
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::engine::movegen::movedata::MoveData;
@@ -459,6 +459,9 @@ impl Board {
         debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
     }
 
+    pub fn has_major_or_minor_material(&self) -> bool {
+        self.get_color_bitboard(self.turn) ^ (self.get_piece_bitboard(self.turn, KING) | self.get_piece_bitboard(self.turn, PAWN)) != 0
+    }
     pub fn unmake_null_move(&mut self) {
         if let Some(previous_state) = self.history.pop() {
             self.game_state = previous_state;

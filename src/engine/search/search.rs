@@ -270,7 +270,7 @@ fn search_common(
     if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving) {
         return curr_eval;
     }
-    if !board.game_state.is_check && depth >= 3 && curr_eval >= beta {
+    if !board.game_state.is_check && depth >= 3 && curr_eval >= beta && board.has_major_or_minor_material() {
         let r = if depth > 10 {
             5
         } else if depth > 6 {
