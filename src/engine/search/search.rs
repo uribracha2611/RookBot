@@ -7,13 +7,14 @@ use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
 use crate::engine::search::constants::{INFINITY, MATE_VALUE, RAZOR_DEPTH, RAZOR_MARGIN, VAL_WINDOW};
 use crate::engine::search::functions::{
-    is_allowed_futility_pruning, is_allowed_reverse_futility_pruning, is_improving,
+    is_allowed_reverse_futility_pruning, is_improving,
 };
 use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
 use crate::engine::search::move_ordering::{capture_formula, get_capture_score, get_moves_score, BASE_CAPTURE};
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
 use crate::engine::search::types::{SearchInput, SearchOutput, SearchRefs};
+use num_traits::real::Real;
 use std::time::Duration;
 
 pub fn quiescence_search(
@@ -115,7 +116,7 @@ pub fn eval(board: &Board) -> i32 {
     if board.is_insufficient_material() {
         return 0;
     }
-    let mg_phase = board.game_phase.min(24);
+    let mg_phase = i32::min(board.game_phase, 24);
     let eg_phase = 24 - mg_phase;
     let mg_score = board.psqt_white.get_middle_game() - board.psqt_black.get_middle_game();
     let eg_score = board.psqt_white.get_end_game() - board.psqt_black.get_end_game();
@@ -325,10 +326,7 @@ fn search_common(
                 break;
             };
         }
-        if is_allowed_futility_pruning(depth as u8, alpha, curr_eval, curr_move, board)
-            && is_pvs {
-            break;
-        }
+
         if curr_move.is_capture()
             && *curr_move != tt_move
             && see_val < -25 * depth * depth
