@@ -534,7 +534,7 @@ impl Board {
         let mut eval_black_mg = 0;
         let mut eval_white_eg = 0;
         let mut eval_black_eg = 0;
-        for sqr in (0..64) {
+        for sqr in 0..64  {
             if let Some(piece) = self.squares[sqr] {
                 let psqt = get_psqt(sqr, piece);
                 if piece.piece_color == PieceColor::WHITE {
@@ -550,7 +550,7 @@ impl Board {
     }
     pub fn calc_gamephase(&self) -> i32 {
         let mut gamephase = 0;
-        for sqr in (0..64) {
+        for sqr in 0..64  {
             if let Some(piece) = self.squares[sqr] {
                 gamephase += GAMEPHASE_INC[piece.piece_type as usize];
             }

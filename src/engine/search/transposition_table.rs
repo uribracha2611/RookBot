@@ -69,11 +69,10 @@ impl TranspositionTable {
 
     pub fn get_tt_move(&self, hash: u64) -> Option<MoveData> {
         let index = (hash as usize) % self.table.len();
-        if let Some(entry) = self.table[index] {
-            if entry.hash == hash {
+        if let Some(entry) = self.table[index]
+            && entry.hash == hash {
                 return Some(entry.best_move);
             }
-        }
         None
     }
 }

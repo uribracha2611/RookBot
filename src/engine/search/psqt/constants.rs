@@ -2,7 +2,6 @@ use crate::engine::search::psqt::weight::W;
 
 // Base values added to each square: Pawn = 100, Knight = 300, Bishop = 300, Rook = 500, Queen = 900, King = 0
 #[rustfmt::skip]
-
 pub(crate) const PAWN_TABLE: [W; 64] = [
     W(0, 0), W(0, 0), W(0, 0), W(0, 0), W(0, 0), W(0, 0), W(0, 0), W(0, 0),
     W(180, 272), W(216, 267), W(143, 252), W(177, 228), W(150, 241), W(208, 226), W(116, 259), W(71, 281),

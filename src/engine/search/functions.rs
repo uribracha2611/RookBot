@@ -42,12 +42,12 @@ pub fn is_improving(board: &Board, eval: i32, refs: &SearchRefs, ply: i32) -> bo
     if board.game_state.is_check {
         return false;
     }
-    return if ply >= 2 && let Some(two_moves_ago) = refs.get_eval_ply(ply - 2) {
+    if ply >= 2 && let Some(two_moves_ago) = refs.get_eval_ply(ply - 2) {
         eval > two_moves_ago
     } else if ply >= 4 && let Some(four_moves_ago) = refs.get_eval_ply(ply - 4) {
         eval > four_moves_ago
     } else {
         true
-    };
+    }
 }
 

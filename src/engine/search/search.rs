@@ -374,7 +374,7 @@ fn search_common(
             if score_mv > alpha {
                 score_mv = -search_common(
                     board,
-                    (depth - 1),
+                    depth - 1 ,
                     ply + 1,
                     -alpha - 1,
                     -alpha,
@@ -386,7 +386,7 @@ fn search_common(
         {
             score_mv = -search_common(
                 board,
-                (depth - 1),
+                depth - 1 ,
                 ply + 1,
                 -alpha - 1,
                 -alpha,
@@ -397,7 +397,7 @@ fn search_common(
         if !is_pvs || score_mv > alpha {
             score_mv = -search_common(
                 board,
-                (depth - 1),
+                depth - 1 ,
                 ply + 1,
                 -beta,
                 -alpha,

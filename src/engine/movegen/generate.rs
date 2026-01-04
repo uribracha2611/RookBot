@@ -754,5 +754,5 @@ pub fn is_legal_moves(board: &Board, mv: &MoveData) -> bool {
     if mv.piece_to_move.piece_type == KING && board.attacked_square.contains_square(mv.to) {
         return false;
     }
-    return true;
+    true
 }

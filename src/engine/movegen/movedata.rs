@@ -170,17 +170,15 @@ impl MoveData {
             // 4) Check en passant (pawns capturing diagonally on empty square)
             if moving_piece.piece_type == PieceType::PAWN {
                 let file_diff = (from_sq % 8) as i8 - (to_sq % 8) as i8;
-                if file_diff.abs() == 1 && board.squares[to_sq].is_none() {
-                    if let Some(ep_square) = board.game_state.en_passant_square {
-                        if ep_square as usize == to_sq {
+                if file_diff.abs() == 1 && board.squares[to_sq].is_none()
+                    && let Some(ep_square) = board.game_state.en_passant_square
+                        && ep_square as usize == to_sq {
                             let en_passant_target =
                                 (ep_square as i8 - (8 * generate::get_pawn_dir(board.turn))) as u8;
                             let captured_color = moving_piece.piece_color.opposite();
                             let captured_piece = Piece::new(captured_color, PieceType::PAWN);
                             move_type = MoveType::EnPassant(captured_piece, en_passant_target);
                         }
-                    }
-                }
             }
 
             MoveData {

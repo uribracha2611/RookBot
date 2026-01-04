@@ -141,7 +141,7 @@ impl SearchRefs<'_> {
             }
             return false;
         }
-        return false;
+        false
     }
 
     #[inline(always)]
@@ -171,7 +171,7 @@ impl SearchRefs<'_> {
     #[inline(always)]
     pub fn is_time_done(&self) -> bool {
         if let (Some(start_time), Some(time_limit)) = (self.start_time, self.time_limit) {
-            return self.nodes_evaluated % 8192 == 0 && start_time.elapsed() >= time_limit;
+            return self.nodes_evaluated.is_multiple_of(8192) && start_time.elapsed() >= time_limit;
         }
 
         false
@@ -209,31 +209,28 @@ impl SearchRefs<'_> {
     #[inline(always)]
     pub fn add_cont_hist(&mut self, depth: i32, ply: i32, mv: &MoveData, is_malus: bool) {
         let sign = if is_malus { -1 } else { 1 };
-        let bonus = (Self::calculate_history_bonus(depth) * sign);
+        let bonus = Self::calculate_history_bonus(depth) * sign ;
 
         for ply_index in 1..=2 {
-            if (ply >= ply_index) {
-                if let Some(stack_mv) = &mut self.move_stack[(ply - ply_index) as usize] {
+            if ply >= ply_index 
+                && let Some(stack_mv) = &mut self.move_stack[(ply - ply_index) as usize] {
                     let index = Self::cont_hist_index(mv, stack_mv);
                     self.continuation_history[(ply_index - 1) as usize][index] += bonus - self.continuation_history[(ply_index - 1) as usize][index] * bonus.abs() / HISTORY_MAX;
                 }
-            }
         }
     }
 
 
     pub fn get_cont_history(&self, ply: i32, mv: &MoveData) -> i32 {
         let mut cont = 0;
-        if ply >= 1 {
-            if let Some(stack_mv) = self.move_stack[(ply - 1) as usize] {
+        if ply >= 1
+            && let Some(stack_mv) = self.move_stack[(ply - 1) as usize] {
                 cont += self.continuation_history[0][Self::cont_hist_index(mv, &stack_mv)];
             }
-        }
-        if ply >= 2 {
-            if let Some(stack_mv) = self.move_stack[(ply - 2) as usize] {
+        if ply >= 2
+            && let Some(stack_mv) = self.move_stack[(ply - 2) as usize] {
                 cont += self.continuation_history[1][Self::cont_hist_index(mv, &stack_mv)]
             }
-        }
         cont
     }
 

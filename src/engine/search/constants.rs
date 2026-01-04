@@ -16,7 +16,7 @@ pub fn init_lmr() {
                 unsafe { LMR_TABLE[depth][move_count] = 1 };
             } else {
                 unsafe {
-                    LMR_TABLE[depth][move_count] = ((0.7844 + ((depth as f64).ln() * (move_count as f64).ln()) / 2.4696)).ceil() as i32;
+                    LMR_TABLE[depth][move_count] = (0.7844 + ((depth as f64).ln() * (move_count as f64).ln()) / 2.4696).ceil() as i32;
                 }
             }
         }

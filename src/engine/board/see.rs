@@ -28,7 +28,7 @@ pub fn static_exchange_evaluation(board: &Board, curr_mv: &MoveData) -> i32 {
     let mut curr_turn_attackers = get_attackers_vec(board, capture_square, turn);
     let mut opp_attackers = get_attackers_vec(board, capture_square, turn.opposite());
     curr_turn_attackers
-        .retain(|x| (x.0.piece_type != piece_captures.piece_type || x.1 != initial_square));
+        .retain(|x| x.0.piece_type != piece_captures.piece_type || x.1 != initial_square );
 
     let score = match curr_mv.get_captured_piece() {
         None => 0,

@@ -2,11 +2,10 @@ use crate::engine::board::board::Board;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::constants::{LMR_TABLE, MATE_VALUE};
 use num_traits::abs;
-use num_traits::real::Real;
 
 pub fn reduce_depth(
-    board: &Board,
-    mv: &MoveData,
+    _board: &Board,
+    _mv: &MoveData,
     depth: i32,
     moves_played: i32,
     improving: bool,
