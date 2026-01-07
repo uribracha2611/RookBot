@@ -89,12 +89,12 @@ impl Board {
             ^ self.get_piece_bitboard(piece_color, PieceType::PAWN)
             == 0
     }
-    pub fn is_quiet_move(self: &Board, mv: &MoveData) -> bool {
+    pub fn is_quiet_move(self: &Board, mv: MoveData) -> bool {
         !mv.is_capture() && !mv.is_promotion() && !self.game_state.is_check && !self.is_move_check(mv)
     }
-    pub fn is_move_check(&self, mv: &MoveData) -> bool {
-        let to = mv.to;
-        let piece_moved = mv.piece_to_move;
+    pub fn is_move_check(&self, mv: MoveData) -> bool {
+        let to = mv.to();
+        let piece_moved = self.squares[mv.from() as usize].unwrap();
         let opp_king = self.get_piece_bitboard(piece_moved.piece_color.opposite(), PieceType::KING);
         let blockers = self.all_pieces_bitboard & !Bitboard::create_from_square(to);
         match piece_moved.piece_type {
@@ -273,29 +273,31 @@ impl Board {
         fen.push_str(&format!(" {} {}", active_color, self.game_state.to_fen()));
         fen
     }
-    pub fn make_move(&mut self, mv: &MoveData) {
-        let old_game_state = self.game_state;
-        let moved_piece = mv.piece_to_move;
+    pub fn make_move(&mut self, mv: MoveData) {
+        let mut old_game_state = self.game_state;
+        let moved_piece = self.squares[mv.from() as usize].unwrap();
         if mv.is_capture() {
+            let captured_piece = self.squares[mv.get_capture_square() as usize].unwrap();
+            old_game_state.captured_piece = Some(captured_piece);
             self.remove_piece(
-                mv.get_capture_square().unwrap(),
-                mv.get_captured_piece().unwrap(),
+                mv.get_capture_square(),
+                captured_piece,
             );
             self.disallow_castling_if_needed(
-                mv.get_capture_square().unwrap(),
-                mv.get_captured_piece().unwrap(),
+                mv.get_capture_square(),
+                captured_piece,
             );
         }
         if mv.is_promotion() {
-            self.remove_piece(mv.from, moved_piece);
-            self.add_piece(mv.to, mv.get_promoted_piece().unwrap());
+            self.remove_piece(mv.from(), moved_piece);
+            self.add_piece(mv.to(), mv.get_promotion_piece(self.turn));
         } else {
-            self.remove_piece(mv.from, moved_piece);
-            self.add_piece(mv.to, moved_piece);
+            self.remove_piece(mv.from(), moved_piece);
+            self.add_piece(mv.to(), moved_piece);
         }
-        if mv.is_castling() {
-            let rook_start = mv.get_rook_start().unwrap();
-            let rook_end = mv.get_rook_end().unwrap();
+        if mv.is_castle() {
+            let rook_start = mv.get_rook_start(self.turn);
+            let rook_end = mv.get_rook_end(self.turn);
             let rook = self.squares[rook_start as usize].unwrap();
             self.remove_piece(rook_start, rook);
             self.add_piece(rook_end, rook);
@@ -306,7 +308,7 @@ impl Board {
             self.game_state
                 .disallow_castling_both(moved_piece.piece_color);
         }
-        self.disallow_castling_if_needed(mv.from, moved_piece);
+        self.disallow_castling_if_needed(mv.from(), moved_piece);
         self.handle_en_passant(mv);
 
         self.turn = self.turn.opposite();
@@ -317,76 +319,77 @@ impl Board {
         } else {
             self.game_state.halfmove_clock += 1;
         }
-
         self.history.push(old_game_state);
         self.repetition_table.push(self.game_state.zobrist_hash);
-        debug_assert!(self.squares[mv.from as usize].is_none());
-        debug_assert!((mv.is_promotion() && self.squares[mv.to as usize] == Some(mv.get_promoted_piece().unwrap())) || (!mv.is_promotion() && self.squares[mv.to as usize] == Some(mv.piece_to_move)));
+        debug_assert!(self.squares[mv.from() as usize].is_none());
+        debug_assert!((!mv.is_promotion() || self.squares[mv.to() as usize] == Some(mv.get_promotion_piece(moved_piece.piece_color))));
         debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
     }
     pub fn is_board_draw(&self) -> bool {
         self.is_threefold_repetition()
             || self.game_state.halfmove_clock >= 100
     }
-    fn handle_en_passant(&mut self, mv: &MoveData) {
+    fn handle_en_passant(&mut self, mv: MoveData) {
         if let Some(file) = self.game_state.en_passant_file {
             // Remove old en passant from zobrist hash
             self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[file as usize];
         }
-        if mv.piece_to_move.piece_type == PieceType::PAWN && mv.is_double_push() {
-            let new_en_passant_square = if mv.piece_to_move.piece_color == PieceColor::WHITE {
-                mv.to - 8
+        if mv.is_double_push() {
+            let new_en_passant_square = if self.turn == PieceColor::WHITE {
+                mv.to() - 8
             } else {
-                mv.to + 8
+                mv.to() + 8
             };
-            self.game_state.en_passant_file = Some(mv.to % 8);
+            self.game_state.en_passant_file = Some(mv.to() % 8);
             self.game_state.en_passant_square = Some(new_en_passant_square);
 
             // Update zobrist hash for en passant
-            self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[mv.to as usize % 8];
+            self.game_state.zobrist_hash ^= ZOBRIST_EN_PASSANT[mv.to() as usize % 8];
         } else {
             self.game_state.en_passant_file = None;
             self.game_state.en_passant_square = None;
         }
     }
-    pub fn unmake_move(&mut self, mv: &MoveData) {
-        let moved_piece = mv.piece_to_move;
+    pub fn unmake_move(&mut self, mv: MoveData) {
+        let mut old_state = self.history.pop().unwrap();
+        let moved_piece = self.squares[mv.to() as usize].unwrap();
         if mv.is_promotion() {
-            self.remove_piece(mv.to, mv.get_promoted_piece().unwrap());
-            self.add_piece(mv.from, moved_piece);
+            self.remove_piece(mv.to(), mv.get_promotion_piece(moved_piece.piece_color));
+            self.add_piece(mv.from(), Piece::new(moved_piece.piece_color, PAWN));
         } else {
             // Restore the piece to its original position
-            self.remove_piece(mv.to, moved_piece);
-            self.add_piece(mv.from, moved_piece);
+            self.remove_piece(mv.to(), moved_piece);
+            self.add_piece(mv.from(), moved_piece);
         }
 
         // Restore captured piece if it was a capture move
         if mv.is_capture() {
+            let captured_piece = old_state.captured_piece.unwrap();
             self.add_piece(
-                mv.get_capture_square().unwrap(),
-                mv.get_captured_piece().unwrap(),
+                mv.get_capture_square(),
+                captured_piece,
             );
         }
 
         // Handle promotion
 
         // Handle castling
-        if mv.is_castling() {
-            let rook_start = mv.get_rook_start().unwrap();
-            let rook_end = mv.get_rook_end().unwrap();
+        if mv.is_castle() {
+            let rook_start = mv.get_rook_start(moved_piece.piece_color);
+            let rook_end = mv.get_rook_end(moved_piece.piece_color);
             let rook = self.squares[rook_end as usize].unwrap();
             self.remove_piece(rook_end, rook);
             self.add_piece(rook_start, rook);
         }
 
-        // Restore game state
-        self.game_state = self.history.pop().unwrap();
+        self.game_state = old_state;
         self.repetition_table.pop();
         self.turn = self.turn.opposite();
         debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
-        debug_assert!(self.squares[mv.from as usize] == Some(mv.piece_to_move));
-        debug_assert!((!mv.is_capture() && self.squares[mv.to as usize].is_none()) || (mv.is_capture() && self.squares[mv.get_capture_square().unwrap() as usize] == Some(mv.get_captured_piece().unwrap())));
+        debug_assert!((!mv.is_promotion() && self.squares[mv.from() as usize] == Some(moved_piece)) || (mv.is_promotion() && self.squares[mv.from() as usize] == Some(Piece::new(moved_piece.piece_color, PAWN))));
+        debug_assert!((!mv.is_capture() && self.squares[mv.to() as usize].is_none()) || (mv.is_capture() && self.squares[mv.to() as usize] != Some(moved_piece)));
     }
+
 
     fn disallow_castling_if_needed(&mut self, square: u8, piece: Piece) {
         if piece.piece_type != PieceType::ROOK {
@@ -534,7 +537,7 @@ impl Board {
         let mut eval_black_mg = 0;
         let mut eval_white_eg = 0;
         let mut eval_black_eg = 0;
-        for sqr in 0..64  {
+        for sqr in 0..64 {
             if let Some(piece) = self.squares[sqr] {
                 let psqt = get_psqt(sqr, piece);
                 if piece.piece_color == PieceColor::WHITE {
@@ -550,7 +553,7 @@ impl Board {
     }
     pub fn calc_gamephase(&self) -> i32 {
         let mut gamephase = 0;
-        for sqr in 0..64  {
+        for sqr in 0..64 {
             if let Some(piece) = self.squares[sqr] {
                 gamephase += GAMEPHASE_INC[piece.piece_type as usize];
             }

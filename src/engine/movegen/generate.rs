@@ -8,7 +8,7 @@ use crate::engine::board::see::get_piece_value;
 use crate::engine::movegen;
 use crate::engine::movegen::constants::{ALIGN_MASK, KING_MOVES, KNIGHT_MOVES, RANK_1, RANK_8, SQR_A_B_MASK};
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
-use crate::engine::movegen::movedata::{CastlingMove, MoveData, MoveType, PromotionCaptureStruct};
+use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
 
 
@@ -294,8 +294,7 @@ pub fn generate_knight_move(board: &Board, move_list: &mut MoveList, only_captur
             let curr_move = MoveData::new(
                 from_sqr,
                 to_sqr,
-                board.squares[from_sqr as usize].unwrap(),
-                MoveType::Normal,
+                MoveData::QUIET,
             );
             move_list.add_move(curr_move);
         }
@@ -304,8 +303,7 @@ pub fn generate_knight_move(board: &Board, move_list: &mut MoveList, only_captur
             let curr_move = MoveData::new(
                 from_sqr,
                 to_sqr,
-                board.squares[from_sqr as usize].unwrap(),
-                MoveType::Capture(board.squares[to_sqr as usize].unwrap()),
+                MoveData::CAPTURE,
             );
             move_list.add_move(curr_move);
         }
@@ -333,8 +331,7 @@ pub fn generate_king_move(board: &Board, move_list: &mut MoveList, only_captures
         let curr_move = MoveData::new(
             from_sqr,
             to_sqr,
-            board.squares[from_sqr as usize].unwrap(),
-            MoveType::Normal,
+            MoveData::QUIET,
         );
         move_list.add_move(curr_move);
     }
@@ -343,8 +340,7 @@ pub fn generate_king_move(board: &Board, move_list: &mut MoveList, only_captures
         let curr_move = MoveData::new(
             from_sqr,
             to_sqr,
-            board.squares[from_sqr as usize].unwrap(),
-            MoveType::Capture(board.squares[to_sqr as usize].unwrap()),
+            MoveData::CAPTURE,
         );
         move_list.add_move(curr_move);
     }
@@ -362,13 +358,13 @@ pub fn generate_king_move(board: &Board, move_list: &mut MoveList, only_captures
                 && (board.get_all_pieces_bitboard() & side.required_empty(board.turn) == 0)
                 && (board.attacked_square & side.king_moves_trough(board.turn) == 0)
             {
+                let flag = if *side == CastlingSide::Kingside { MoveData::CASTLE_KING } else { MoveData::CASTLE_QUEEN };
                 let king_start = side.king_start(board.turn);
                 let king_end = side.king_end(board.turn);
                 let castle_move = MoveData::new(
                     king_start,
                     king_end,
-                    board.squares[king_start as usize].unwrap(),
-                    MoveType::Castling(CastlingMove::new(*side, board.turn)),
+                    flag,
                 );
                 move_list.add_move(castle_move);
             }
@@ -447,8 +443,7 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
                 let curr_move = MoveData::new(
                     start_sq,
                     end_sq,
-                    board.squares[start_sq as usize].unwrap(),
-                    MoveType::Normal,
+                    MoveData::QUIET,
                 );
                 move_list.add_move(curr_move)
             }
@@ -460,7 +455,7 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
                 || ALIGN_MASK[start_sq as usize][board.curr_king as usize]
                 == ALIGN_MASK[end_sq as usize][board.curr_king as usize]
             {
-                generate_promote_moves(board, start_sq, end_sq, move_list, board.turn);
+                generate_promote(board, start_sq, end_sq, move_list, false);
             }
         }
         while double_pushes != 0 {
@@ -469,8 +464,7 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
             let curr_move = MoveData::new(
                 start_sq,
                 end_sq,
-                board.squares[start_sq as usize].unwrap(),
-                MoveType::Normal,
+                MoveData::DOUBLE_PUSH,
             );
             if !is_pinned(board, start_sq)
                 || ALIGN_MASK[start_sq as usize][board.curr_king as usize]
@@ -495,8 +489,7 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
                 let curr_move = MoveData::new(
                     start_sq,
                     end_sq,
-                    board.squares[start_sq as usize].unwrap(),
-                    MoveType::Capture(board.squares[end_sq as usize].unwrap()),
+                    MoveData::CAPTURE,
                 );
                 move_list.add_move(curr_move);
             }
@@ -508,13 +501,12 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
                 || ALIGN_MASK[start_sq as usize][board.curr_king as usize]
                 == ALIGN_MASK[end_sq as usize][board.curr_king as usize]
             {
-                generate_promote_captures(
+                generate_promote(
                     board,
                     start_sq,
                     end_sq,
                     move_list,
-                    board.turn,
-                    board.squares[end_sq as usize].unwrap(),
+                    true,
                 );
             }
         }
@@ -536,24 +528,21 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
                 let curr_move = MoveData::new(
                     start_sq,
                     en_passant_square,
-                    board.squares[start_sq as usize].unwrap(),
-                    MoveType::EnPassant(
-                        board.squares[en_passant_target as usize].unwrap(),
-                        en_passant_target,
-                    ),
+                    MoveData::EN_PASSANT,
                 );
                 move_list.add_move(curr_move);
             }
         }
     }
 }
-fn generate_promote_moves(
+pub fn generate_promote(
     board: &Board,
     start_square: u8,
     end_square: u8,
     move_list: &mut MoveList,
-    color: PieceColor,
-) {
+    is_capture: bool,
+)
+{
     let promote_pieces = [
         PieceType::QUEEN,
         PieceType::ROOK,
@@ -561,38 +550,17 @@ fn generate_promote_moves(
         PieceType::KNIGHT,
     ];
     for piece in promote_pieces.iter() {
+        let flag = match piece {
+            QUEEN => if is_capture { MoveData::PROMO_QUEEN_CAP } else { MoveData::PROMO_QUEEN },
+            ROOK => if is_capture { MoveData::PROMO_ROOK_CAP } else { MoveData::PROMO_ROOK },
+            BISHOP => if is_capture { MoveData::PROMO_BISHOP_CAP } else { MoveData::PROMO_BISHOP },
+            PieceType::KNIGHT => if is_capture { MoveData::PROMO_KNIGHT_CAP } else { MoveData::PROMO_KNIGHT },
+            _ => unreachable!(),
+        };
         let curr_move = MoveData::new(
             start_square,
             end_square,
-            board.squares[start_square as usize].unwrap(),
-            MoveType::Promotion(Piece::new(color, *piece)),
-        );
-        move_list.add_move(curr_move);
-    }
-}
-pub fn generate_promote_captures(
-    board: &Board,
-    start_square: u8,
-    end_square: u8,
-    move_list: &mut MoveList,
-    color: PieceColor,
-    captured_piece: Piece,
-) {
-    let promote_pieces = [
-        PieceType::QUEEN,
-        PieceType::ROOK,
-        PieceType::BISHOP,
-        PieceType::KNIGHT,
-    ];
-    for piece in promote_pieces.iter() {
-        let curr_move = MoveData::new(
-            start_square,
-            end_square,
-            board.squares[start_square as usize].unwrap(),
-            MoveType::PromotionCapture(PromotionCaptureStruct {
-                captured_piece,
-                promoted_piece: Piece::new(color, *piece),
-            }),
+            flag,
         );
         move_list.add_move(curr_move);
     }
@@ -622,8 +590,7 @@ pub fn get_rook_moves(board: &Board, move_list: &mut MoveList, only_captures: bo
             let curr_move = MoveData::new(
                 from_sqr,
                 to_sqr,
-                board.squares[from_sqr as usize].unwrap(),
-                MoveType::Normal,
+                MoveData::QUIET,
             );
             move_list.add_move(curr_move);
         }
@@ -632,8 +599,7 @@ pub fn get_rook_moves(board: &Board, move_list: &mut MoveList, only_captures: bo
             let curr_move = MoveData::new(
                 from_sqr,
                 to_sqr,
-                board.squares[from_sqr as usize].unwrap(),
-                MoveType::Capture(board.squares[to_sqr as usize].unwrap()),
+                MoveData::CAPTURE,
             );
             move_list.add_move(curr_move);
         }
@@ -665,8 +631,7 @@ pub fn get_bishop_moves(board: &Board, move_list: &mut MoveList, only_captures: 
             let curr_move = MoveData::new(
                 from_sqr,
                 to_sqr,
-                board.squares[from_sqr as usize].unwrap(),
-                MoveType::Normal,
+                MoveData::QUIET,
             );
             move_list.add_move(curr_move);
         }
@@ -675,8 +640,7 @@ pub fn get_bishop_moves(board: &Board, move_list: &mut MoveList, only_captures: 
             let curr_move = MoveData::new(
                 from_sqr,
                 to_sqr,
-                board.squares[from_sqr as usize].unwrap(),
-                MoveType::Capture(board.squares[to_sqr as usize].unwrap()),
+                MoveData::CAPTURE,
             );
             move_list.add_move(curr_move);
         }
@@ -711,8 +675,7 @@ pub fn get_queen_moves(board: &Board, move_list: &mut MoveList, only_captures: b
             let curr_move = MoveData::new(
                 from_sqr,
                 to_sqr,
-                board.squares[from_sqr as usize].unwrap(),
-                MoveType::Normal,
+                MoveData::QUIET,
             );
             move_list.add_move(curr_move);
         }
@@ -721,8 +684,7 @@ pub fn get_queen_moves(board: &Board, move_list: &mut MoveList, only_captures: b
             let curr_move = MoveData::new(
                 from_sqr,
                 to_sqr,
-                board.squares[from_sqr as usize].unwrap(),
-                MoveType::Capture(board.squares[to_sqr as usize].unwrap()),
+                MoveData::CAPTURE,
             );
             move_list.add_move(curr_move);
         }
@@ -741,17 +703,14 @@ pub fn in_check_after_en_passant(
     king_attacks != 0
 }
 pub fn is_legal_moves(board: &Board, mv: &MoveData) -> bool {
-    if board.squares[mv.from as usize] != Some(mv.piece_to_move) {
+    if board.squares[mv.get_capture_square() as usize] != None {
         return false;
     }
-    if let Some(capture_square) = mv.get_capture_square() && let Some(capture_piece) = mv.get_captured_piece() && board.squares[capture_square as usize] != Some(capture_piece) {
+    if (is_pinned(board, mv.from()) || board.game_state.is_check) && ALIGN_MASK[mv.from() as usize][board.curr_king as usize]
+        != ALIGN_MASK[mv.to() as usize][board.curr_king as usize] {
         return false;
     }
-    if (is_pinned(board, mv.from) || board.game_state.is_check) && ALIGN_MASK[mv.from as usize][board.curr_king as usize]
-        != ALIGN_MASK[mv.to as usize][board.curr_king as usize] {
-        return false;
-    }
-    if mv.piece_to_move.piece_type == KING && board.attacked_square.contains_square(mv.to) {
+    if board.squares[mv.from() as usize].unwrap().piece_type == KING && board.attacked_square.contains_square(mv.to()) {
         return false;
     }
     true

@@ -130,7 +130,7 @@ fn handle_position(command: String, board: &mut Board) {
 fn apply_moves(board: &mut Board, moves: &Vec<&str>) {
     for curr_move in moves {
         let move_from_algebric = MoveData::from_algebraic(curr_move, board);
-        board.make_move(&move_from_algebric);
+        board.make_move(move_from_algebric);
     }
 }
 pub fn handle_go(

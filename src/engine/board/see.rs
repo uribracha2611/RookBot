@@ -14,13 +14,11 @@ pub const KING_VALUE: i32 = 20000;
 
 // Generate attackers for a given square
 
-pub fn static_exchange_evaluation(board: &Board, curr_mv: &MoveData) -> i32 {
-    let MoveData {
-        to: capture_square,
-        piece_to_move: piece_captures,
-        from: initial_square,
-        ..
-    } = *curr_mv;
+pub fn static_exchange_evaluation(board: &Board, curr_mv: MoveData) -> i32 {
+    let capture_square = curr_mv.get_capture_square();
+    let initial_square = curr_mv.from();
+    let piece_captures = board.squares[curr_mv.from() as usize].unwrap();
+
 
     let mut scores = Vec::new();
     let mut turn = board.turn;
@@ -28,9 +26,9 @@ pub fn static_exchange_evaluation(board: &Board, curr_mv: &MoveData) -> i32 {
     let mut curr_turn_attackers = get_attackers_vec(board, capture_square, turn);
     let mut opp_attackers = get_attackers_vec(board, capture_square, turn.opposite());
     curr_turn_attackers
-        .retain(|x| x.0.piece_type != piece_captures.piece_type || x.1 != initial_square );
+        .retain(|x| x.0.piece_type != piece_captures.piece_type || x.1 != initial_square);
 
-    let score = match curr_mv.get_captured_piece() {
+    let score = match board.squares[capture_square as usize] {
         None => 0,
         Some(p) => get_piece_value(p.piece_type),
     };

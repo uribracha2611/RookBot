@@ -42,7 +42,7 @@ pub fn quiescence_search(
     if alpha < stand_pat {
         alpha = stand_pat;
     }
-    let mut tt_move = MoveData::default();
+    let mut tt_move = None;
     if let Some(entry) = refs
         .get_transposition_table()
         .retrieve(board.game_state.zobrist_hash)
@@ -65,7 +65,7 @@ pub fn quiescence_search(
     }
     update_check(board);
     let mut moves = generate_moves(board, true);
-    let mut scores = get_capture_score(moves, tt_move);
+    let mut scores = get_capture_score(moves, tt_move, board);
 
     // Iterate through the moves
     for i in 0..moves.len() {
@@ -77,7 +77,7 @@ pub fn quiescence_search(
         let mv = moves.get_move(i);
 
 
-        if *mv != tt_move && static_exchange_evaluation(board, mv) < 0 {
+        if Some(mv) != tt_move && static_exchange_evaluation(board, mv) < 0 {
             continue;
         }
 
@@ -230,7 +230,7 @@ fn search_common(
     if move_list.len() == 0 {
         return if board.game_state.is_check { -MATE_VALUE + ply } else { 0 };
     }
-    let mut tt_move = MoveData::default();
+    let mut tt_move = None;
 
     if let Some(entry) = refs
         .get_transposition_table()
@@ -288,13 +288,13 @@ fn search_common(
         }
     }
 
-    if tt_move == MoveData::default() && depth > 5 {
+    if tt_move.is_none() && depth > 5 {
         depth -= 2;
     }
 
     let mut move_score =
         get_moves_score(&move_list, ply as usize, board, tt_move, &*refs);
-    let mut best_move = MoveData::default();
+    let mut best_move = None;
     let mut entry_type = EntryType::UpperBound;
     let mut quiet_moves_count = 0;
 
@@ -309,26 +309,26 @@ fn search_common(
 
         let mut curr_move = move_list.get_move(i);
         let mut see_val = 0;
-        while *curr_move != tt_move && curr_move.is_capture() {
+        while Some(curr_move) != tt_move && curr_move.is_capture() {
             see_val = static_exchange_evaluation(board, curr_move);
             if see_val >= 0 {
                 break;
             }
 
-            let old_move = *curr_move;
+            let old_move = curr_move;
             move_score[i] = -BASE_CAPTURE
-                + capture_formula(curr_move);
+                + capture_formula(board, curr_move);
             pick_move(&mut move_list, i as u8, &mut move_score);
 
             curr_move = move_list.get_move(i);
-            debug_assert!(curr_move.to != board.get_piece_bitboard(board.turn.opposite(), KING).pop_lsb(), "move is {:?} and fen is {}", curr_move, board.to_fen());
-            if *curr_move == old_move {
+            debug_assert!(curr_move.to() != board.get_piece_bitboard(board.turn.opposite(), KING).pop_lsb(), "move is {:?} and fen is {}", curr_move, board.to_fen());
+            if curr_move == old_move {
                 break;
             };
         }
 
         if curr_move.is_capture()
-            && *curr_move != tt_move
+            && Some(curr_move) != tt_move
             && see_val < -25 * depth * depth
             && !board.game_state.is_check
             && alpha > -MATE_VALUE + 500
@@ -352,10 +352,9 @@ fn search_common(
         }
         refs.increment_nodes_evaluated();
         let mut node_pv: Vec<MoveData> = Vec::new();
+        refs.set_move_ply(ply, curr_move, board);
         board.make_move(curr_move);
 
-
-        refs.set_move_ply(ply, *curr_move);
 
         let mut score_mv = 0;
         if depth >= 3 && !curr_move.is_capture() && !curr_move.is_promotion() && is_pvs {
@@ -374,7 +373,7 @@ fn search_common(
             if score_mv > alpha {
                 score_mv = -search_common(
                     board,
-                    depth - 1 ,
+                    depth - 1,
                     ply + 1,
                     -alpha - 1,
                     -alpha,
@@ -386,7 +385,7 @@ fn search_common(
         {
             score_mv = -search_common(
                 board,
-                depth - 1 ,
+                depth - 1,
                 ply + 1,
                 -alpha - 1,
                 -alpha,
@@ -397,7 +396,7 @@ fn search_common(
         if !is_pvs || score_mv > alpha {
             score_mv = -search_common(
                 board,
-                depth - 1 ,
+                depth - 1,
                 ply + 1,
                 -beta,
                 -alpha,
@@ -411,7 +410,7 @@ fn search_common(
 
         if score_mv >= beta {
             entry_type = EntryType::LowerBound;
-            best_move = *curr_move;
+            best_move = Some(curr_move);
 
             refs.table.store(
                 board.game_state.zobrist_hash,
@@ -422,13 +421,13 @@ fn search_common(
             );
 
             if !curr_move.is_capture() {
-                refs.store_killers(*curr_move, ply as usize);
+                refs.store_killers(curr_move, ply as usize);
 
-                refs.add_history(board.turn, *curr_move, depth, false);
-                refs.add_cont_hist(depth, ply, curr_move, false);
+                refs.add_history(board.turn, curr_move, depth, false);
+                refs.add_cont_hist(board, depth, ply, curr_move, false);
             }
             for quiet_move in quiet_moves {
-                refs.add_cont_hist(depth, ply, &quiet_move, true);
+                refs.add_cont_hist(board, depth, ply, quiet_move, true);
                 refs.add_history(board.turn, quiet_move, depth, true);
             }
 
@@ -438,18 +437,18 @@ fn search_common(
             best_score = score_mv;
             if score_mv > alpha {
                 alpha = score_mv;
-                best_move = *curr_move;
+                best_move = Some(curr_move);
                 entry_type = EntryType::Exact;
                 // Update PV
                 pv.clear();
-                pv.push(*curr_move);
+                pv.push(curr_move);
                 pv.append(&mut node_pv);
             }
         }
 
 
         if is_quiet_move {
-            quiet_moves.push(*curr_move);
+            quiet_moves.push(curr_move);
         }
         is_pvs = true;
     }

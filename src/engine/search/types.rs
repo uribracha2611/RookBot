@@ -1,8 +1,10 @@
-use crate::engine::board::piece::PieceColor;
+use crate::engine::board::board::Board;
+use crate::engine::board::piece::{Piece, PieceColor};
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::move_ordering::{KillerMoves, BASE_KILLER};
 use crate::engine::search::transposition_table::TranspositionTable;
 use std::time::{Duration, Instant};
+
 const HISTORY_MAX: i32 = 16_384;
 
 
@@ -56,6 +58,11 @@ impl SearchInput {
     }
 }
 
+#[derive(Copy, Clone)]
+struct MoveEntryStack {
+    mv: MoveData,
+    piece_moved: Piece,
+}
 pub struct SearchRefs<'a> {
     killer_moves: KillerMoves,
     nodes_evaluated: u64,
@@ -64,7 +71,7 @@ pub struct SearchRefs<'a> {
     nodes_limit: Option<u64>,
     history_table: [[[i32; 64]; 64]; 2],
     eval_stack: [Option<i32>; 256],
-    move_stack: [Option<MoveData>; 256],
+    move_stack: [Option<MoveEntryStack>; 256],
     continuation_history: Vec<Vec<i32>>,
     pub table: &'a mut TranspositionTable,
 
@@ -74,7 +81,7 @@ impl SearchRefs<'_> {
         time_limit: &Duration,
         transposition_table: &'a mut TranspositionTable,
     ) -> SearchRefs<'a> {
-        let killer_moves: KillerMoves = [[MoveData::default(); 2]; 256];
+        let killer_moves: KillerMoves = [[None; 2]; 256];
         let history_table = [[[0; 64]; 64]; 2];
         SearchRefs {
             killer_moves,
@@ -92,7 +99,7 @@ impl SearchRefs<'_> {
     pub fn new_depth_search(
         transposition_table: &'_ mut TranspositionTable,
     ) -> SearchRefs<'_> {
-        let killer_moves: KillerMoves = [[MoveData::default(); 2]; 256];
+        let killer_moves: KillerMoves = [[None; 2]; 256];
         let history_table = [[[0; 64]; 64]; 2];
         SearchRefs {
             killer_moves,
@@ -110,7 +117,7 @@ impl SearchRefs<'_> {
     pub fn new_node_search(node_count: u64,
                            transposition_table: &'_ mut TranspositionTable) -> SearchRefs<'_>
     {
-        let killer_moves: KillerMoves = [[MoveData::default(); 2]; 256];
+        let killer_moves: KillerMoves = [[None; 2]; 256];
         let history_table = [[[0; 64]; 64]; 2];
         SearchRefs {
             killer_moves,
@@ -158,11 +165,11 @@ impl SearchRefs<'_> {
         let bonus = (Self::calculate_history_bonus(depth) * sign).clamp(-HISTORY_MAX, HISTORY_MAX);
 
 
-        self.history_table[color as usize][mv.from as usize][mv.to as usize] += bonus - self.history_table[color as usize][mv.from as usize][mv.to as usize] * bonus.abs() / HISTORY_MAX;
+        self.history_table[color as usize][mv.from() as usize][mv.to() as usize] += bonus - self.history_table[color as usize][mv.from() as usize][mv.to() as usize] * bonus.abs() / HISTORY_MAX;
     }
     #[inline(always)]
-    pub fn get_history_value(&self, mv: &MoveData, color: PieceColor) -> i32 {
-        self.history_table[color as usize][mv.from as usize][mv.to as usize]
+    pub fn get_history_value(&self, mv: MoveData, color: PieceColor) -> i32 {
+        self.history_table[color as usize][mv.from() as usize][mv.to() as usize]
     }
     #[inline(always)]
     pub fn get_nodes_evaluated(&self) -> u64 {
@@ -193,44 +200,45 @@ impl SearchRefs<'_> {
     pub fn disable_eval_ply(&mut self, ply: i32) {
         self.eval_stack[ply as usize] = None;
     }
-    pub fn set_move_ply(&mut self, ply: i32, move_data: MoveData) {
-        self.move_stack[ply as usize] = Some(move_data);
+    pub fn set_move_ply(&mut self, ply: i32, move_data: MoveData, board: &Board) {
+        self.move_stack[ply as usize] = Some(MoveEntryStack { mv: move_data, piece_moved: board.squares[move_data.from() as usize].unwrap() });
     }
-    pub fn get_move_ply(&self, ply: i32) -> Option<MoveData> {
+    pub fn get_move_ply(&self, ply: i32) -> Option<MoveEntryStack> {
         self.move_stack[ply as usize]
     }
-    fn cont_hist_index(mv_1: &MoveData, mv_2: &MoveData) -> usize {
-        let to1 = mv_1.to as usize;
-        let to2 = mv_2.to as usize;
-        let piece1 = mv_1.piece_to_move;
-        let piece2 = mv_2.piece_to_move;
+    fn cont_hist_index(mv_1: MoveData, mv_2: MoveData, piece1: Piece, piece2: Piece) -> usize {
+        let to1 = mv_1.to() as usize;
+        let to2 = mv_2.to() as usize;
         ((to1 * 12 + piece1.to_history_index()) * 64 + to2) * 12 + piece2.to_history_index()
     }
     #[inline(always)]
-    pub fn add_cont_hist(&mut self, depth: i32, ply: i32, mv: &MoveData, is_malus: bool) {
+    pub fn add_cont_hist(&mut self, board: &Board, depth: i32, ply: i32, mv: MoveData, is_malus: bool) {
         let sign = if is_malus { -1 } else { 1 };
-        let bonus = Self::calculate_history_bonus(depth) * sign ;
+        let bonus = Self::calculate_history_bonus(depth) * sign;
 
         for ply_index in 1..=2 {
-            if ply >= ply_index 
-                && let Some(stack_mv) = &mut self.move_stack[(ply - ply_index) as usize] {
-                    let index = Self::cont_hist_index(mv, stack_mv);
-                    self.continuation_history[(ply_index - 1) as usize][index] += bonus - self.continuation_history[(ply_index - 1) as usize][index] * bonus.abs() / HISTORY_MAX;
-                }
+            if ply >= ply_index
+                && let Some(stack_mv) = self.move_stack[(ply - ply_index) as usize] {
+                let piece_1 = board.squares[mv.from() as usize].unwrap();
+                let index = Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved);
+                self.continuation_history[(ply_index - 1) as usize][index] += bonus - self.continuation_history[(ply_index - 1) as usize][index] * bonus.abs() / HISTORY_MAX;
+            }
         }
     }
 
 
-    pub fn get_cont_history(&self, ply: i32, mv: &MoveData) -> i32 {
+    pub fn get_cont_history(&self, board: &Board, ply: i32, mv: MoveData) -> i32 {
         let mut cont = 0;
+        let piece_1 = board.squares[mv.from() as usize].unwrap();
+
         if ply >= 1
             && let Some(stack_mv) = self.move_stack[(ply - 1) as usize] {
-                cont += self.continuation_history[0][Self::cont_hist_index(mv, &stack_mv)];
-            }
+            cont += self.continuation_history[0][Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)];
+        }
         if ply >= 2
             && let Some(stack_mv) = self.move_stack[(ply - 2) as usize] {
-                cont += self.continuation_history[1][Self::cont_hist_index(mv, &stack_mv)]
-            }
+            cont += self.continuation_history[1][Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)];
+        }
         cont
     }
 
@@ -238,19 +246,19 @@ impl SearchRefs<'_> {
         let first_killer = self.killer_moves[ply][0];
 
         // First killer must not be the same as the move being stored.
-        if first_killer != mv {
+        if first_killer != Some(mv) {
             // Shift all the moves one index upward...
             for i in (1..2).rev() {
                 self.killer_moves[ply][i] = self.killer_moves[ply][i - 1];
             }
 
             // and add the new killer move in the first spot.
-            self.killer_moves[ply][0] = mv;
+            self.killer_moves[ply][0] = Some(mv);
         }
     }
     pub fn return_killer_move_score(&self, ply: i32, mv: MoveData) -> Option<i32> {
         for i in 0..2 {
-            if self.killer_moves[ply as usize][i] == mv {
+            if self.killer_moves[ply as usize][i] == Some(mv) {
                 return Some(BASE_KILLER - (i as i32));
             }
         }

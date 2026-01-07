@@ -1,298 +1,220 @@
 use crate::engine::board::board::Board;
-use crate::engine::board::castling::constants::{
-    BLACK_KINGSIDE_KING_END, BLACK_KINGSIDE_KING_START, BLACK_QUEENSIDE_KING_END,
-    BLACK_QUEENSIDE_KING_START, WHITE_KINGSIDE_KING_END, WHITE_KINGSIDE_KING_START,
-    WHITE_QUEENSIDE_KING_END, WHITE_QUEENSIDE_KING_START,
-};
 use crate::engine::board::castling::types::CastlingSide;
 use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::board::position::Position;
-use crate::engine::movegen::generate;
+use std::fmt;
+use std::num::NonZeroU16;
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub enum MoveType {
-    Normal,
-    Capture(Piece),
-    Castling(CastlingMove), // Using struct for castling
-    Promotion(Piece),
-    PromotionCapture(PromotionCaptureStruct),
-    EnPassant(Piece, u8), // Piece and the square of the captured pawn
-}
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct CastlingMove {
-    pub side: CastlingSide,
-    pub color: PieceColor,
-}
-impl CastlingMove {
-    pub fn new(side: CastlingSide, color: PieceColor) -> CastlingMove {
-        CastlingMove { side, color }
-    }
-    pub fn get_rook_end(&self) -> u8 {
-        self.side.rook_end(self.color)
-    }
-    pub fn get_rook_start(&self) -> u8 {
-        self.side.rook_start(self.color)
-    }
-}
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct PromotionCaptureStruct {
-    pub captured_piece: Piece,
-    pub promoted_piece: Piece,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq)]
 pub struct MoveData {
-    pub from: u8,
-    pub to: u8,
-    pub piece_to_move: Piece,
-    pub move_type: MoveType,
+    data: NonZeroU16,
 }
 
 impl MoveData {
-    pub fn default() -> MoveData {
-        MoveData {
-            from: 0,
-            to: 0,
-            piece_to_move: Piece::new(PieceColor::WHITE, PieceType::PAWN),
-            move_type: MoveType::Normal,
+    // Define your Wiki/Standard flags
+    pub const QUIET: u8 = 0;
+    pub const DOUBLE_PUSH: u8 = 1;
+    pub const CASTLE_KING: u8 = 2;
+    pub const CASTLE_QUEEN: u8 = 3;
+    pub const CAPTURE: u8 = 4;
+    pub const EN_PASSANT: u8 = 5;
+    pub const PROMO_KNIGHT: u8 = 8;
+    pub const PROMO_BISHOP: u8 = 9;
+    pub const PROMO_ROOK: u8 = 10;
+    pub const PROMO_QUEEN: u8 = 11;
+    pub const PROMO_KNIGHT_CAP: u8 = 12;
+    pub const PROMO_BISHOP_CAP: u8 = 13;
+    pub const PROMO_ROOK_CAP: u8 = 14;
+    pub const PROMO_QUEEN_CAP: u8 = 15;
+
+    pub fn new(from: u8, to: u8, flags: u8) -> Self {
+        let packed = ((flags as u16 & 0x0F) << 12)
+            | ((to as u16 & 0x3F) << 6)
+            | (from as u16 & 0x3F);
+
+        unsafe {
+            MoveData {
+                data: NonZeroU16::new_unchecked(packed),
+            }
         }
     }
-    pub fn new(from: u8, to: u8, piece_to_move: Piece, move_type: MoveType) -> MoveData {
-        MoveData {
-            from,
-            to,
-            piece_to_move,
-            move_type,
+    pub fn get_promotion_piece(self, color: PieceColor) -> Piece {
+        let piece_type = match self.flags() {
+            Self::PROMO_KNIGHT | Self::PROMO_KNIGHT_CAP => PieceType::KNIGHT,
+            Self::PROMO_BISHOP | Self::PROMO_BISHOP_CAP => PieceType::BISHOP,
+            Self::PROMO_ROOK | Self::PROMO_ROOK_CAP => PieceType::ROOK,
+            _ => PieceType::QUEEN,
+        };
+
+        Piece::new(color, piece_type)
+    }
+
+
+    #[inline(always)]
+    fn bits(self) -> u16 {
+        self.data.get()
+    }
+    pub fn is_castle(self) -> bool {
+        (self.flags() & 0b1110) == 0b0010
+    }
+    pub fn from(self) -> u8 {
+        (self.bits() & 0x3F) as u8
+    }
+
+    pub fn to(self) -> u8 {
+        ((self.bits() >> 6) & 0x3F) as u8
+    }
+
+    pub fn flags(self) -> u8 {
+        // Shift right by 12 to bring the flags back to the bottom 4 bits
+        ((self.bits() >> 12) & 0x0F) as u8
+    }
+    pub fn get_rook_start(&self, color: PieceColor) -> u8 {
+        let is_kside = self.flags() == Self::CASTLE_KING;
+
+        match color {
+            PieceColor::WHITE => if is_kside { 7 } else { 0 },
+            PieceColor::BLACK => if is_kside { 63 } else { 56 },
         }
     }
+
+    /// Returns the square where the rook lands after jumping over the king.
+    pub fn get_rook_end(&self, color: PieceColor) -> u8 {
+        let is_kside = self.flags() == Self::CASTLE_KING;
+
+        match color {
+            PieceColor::WHITE => if is_kside { 5 } else { 3 },
+            PieceColor::BLACK => if is_kside { 61 } else { 59 },
+        }
+    }
+
+
+    pub fn is_capture(self) -> bool {
+        (self.flags() & 0b0100) != 0
+    }
+
+    pub fn is_promotion(self) -> bool {
+        (self.flags() & 0b1000) != 0
+    }
+
 
     pub fn from_algebraic(algebraic: &str, board: &Board) -> Self {
-        let notation = algebraic.to_uppercase();
-        if notation == "E1G1"
-            && (board.squares[4].unwrap().piece_type == PieceType::KING
-            && board.squares[4].unwrap().piece_color == PieceColor::WHITE)
-            && (board.squares[7].unwrap().piece_type == PieceType::ROOK
-            && board.squares[7].unwrap().piece_color == PieceColor::WHITE)
-        {
-            MoveData {
-                from: WHITE_KINGSIDE_KING_START,
-                to: WHITE_KINGSIDE_KING_END,
-                piece_to_move: board.squares[4].unwrap(),
-                move_type: MoveType::Castling(CastlingMove::new(
-                    CastlingSide::Kingside,
-                    PieceColor::WHITE,
-                )),
-            }
-        } else if notation == "E1C1"
-            && (board.squares[4].unwrap().piece_type == PieceType::KING
-            && board.squares[4].unwrap().piece_color == PieceColor::WHITE)
-            && (board.squares[0].unwrap().piece_type == PieceType::ROOK
-            && board.squares[0].unwrap().piece_color == PieceColor::WHITE)
-        {
-            MoveData {
-                from: WHITE_QUEENSIDE_KING_START,
-                to: WHITE_QUEENSIDE_KING_END,
-                piece_to_move: board.squares[4].unwrap(),
-                move_type: MoveType::Castling(CastlingMove::new(
-                    CastlingSide::Queenside,
-                    PieceColor::WHITE,
-                )),
-            }
-        } else if notation == "E8G8"
-            && (board.squares[60].unwrap().piece_type == PieceType::KING
-            && board.squares[60].unwrap().piece_color == PieceColor::BLACK)
-            && (board.squares[63].unwrap().piece_type == PieceType::ROOK
-            && board.squares[63].unwrap().piece_color == PieceColor::BLACK)
-        {
-            MoveData {
-                from: BLACK_KINGSIDE_KING_START,
-                to: BLACK_KINGSIDE_KING_END,
-                piece_to_move: board.squares[60].unwrap(),
-                move_type: MoveType::Castling(CastlingMove::new(
-                    CastlingSide::Kingside,
-                    PieceColor::BLACK,
-                )),
-            }
-        } else if notation == "E8C8"
-            && (board.squares[60].unwrap().piece_type == PieceType::KING
-            && board.squares[60].unwrap().piece_color == PieceColor::BLACK)
-            && (board.squares[56].unwrap().piece_type == PieceType::ROOK
-            && board.squares[56].unwrap().piece_color == PieceColor::BLACK)
-        {
-            MoveData {
-                from: BLACK_QUEENSIDE_KING_START,
-                to: BLACK_QUEENSIDE_KING_END,
-                piece_to_move: board.squares[60].unwrap(),
-                move_type: MoveType::Castling(CastlingMove::new(
-                    CastlingSide::Queenside,
-                    PieceColor::BLACK,
-                )),
-            }
-        } else {
-            // 2) Parse normal moves
-            let from_pos =
-                Position::from_chess_notation(&algebraic[0..2]).expect("\\Invalid from-square");
-            let to_pos =
-                Position::from_chess_notation(&algebraic[2..4]).expect("\\Invalid to-square");
-            let from_sq = from_pos.to_sqr().unwrap() as usize;
-            let to_sq = to_pos.to_sqr().unwrap() as usize;
-            let moving_piece = board.squares[from_sq].unwrap();
-            let promotion_part = if algebraic.len() > 4 {
-                &algebraic[4..]
-            } else {
-                ""
-            };
+        let notation = algebraic.to_lowercase(); // UCI is usually lowercase
 
-            // 3) Check promotion
-            let mut move_type = if !promotion_part.is_empty() {
-                let promo_char = promotion_part.chars().nth(0).unwrap_or('Q');
-                let promo_type = match promo_char.to_ascii_uppercase() {
-                    'N' => PieceType::KNIGHT,
-                    'B' => PieceType::BISHOP,
-                    'R' => PieceType::ROOK,
-                    _ => PieceType::QUEEN,
-                };
-                if let Some(captured_piece) = board.squares[to_sq] {
-                    MoveType::PromotionCapture(PromotionCaptureStruct {
-                        captured_piece,
-                        promoted_piece: Piece::new(moving_piece.piece_color, promo_type),
-                    })
-                } else {
-                    MoveType::Promotion(Piece::new(moving_piece.piece_color, promo_type))
-                }
-            } else if board.squares[to_sq].is_some() {
-                MoveType::Capture(board.squares[to_sq].unwrap())
-            } else {
-                MoveType::Normal
-            };
+        // 1) Handle special UCI cases for Castling (e1g1, etc.)
+        // We can just detect the squares. If the King is moving from e1 to g1, it's a castle.
+        let from_sq = Position::from_chess_notation(&notation[0..2]).unwrap().to_sqr().unwrap() as u8;
+        let to_sq = Position::from_chess_notation(&notation[2..4]).unwrap().to_sqr().unwrap() as u8;
 
-            // 4) Check en passant (pawns capturing diagonally on empty square)
-            if moving_piece.piece_type == PieceType::PAWN {
-                let file_diff = (from_sq % 8) as i8 - (to_sq % 8) as i8;
-                if file_diff.abs() == 1 && board.squares[to_sq].is_none()
-                    && let Some(ep_square) = board.game_state.en_passant_square
-                        && ep_square as usize == to_sq {
-                            let en_passant_target =
-                                (ep_square as i8 - (8 * generate::get_pawn_dir(board.turn))) as u8;
-                            let captured_color = moving_piece.piece_color.opposite();
-                            let captured_piece = Piece::new(captured_color, PieceType::PAWN);
-                            move_type = MoveType::EnPassant(captured_piece, en_passant_target);
-                        }
-            }
+        let moving_piece = board.squares[from_sq as usize].expect("No piece at from square");
+        let mut flags = Self::QUIET;
 
-            MoveData {
-                from: from_sq as u8,
-                to: to_sq as u8,
-                piece_to_move: moving_piece,
-                move_type,
+        // 2) Detect Castling by King movement
+        if moving_piece.piece_type == PieceType::KING {
+            if (from_sq == 4 && to_sq == 6) || (from_sq == 60 && to_sq == 62) {
+                flags = Self::CASTLE_KING;
+            } else if (from_sq == 4 && to_sq == 2) || (from_sq == 60 && to_sq == 58) {
+                flags = Self::CASTLE_QUEEN;
             }
         }
-    }
 
-    // Check if the move is a capture
-    pub fn is_capture(&self) -> bool {
-        matches!(
-            self.move_type,
-            MoveType::Capture(_) | MoveType::EnPassant(_, _) | MoveType::PromotionCapture(_)
-        )
-    }
+        // 3) Detect Captures (Normal and EP)
+        if board.squares[to_sq as usize].is_some() {
+            flags = Self::CAPTURE;
+        } else if moving_piece.piece_type == PieceType::PAWN {
+            // Diagonal pawn move to empty square is En Passant
+            if (from_sq % 8) != (to_sq % 8) {
+                flags = Self::EN_PASSANT;
+            } else if (to_sq as i8 - from_sq as i8).abs() == 16 {
+                flags = Self::DOUBLE_PUSH;
+            }
+        }
 
-    // Check if the move is a castling move
-    pub fn is_castling(&self) -> bool {
-        matches!(self.move_type, MoveType::Castling(_))
-    }
+        // 4) Detect Promotion
+        if notation.len() > 4 {
+            let promo_char = notation.chars().nth(4).unwrap();
+            let is_cap = flags == Self::CAPTURE || flags == Self::EN_PASSANT; // Handle Promo-Capture
 
-    // Check if the move is a promotion
-    pub fn is_promotion(&self) -> bool {
-        matches!(
-            self.move_type,
-            MoveType::Promotion(_) | MoveType::PromotionCapture(_)
-        )
+            flags = match promo_char {
+                'n' => Self::PROMO_KNIGHT,
+                'b' => Self::PROMO_BISHOP,
+                'r' => Self::PROMO_ROOK,
+                _ => Self::PROMO_QUEEN,
+            };
+        }
+
+        Self::new(from_sq, to_sq, flags)
     }
     pub fn is_double_push(&self) -> bool {
-        let from_pos = Position::from_sqr(self.from as i8).unwrap();
-        let to_pos = Position::from_sqr(self.to as i8).unwrap();
-        let from_rank = from_pos.y;
-        let to_rank = to_pos.y;
-        let diff = (to_rank - from_rank).abs();
-        diff == 2
+        self.flags() == Self::DOUBLE_PUSH
     }
 
     // Check if the move is an en passant
     pub fn is_en_passant(&self) -> bool {
-        matches!(self.move_type, MoveType::EnPassant(_, _))
+        self.flags() == Self::EN_PASSANT
     }
-    pub fn get_capture_square(&self) -> Option<u8> {
-        match &self.move_type {
-            MoveType::Capture(_) => Some(self.to),
-            MoveType::EnPassant(_, square) => Some(*square),
-            MoveType::PromotionCapture(_) => Some(self.to),
-            _ => None,
+    pub fn get_capture_square(&self) -> u8 {
+        let to = self.to();
+
+        if self.is_en_passant() {
+            return if to >= 40 && to <= 47 {
+                to - 8
+            } else {
+                to + 8
+            };
         }
-    }
-    pub fn get_rook_start(&self) -> Option<u8> {
-        match &self.move_type {
-            MoveType::Castling(castling) => Some(castling.get_rook_start()),
-            _ => None,
-        }
+
+        to
     }
     pub fn get_castling_side(&self) -> Option<CastlingSide> {
-        match &self.move_type {
-            MoveType::Castling(castling) => Some(castling.side),
+        match self.flags() {
+            Self::CASTLE_KING => Some(CastlingSide::Kingside),
+            Self::CASTLE_QUEEN => Some(CastlingSide::Queenside),
             _ => None,
         }
     }
-    pub fn get_rook_end(&self) -> Option<u8> {
-        match &self.move_type {
-            MoveType::Castling(castling) => Some(castling.get_rook_end()),
-            _ => None,
-        }
-    }
-    // Convert the move to algebraic notation
     pub fn to_algebraic(&self) -> String {
-        let from_pos = Position::from_sqr(self.from as i8).unwrap();
-        let to_pos = Position::from_sqr(self.to as i8).unwrap();
+        let from_sq = self.from();
+        let to_sq = self.to();
 
-        let from_notation = from_pos.to_chess_notation().unwrap();
-        let to_notation = to_pos.to_chess_notation().unwrap();
+        let from_notation = Position::from_sqr(from_sq as i8).unwrap().to_chess_notation().unwrap();
+        let to_notation = Position::from_sqr(to_sq as i8).unwrap().to_chess_notation().unwrap();
 
-        match &self.move_type {
-            MoveType::Promotion(piece) => {
-                format!(
-                    "{}{}{}",
-                    from_notation,
-                    to_notation,
-                    piece.piece_type.to_char().to_lowercase()
-                )
-            }
-            MoveType::PromotionCapture(promo) => {
-                format!(
-                    "{}{}{}",
-                    from_notation,
-                    to_notation,
-                    promo.promoted_piece.piece_type.to_char().to_lowercase()
-                )
-            }
-            _ => format!("{}{}", from_notation, to_notation),
+        let mut result = format!("{}{}", from_notation, to_notation);
+
+        if self.is_promotion() {
+            let promo_char = match self.flags() {
+                Self::PROMO_KNIGHT => 'n',
+                Self::PROMO_BISHOP => 'b',
+                Self::PROMO_ROOK => 'r',
+                _ => 'q', // Default to Queen for PROMO_QUEEN or Promo-Captures
+            };
+            result.push(promo_char);
         }
+
+        result
     }
-    // Get the captured piece if it's a capture move
-    pub fn get_captured_piece(&self) -> Option<Piece> {
-        match &self.move_type {
-            MoveType::Capture(piece) => Some(*piece),
-            MoveType::EnPassant(piece, _) => Some(*piece),
-            MoveType::PromotionCapture(promo_capture) => Some(promo_capture.captured_piece),
-            _ => None,
-        }
-    }
+}
+impl fmt::Debug for MoveData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let flags = self.flags();
+        let mut info = String::new();
 
-    // Get the promoted piece if it's a promotion move
-    pub fn get_promoted_piece(&self) -> Option<Piece> {
-        match &self.move_type {
-            MoveType::Promotion(piece) => Some(*piece),
-            MoveType::PromotionCapture(promo_capture) => Some(promo_capture.promoted_piece),
-            _ => None,
-        }
+        // הוספת מידע על סוג המהלך לפי הדגלים
+        if self.is_capture() { info.push_str(" [Capture]"); }
+        if self.is_castle() { info.push_str(" [Castle]"); }
+
+        if flags == Self::DOUBLE_PUSH { info.push_str(" [Double Push]"); }
+        if flags == Self::EN_PASSANT { info.push_str(" [En Passant]"); }
+
+        // הצגת המהלך בפורמט: Move(e2e4 [Capture])
+        write!(f, "Move({}{})", self.to_algebraic(), info)
+    }
+}
+impl fmt::Display for MoveData {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // פשוט קורא לדיבאג שכבר כתבנו
+        write!(f, "{:?}", self)
     }
 }

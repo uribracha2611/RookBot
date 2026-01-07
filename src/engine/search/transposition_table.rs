@@ -14,7 +14,7 @@ pub struct Entry {
     pub depth: u8,
     pub eval: i32,
     pub entry_type: EntryType,
-    pub best_move: MoveData,
+    pub best_move: Option<MoveData>,
 }
 
 pub struct TranspositionTable {
@@ -37,7 +37,7 @@ impl TranspositionTable {
         depth: u8,
         eval: i32,
         entry_type: EntryType,
-        best_move: MoveData,
+        best_move: Option<MoveData>,
     ) {
         let index = (hash as usize) % self.table.len();
 
@@ -71,8 +71,8 @@ impl TranspositionTable {
         let index = (hash as usize) % self.table.len();
         if let Some(entry) = self.table[index]
             && entry.hash == hash {
-                return Some(entry.best_move);
-            }
+            return entry.best_move;
+        }
         None
     }
 }

@@ -3,7 +3,7 @@ use crate::engine::movegen::movedata::MoveData;
 
 #[derive(Copy, Clone)]
 pub struct MoveList {
-    moves: [MoveData; MAX_MOVES],
+    moves: [Option<MoveData>; MAX_MOVES],
     count: usize,
 }
 
@@ -14,7 +14,7 @@ impl Default for MoveList {
 }
 
 impl MoveList {
-    pub fn iter(&'_ self) -> MoveListIterator<'_> {
+    pub fn iter(self) -> MoveListIterator {
         MoveListIterator {
             movelist: self,
             index: 0,
@@ -25,7 +25,7 @@ impl MoveList {
     }
     pub fn new() -> Self {
         MoveList {
-            moves: [MoveData::default(); MAX_MOVES],
+            moves: [None; MAX_MOVES],
             count: 0,
         }
     }
@@ -39,30 +39,31 @@ impl MoveList {
 
     pub fn add_move(&mut self, mv: MoveData) {
         if self.count < MAX_MOVES {
-            self.moves[self.count] = mv;
+            self.moves[self.count] = Some(mv);
             self.count += 1;
         }
     }
 
-    pub fn get_move(&self, index: usize) -> &MoveData {
+    // Remove the '&' and just return MoveData
+    pub fn get_move(&self, index: usize) -> MoveData {
         if index < self.count {
-            &self.moves[index]
+            // Since MoveData is Copy, this just clones the 16 bits
+            self.moves[index].expect("Index within count but move was None")
         } else {
-            panic!("Index out of bounds");
+            panic!("Index {} out of bounds (count: {})", index, self.count);
         }
     }
-
     pub fn move_count(&self) -> usize {
         self.count
     }
 
-    pub fn is_move_in_list(&self, mv: &MoveData) -> bool {
-        self.moves.iter().take(self.count).any(|m| *m == *mv)
+    pub fn is_move_in_list(&self, mv: MoveData) -> bool {
+        self.moves.iter().take(self.count).any(|m| m.unwrap() == mv)
     }
     pub fn find_move_by_start_end_square(self, from: u8, to: u8) -> Option<MoveData> {
         for i in 0..MAX_MOVES {
-            let mv = self.moves[i];
-            if mv.from == from && mv.to == to {
+            let mv = self.moves[i].unwrap();
+            if mv.from() == from && mv.to() == to {
                 return Some(mv);
             }
         }
@@ -70,23 +71,9 @@ impl MoveList {
     }
 }
 
-impl std::ops::Index<usize> for MoveList {
-    type Output = MoveData;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.moves[index]
-    }
-}
-
-impl std::ops::IndexMut<usize> for MoveList {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.moves[index]
-    }
-}
-
-impl<'a> IntoIterator for &'a MoveList {
-    type Item = &'a MoveData;
-    type IntoIter = MoveListIterator<'a>;
+impl IntoIterator for MoveList {
+    type Item = MoveData;
+    type IntoIter = MoveListIterator;
 
     fn into_iter(self) -> Self::IntoIter {
         MoveListIterator {
@@ -96,19 +83,21 @@ impl<'a> IntoIterator for &'a MoveList {
     }
 }
 
-pub struct MoveListIterator<'a> {
-    movelist: &'a MoveList,
+pub struct MoveListIterator {
+    movelist: MoveList,
     index: usize,
 }
 
-impl<'a> Iterator for MoveListIterator<'a> {
-    type Item = &'a MoveData;
+impl Iterator for MoveListIterator {
+    type Item = MoveData;
 
+    #[inline(always)]
     fn next(&mut self) -> Option<Self::Item> {
         if self.index < self.movelist.count {
+            // No need for & or unwrap logic here if get_move returns MoveData
             let result = self.movelist.get_move(self.index);
             self.index += 1;
-            Option::from(result)
+            Some(result)
         } else {
             None
         }

@@ -70,7 +70,7 @@ pub fn perft_bulk_with_zobrist_check(
 
     for mv in move_list.iter() {
         board.make_move(mv);
-        curr_move.push(*mv);
+        curr_move.push(mv);
         assert_eq!(
             board.game_state.zobrist_hash,
             board.calc_zobrist(),
@@ -146,8 +146,8 @@ pub fn check_epd_line(line: &str) -> Result<(), String> {
             let mut board_lock = board_clone
                 .lock()
                 .map_err(|_| "Mutex lock failed".to_string())?;
-            let mut curr_move = Vec::new();
-            let result = perft_bulk_with_zobrist_check(&mut board_lock, &mut curr_move, depth);
+
+            let result = perft_bulk(&mut board_lock, depth);
             if result != expected_result {
                 return Err(format!(
                     "Mismatch for FEN: {} at depth {}: expected {}, got {}",

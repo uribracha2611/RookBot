@@ -1,6 +1,6 @@
 use crate::engine::board::bitboard::Bitboard;
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
-use crate::engine::board::piece::PieceColor;
+use crate::engine::board::piece::{Piece, PieceColor};
 use crate::engine::board::position::Position;
 use crate::engine::search::zobrist::constants::{ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT};
 
@@ -16,6 +16,7 @@ pub struct GameState {
     pub is_check: bool,
     pub is_double_check: bool,
     pub check_ray: Bitboard,
+    pub captured_piece: Option<Piece>,
     pub pinned_ray: Bitboard,
 
 }
@@ -40,6 +41,7 @@ impl GameState {
             check_ray: Bitboard::new(u64::MAX),
             pinned_ray: Bitboard::new(0),
             is_double_check: false,
+            captured_piece: None,
             is_check: false,
 
         }
@@ -148,6 +150,7 @@ impl GameState {
             en_passant_file,
             en_passant_square,
             zobrist_hash: 0,
+            captured_piece: None,
             check_ray: Bitboard::new(u64::MAX),
             pinned_ray: Bitboard::new(0),
             is_double_check: false,

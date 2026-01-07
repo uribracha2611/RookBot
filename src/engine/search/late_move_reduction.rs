@@ -5,7 +5,7 @@ use num_traits::abs;
 
 pub fn reduce_depth(
     _board: &Board,
-    _mv: &MoveData,
+    _mv: MoveData,
     depth: i32,
     moves_played: i32,
     improving: bool,
