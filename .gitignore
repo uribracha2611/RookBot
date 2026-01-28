@@ -1,18 +1,23 @@
-# Ignore everything
+# 1. Ignore everything by default
 *
 
-# Do not ignore .gitignore and other top-level files
+# 2. Allow top-level configuration files
 !.gitignore
 !Cargo.toml
 !Cargo.lock
 !README.md
 
-# Do not ignore the src directory itself
+# 3. Allow the src directory itself (but not its contents yet)
 !src/
 
-# Now that src/ is "un-ignored," you can define what to ignore within it.
-src/* # Ignore everything inside src/
-!src/bin/ # But do not ignore the bin/ sub-directory
-!src/SEE.txt # And do not ignore this specific file
-!src/constants.rs # And do not ignore this file
+# 4. Ignore everything inside src by default
+src/*
+
+# 5. Specifically allow your files and the bin directory
+!src/SEE.txt
+!src/constants.rs
 !src/lmr_table.bin
+!src/bin/
+
+# 6. Allow everything inside the bin directory
+!src/bin/**/*
