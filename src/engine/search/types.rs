@@ -184,6 +184,14 @@ impl SearchRefs<'_> {
         false
     }
     #[inline(always)]
+    pub fn is_time_done_iter(&self) -> bool {
+        if let (Some(start_time), Some(time_limit)) = (self.start_time, self.time_limit) {
+            return start_time.elapsed() >= time_limit;
+        }
+
+        false
+    }
+    #[inline(always)]
     pub fn get_eval_ply(&self, ply: i32) -> Option<i32> {
         if ply >= 256 {
             return None;

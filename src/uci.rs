@@ -9,6 +9,18 @@ use crate::engine::search::transposition_table::TranspositionTable;
 use crate::engine::search::types::SearchInput;
 use std::time::{Duration, Instant};
 
+fn calculate_time_limit(time: Duration, inc: u64) -> Duration {
+    if time.is_zero() {
+        return Duration::from_millis(1);
+    }
+
+    let usable_ms = time.as_millis() as u64;
+
+    let target_ms = (usable_ms / 20) + (inc / 2);
+    let final_ms = target_ms.min(usable_ms).max(1);
+
+    Duration::from_millis(final_ms)
+}
 const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
 pub fn handle_command(
@@ -201,9 +213,11 @@ pub fn handle_go(
 
 
     let mut search_input = if let Some(wtime) = wtime && board.turn == WHITE {
-        SearchInput::time_input(wtime / 20 + winc.unwrap_or_default() / 2)
+        let winc_val = winc.unwrap_or_default().as_millis() as u64;
+        SearchInput::time_input(calculate_time_limit(wtime, winc_val))
     } else if let Some(btime) = btime && board.turn == BLACK {
-        SearchInput::time_input(btime / 20 + binc.unwrap_or_default() / 2)
+        let binc_val = binc.unwrap_or_default().as_millis() as u64;
+        SearchInput::time_input(calculate_time_limit(btime, binc_val))
     } else if let Some(movetime) = movetime {
         SearchInput::time_input(movetime)
     } else if let Some(depth) = depth {
