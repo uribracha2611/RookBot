@@ -157,7 +157,8 @@ pub fn search(
         SearchRefs::new_node_search(node_count, tt_table)
     } else { SearchRefs::new_timed_search(&move_time, tt_table) };
     while current_depth <= max_depth {
-        if refs.is_time_elapsed_iterative_search() {
+          if refs.is_time_elapsed_iterative_search() && current_depth > 1
+        {
             break;
         }
         let old_pv = principal_variation.clone();
@@ -170,7 +171,7 @@ pub fn search(
             &mut principal_variation,
             &mut refs,
         );
-        if refs.is_time_done() || refs.is_nodes_exceeded() {
+        if (refs.is_time_done_iter()  && current_depth > 1) && refs.is_nodes_exceeded()  {
             principal_variation = old_pv;
             break;
         }
@@ -208,10 +209,7 @@ fn search_common(
     debug_assert!(alpha < beta);
     debug_assert!(alpha >= -INFINITY);
     debug_assert!(beta <= INFINITY);
-    // Stop search if time has elapsed
-    if refs.is_time_done() || refs.is_nodes_exceeded() {
-        return 0;
-    }
+
     let mut best_score = -INFINITY;
     update_check(board);
     if board.game_state.is_check && depth < 63 {
@@ -445,7 +443,9 @@ fn search_common(
                 pv.append(&mut node_pv);
             }
         }
-
+        if refs.is_time_done() || refs.is_nodes_exceeded() {
+            return 0;
+        }
 
         if is_quiet_move {
             quiet_moves.push(curr_move);

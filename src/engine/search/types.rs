@@ -4,7 +4,6 @@ use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::move_ordering::{KillerMoves, BASE_KILLER};
 use crate::engine::search::transposition_table::TranspositionTable;
 use std::time::{Duration, Instant};
-
 const HISTORY_MAX: i32 = 16_384;
 
 
@@ -138,6 +137,13 @@ impl SearchRefs<'_> {
         if let Some(node_limit) = self.nodes_limit {
             return self.nodes_evaluated >= node_limit;
         }
+        false
+    }
+    pub fn is_time_done_iter(&self) -> bool {
+        if let (Some(start_time), Some(time_limit)) = (self.start_time, self.time_limit) {
+            return start_time.elapsed() >= time_limit;
+        }
+
         false
     }
     #[inline(always)]
