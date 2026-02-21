@@ -1,18 +1,12 @@
-use crate::engine::board::board::Board;
-use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::constants::{LMR_TABLE, MATE_VALUE};
 use num_traits::abs;
 
-pub fn reduce_depth(
-    _board: &Board,
-    _mv: MoveData,
-    depth: i32,
-    moves_played: i32,
-    improving: bool,
-) -> i32 {
+pub fn reduce_depth(depth: i32, moves_played: i32, improving: bool, hist: i32) -> i32 {
     let move_index = moves_played.min(63);
     let lmr_num = unsafe { LMR_TABLE[depth as usize][move_index as usize] };
-    lmr_num + !improving as i32
+    let mut base = lmr_num + !improving as i32;
+    base -= (hist / 6000);
+    base.clamp(1, depth)
 }
 
 pub fn should_movecount_based_pruning(

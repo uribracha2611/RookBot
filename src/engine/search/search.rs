@@ -5,12 +5,14 @@ use crate::engine::board::see::static_exchange_evaluation;
 use crate::engine::movegen::generate::{generate_moves, update_check};
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
-use crate::engine::search::constants::{INFINITY, MATE_VALUE, RAZOR_DEPTH, RAZOR_MARGIN, VAL_WINDOW};
-use crate::engine::search::functions::{
-    is_allowed_reverse_futility_pruning, is_improving,
+use crate::engine::search::constants::{
+    INFINITY, MATE_VALUE, RAZOR_DEPTH, RAZOR_MARGIN, VAL_WINDOW,
 };
+use crate::engine::search::functions::{is_allowed_reverse_futility_pruning, is_improving};
 use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
-use crate::engine::search::move_ordering::{capture_formula, get_capture_score, get_moves_score, BASE_CAPTURE};
+use crate::engine::search::move_ordering::{
+    BASE_CAPTURE, capture_formula, get_capture_score, get_moves_score,
+};
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
 use crate::engine::search::types::{SearchInput, SearchOutput, SearchRefs};
@@ -30,7 +32,6 @@ pub fn quiescence_search(
     if refs.is_time_done() || refs.is_nodes_exceeded() {
         return 0;
     }
-
 
     let stand_pat = eval(board);
     let mut best_val = stand_pat;
@@ -76,7 +77,6 @@ pub fn quiescence_search(
         pick_move(&mut moves, i as u8, &mut scores);
         let mv = moves.get_move(i);
 
-
         if Some(mv) != tt_move && static_exchange_evaluation(board, mv) < 0 {
             continue;
         }
@@ -111,7 +111,15 @@ pub fn quiescence_search(
 }
 
 pub fn eval(board: &Board) -> i32 {
-    debug_assert!(board.calc_eval() == (board.psqt_white.get_middle_game(), board.psqt_white.get_end_game(), board.psqt_black.get_middle_game(), board.psqt_black.get_end_game()));
+    debug_assert!(
+        board.calc_eval()
+            == (
+                board.psqt_white.get_middle_game(),
+                board.psqt_white.get_end_game(),
+                board.psqt_black.get_middle_game(),
+                board.psqt_black.get_end_game()
+            )
+    );
     debug_assert!(board.calc_gamephase() == board.game_phase);
     if board.is_insufficient_material() {
         return 0;
@@ -153,9 +161,13 @@ pub fn search(
     let move_time = input.move_time.unwrap_or(Duration::from_millis(0));
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
-    let mut refs = if is_depth_search { SearchRefs::new_depth_search(tt_table) } else if is_move_count_search {
+    let mut refs = if is_depth_search {
+        SearchRefs::new_depth_search(tt_table)
+    } else if is_move_count_search {
         SearchRefs::new_node_search(node_count, tt_table)
-    } else { SearchRefs::new_timed_search(&move_time, tt_table) };
+    } else {
+        SearchRefs::new_timed_search(&move_time, tt_table)
+    };
     while current_depth <= max_depth {
         if refs.is_time_elapsed_iterative_search() {
             break;
@@ -194,7 +206,6 @@ pub fn search(
     }
 }
 
-
 fn search_common(
     board: &mut Board,
     mut depth: i32,
@@ -221,14 +232,17 @@ fn search_common(
         return quiescence_search(board, alpha, beta, refs);
     }
 
-
     if board.is_board_draw() {
         return 0;
     }
     let mut move_list = generate_moves(board, false);
 
     if move_list.len() == 0 {
-        return if board.game_state.is_check { -MATE_VALUE + ply } else { 0 };
+        return if board.game_state.is_check {
+            -MATE_VALUE + ply
+        } else {
+            0
+        };
     }
     let mut tt_move = None;
 
@@ -271,7 +285,11 @@ fn search_common(
     if is_allowed_reverse_futility_pruning(depth as u8, beta, curr_eval, board, improving) {
         return curr_eval;
     }
-    if !board.game_state.is_check && depth >= 3 && curr_eval >= beta && board.has_major_or_minor_material() {
+    if !board.game_state.is_check
+        && depth >= 3
+        && curr_eval >= beta
+        && board.has_major_or_minor_material()
+    {
         let r = if depth > 10 {
             5
         } else if depth > 6 {
@@ -292,8 +310,7 @@ fn search_common(
         depth -= 2;
     }
 
-    let mut move_score =
-        get_moves_score(&move_list, ply as usize, board, tt_move, &*refs);
+    let mut move_score = get_moves_score(&move_list, ply as usize, board, tt_move, &*refs);
     let mut best_move = None;
     let mut entry_type = EntryType::UpperBound;
     let mut quiet_moves_count = 0;
@@ -316,12 +333,19 @@ fn search_common(
             }
 
             let old_move = curr_move;
-            move_score[i] = -BASE_CAPTURE
-                + capture_formula(board, curr_move);
+            move_score[i] = -BASE_CAPTURE + capture_formula(board, curr_move);
             pick_move(&mut move_list, i as u8, &mut move_score);
 
             curr_move = move_list.get_move(i);
-            debug_assert!(curr_move.to() != board.get_piece_bitboard(board.turn.opposite(), KING).pop_lsb(), "move is {:?} and fen is {}", curr_move, board.to_fen());
+            debug_assert!(
+                curr_move.to()
+                    != board
+                        .get_piece_bitboard(board.turn.opposite(), KING)
+                        .pop_lsb(),
+                "move is {:?} and fen is {}",
+                curr_move,
+                board.to_fen()
+            );
             if curr_move == old_move {
                 break;
             };
@@ -339,12 +363,8 @@ fn search_common(
 
         if board.is_quiet_move(curr_move) {
             is_quiet_move = true;
-            if should_movecount_based_pruning(
-                depth as u32,
-                quiet_moves_count,
-                alpha,
-                improving,
-            ) && is_pvs
+            if should_movecount_based_pruning(depth as u32, quiet_moves_count, alpha, improving)
+                && is_pvs
             {
                 continue;
             }
@@ -352,14 +372,14 @@ fn search_common(
         }
         refs.increment_nodes_evaluated();
         let mut node_pv: Vec<MoveData> = Vec::new();
+        let hist = refs.get_history_value(curr_move, board.turn)
+            + refs.get_cont_history(board, ply, curr_move);
         refs.set_move_ply(ply, curr_move, board);
         board.make_move(curr_move);
 
-
         let mut score_mv = 0;
         if depth >= 3 && !curr_move.is_capture() && !curr_move.is_promotion() && is_pvs {
-            let new_depth =
-                depth - reduce_depth(board, curr_move, depth, i as i32, improving);
+            let new_depth = depth - reduce_depth(depth, i as i32, improving, hist);
 
             score_mv = -search_common(
                 board,
@@ -381,8 +401,7 @@ fn search_common(
                     refs,
                 );
             }
-        } else if is_pvs
-        {
+        } else if is_pvs {
             score_mv = -search_common(
                 board,
                 depth - 1,
@@ -394,17 +413,8 @@ fn search_common(
             );
         }
         if !is_pvs || score_mv > alpha {
-            score_mv = -search_common(
-                board,
-                depth - 1,
-                ply + 1,
-                -beta,
-                -alpha,
-                &mut node_pv,
-                refs,
-            );
+            score_mv = -search_common(board, depth - 1, ply + 1, -beta, -alpha, &mut node_pv, refs);
         }
-
 
         board.unmake_move(curr_move);
 
@@ -445,7 +455,6 @@ fn search_common(
                 pv.append(&mut node_pv);
             }
         }
-
 
         if is_quiet_move {
             quiet_moves.push(curr_move);
