@@ -14,6 +14,9 @@ impl Default for MoveList {
 }
 
 impl MoveList {
+    pub fn is_empty(&self) -> bool {
+        self.moves.is_empty()
+    }
     pub fn iter(self) -> MoveListIterator {
         MoveListIterator {
             movelist: self,

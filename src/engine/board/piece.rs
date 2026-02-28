@@ -66,6 +66,30 @@ impl Piece {
             piece_type,
         }
     }
+    pub fn piece_to_viri(self, can_castle: bool) -> u8 {
+        let color_bit: u8 = if self.piece_color == PieceColor::BLACK {
+            8
+        } else {
+            0
+        };
+
+        let piece_type_bit = match self.piece_type {
+            PieceType::PAWN => 0,
+            PieceType::KNIGHT => 1,
+            PieceType::BISHOP => 2,
+            PieceType::ROOK => {
+                if can_castle {
+                    6
+                } else {
+                    3
+                }
+            }
+            PieceType::QUEEN => 4,
+            PieceType::KING => 5,
+        };
+
+        piece_type_bit | color_bit
+    }
     pub fn get_value(&self) -> i32 {
         match self.piece_type {
             PieceType::PAWN => 1,
@@ -138,12 +162,7 @@ impl Piece {
 
 impl fmt::Debug for Piece {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "{}{}",
-            self.piece_color,
-            self.piece_type
-        )
+        write!(f, "{}{}", self.piece_color, self.piece_type)
     }
 }
 

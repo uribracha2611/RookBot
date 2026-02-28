@@ -3,10 +3,16 @@ use super::{
     gamestate::GameState,
     piece::{Piece, PieceColor},
 };
+use crate::engine::board::castling::constants::{
+    BLACK_KINGSIDE_ROOK_START, BLACK_QUEENSIDE_ROOK_START, WHITE_KINGSIDE_ROOK_START,
+    WHITE_QUEENSIDE_ROOK_START,
+};
+use crate::engine::board::castling::types::CastlingSide::{Kingside, Queenside};
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::board::piece::PieceType;
 use crate::engine::board::piece::PieceType::{BISHOP, KING, KNIGHT, PAWN, QUEEN, ROOK};
+use crate::engine::datagen::format::Array32U4;
 use crate::engine::movegen::constants::KNIGHT_MOVES;
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::engine::movegen::movedata::MoveData;
@@ -37,8 +43,14 @@ pub struct Board {
 impl Board {
     fn remove_piece(&mut self, square: u8, piece: Piece) {
         debug_assert!(self.squares[square as usize] == Some(piece));
-        debug_assert!(self.get_piece_bitboard(piece.piece_color, piece.piece_type).contains_square(square));
-        debug_assert!(self.get_color_bitboard(piece.piece_color).contains_square(square));
+        debug_assert!(
+            self.get_piece_bitboard(piece.piece_color, piece.piece_type)
+                .contains_square(square)
+        );
+        debug_assert!(
+            self.get_color_bitboard(piece.piece_color)
+                .contains_square(square)
+        );
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update zobrist hash before removing the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
@@ -56,14 +68,30 @@ impl Board {
             .clear_square(square);
         self.all_pieces_bitboard.clear_square(square);
         debug_assert!(self.squares[square as usize].is_none());
-        debug_assert!(!self.get_piece_bitboard(piece.piece_color, piece.piece_type).contains_square(square));
-        debug_assert!(!self.get_color_bitboard(piece.piece_color).contains_square(square));
+        debug_assert!(
+            !self
+                .get_piece_bitboard(piece.piece_color, piece.piece_type)
+                .contains_square(square)
+        );
+        debug_assert!(
+            !self
+                .get_color_bitboard(piece.piece_color)
+                .contains_square(square)
+        );
     }
 
     fn add_piece(&mut self, square: u8, piece: Piece) {
         debug_assert!(self.squares[square as usize].is_none());
-        debug_assert!(!self.get_piece_bitboard(piece.piece_color, piece.piece_type).contains_square(square));
-        debug_assert!(!self.get_color_bitboard(piece.piece_color).contains_square(square));
+        debug_assert!(
+            !self
+                .get_piece_bitboard(piece.piece_color, piece.piece_type)
+                .contains_square(square)
+        );
+        debug_assert!(
+            !self
+                .get_color_bitboard(piece.piece_color)
+                .contains_square(square)
+        );
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update zobrist hash before adding the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
@@ -80,17 +108,25 @@ impl Board {
             .set_square(square);
         self.all_pieces_bitboard.set_square(square);
         debug_assert!(self.squares[square as usize] == Some(piece));
-        debug_assert!(self.get_piece_bitboard(piece.piece_color, piece.piece_type).contains_square(square));
-        debug_assert!(self.get_color_bitboard(piece.piece_color).contains_square(square));
+        debug_assert!(
+            self.get_piece_bitboard(piece.piece_color, piece.piece_type)
+                .contains_square(square)
+        );
+        debug_assert!(
+            self.get_color_bitboard(piece.piece_color)
+                .contains_square(square)
+        );
     }
 
     pub fn detect_pawns_only(&self, piece_color: PieceColor) -> bool {
-        self.get_color_bitboard(piece_color)
-            ^ self.get_piece_bitboard(piece_color, PieceType::PAWN)
+        self.get_color_bitboard(piece_color) ^ self.get_piece_bitboard(piece_color, PieceType::PAWN)
             == 0
     }
     pub fn is_quiet_move(self: &Board, mv: MoveData) -> bool {
-        !mv.is_capture() && !mv.is_promotion() && !self.game_state.is_check && !self.is_move_check(mv)
+        !mv.is_capture()
+            && !mv.is_promotion()
+            && !self.game_state.is_check
+            && !self.is_move_check(mv)
     }
     pub fn is_move_check(&self, mv: MoveData) -> bool {
         let to = mv.to();
@@ -128,6 +164,42 @@ impl Board {
         }
     }
 
+    fn viri_is_castling_right_square(self: &Board, sqr: u8) -> bool {
+        if sqr == WHITE_KINGSIDE_ROOK_START && self.game_state.castle_white.is_allowed(&Kingside) {
+            return true;
+        } else if sqr == WHITE_QUEENSIDE_ROOK_START
+            && self.game_state.castle_white.is_allowed(&Queenside)
+        {
+            return true;
+        }
+
+        if sqr == BLACK_KINGSIDE_ROOK_START && self.game_state.castle_black.is_allowed(&Kingside) {
+            return true;
+        } else if sqr == BLACK_QUEENSIDE_ROOK_START
+            && self.game_state.castle_black.is_allowed(&Queenside)
+        {
+            return true;
+        }
+        false
+    }
+
+    pub fn pack_pieces_into_viri(&self) -> Array32U4 {
+        let mut pieces = Array32U4::default();
+
+        let mut occ = self.all_pieces_bitboard;
+        let mut index = 0;
+        while occ != 0 {
+            let sqr = occ.pop_lsb();
+            let piece = self.squares[sqr as usize].unwrap();
+            if self.viri_is_castling_right_square(sqr) {
+                pieces.set(index, piece.piece_to_viri(true))
+            } else {
+                pieces.set(index, piece.piece_to_viri(false))
+            }
+            index += 1;
+        }
+        pieces
+    }
     pub fn is_threefold_repetition(&self) -> bool {
         // let len=self.repetition_table.len();
         // let start = len.saturating_sub(self.game_state.halfmove_clock as usize);
@@ -226,19 +298,30 @@ impl Board {
                 if white_knight.pop_count() < 3 && black_knight.pop_count() < 3 {
                     return true;
                 }
-            } else if knights == 0 && white_bishop.pop_count().abs_diff(black_bishop.pop_count()) < 2 || (white_bishop | white_knight).pop_count() == 1 && (black_bishop | black_knight).pop_count() == 1 {
+            } else if knights == 0
+                && white_bishop.pop_count().abs_diff(black_bishop.pop_count()) < 2
+                || (white_bishop | white_knight).pop_count() == 1
+                    && (black_bishop | black_knight).pop_count() == 1
+            {
                 return true;
             }
         } else if white_rook.pop_count() == 1 && black_rook == 0 {
-            if (white_knight | white_bishop) == 0 && ((black_knight | black_bishop).pop_count() == 1 || (black_knight | black_bishop).pop_count() == 2) {
+            if (white_knight | white_bishop) == 0
+                && ((black_knight | black_bishop).pop_count() == 1
+                    || (black_knight | black_bishop).pop_count() == 2)
+            {
                 return true;
             }
-        } else if white_rook == 0 && black_rook.pop_count() == 1 && (black_knight | black_bishop) == 0 && ((white_knight | white_bishop).pop_count() == 1 || (white_knight | white_bishop).pop_count() == 2) {
-            return true
+        } else if white_rook == 0
+            && black_rook.pop_count() == 1
+            && (black_knight | black_bishop) == 0
+            && ((white_knight | white_bishop).pop_count() == 1
+                || (white_knight | white_bishop).pop_count() == 2)
+        {
+            return true;
         }
         false
     }
-
 
     pub fn to_fen(&self) -> String {
         let mut fen = String::new();
@@ -279,14 +362,8 @@ impl Board {
         if mv.is_capture() {
             let captured_piece = self.squares[mv.get_capture_square() as usize].unwrap();
             old_game_state.captured_piece = Some(captured_piece);
-            self.remove_piece(
-                mv.get_capture_square(),
-                captured_piece,
-            );
-            self.disallow_castling_if_needed(
-                mv.get_capture_square(),
-                captured_piece,
-            );
+            self.remove_piece(mv.get_capture_square(), captured_piece);
+            self.disallow_castling_if_needed(mv.get_capture_square(), captured_piece);
         }
         if mv.is_promotion() {
             self.remove_piece(mv.from(), moved_piece);
@@ -322,12 +399,15 @@ impl Board {
         self.history.push(old_game_state);
         self.repetition_table.push(self.game_state.zobrist_hash);
         debug_assert!(self.squares[mv.from() as usize].is_none());
-        debug_assert!((!mv.is_promotion() || self.squares[mv.to() as usize] == Some(mv.get_promotion_piece(moved_piece.piece_color))));
+        debug_assert!(
+            (!mv.is_promotion()
+                || self.squares[mv.to() as usize]
+                    == Some(mv.get_promotion_piece(moved_piece.piece_color)))
+        );
         debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
     }
     pub fn is_board_draw(&self) -> bool {
-        self.is_threefold_repetition()
-            || self.game_state.halfmove_clock >= 100
+        self.is_threefold_repetition() || self.game_state.halfmove_clock >= 100
     }
     fn handle_en_passant(&mut self, mv: MoveData) {
         if let Some(file) = self.game_state.en_passant_file {
@@ -365,10 +445,7 @@ impl Board {
         // Restore captured piece if it was a capture move
         if mv.is_capture() {
             let captured_piece = old_state.captured_piece.unwrap();
-            self.add_piece(
-                mv.get_capture_square(),
-                captured_piece,
-            );
+            self.add_piece(mv.get_capture_square(), captured_piece);
         }
 
         // Handle promotion
@@ -386,10 +463,17 @@ impl Board {
         self.repetition_table.pop();
         self.turn = self.turn.opposite();
         debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
-        debug_assert!((!mv.is_promotion() && self.squares[mv.from() as usize] == Some(moved_piece)) || (mv.is_promotion() && self.squares[mv.from() as usize] == Some(Piece::new(moved_piece.piece_color, PAWN))));
-        debug_assert!((!mv.is_capture() && self.squares[mv.to() as usize].is_none()) || (mv.is_capture() && self.squares[mv.to() as usize] != Some(moved_piece)));
+        debug_assert!(
+            (!mv.is_promotion() && self.squares[mv.from() as usize] == Some(moved_piece))
+                || (mv.is_promotion()
+                    && self.squares[mv.from() as usize]
+                        == Some(Piece::new(moved_piece.piece_color, PAWN)))
+        );
+        debug_assert!(
+            (!mv.is_capture() && self.squares[mv.to() as usize].is_none())
+                || (mv.is_capture() && self.squares[mv.to() as usize] != Some(moved_piece))
+        );
     }
-
 
     fn disallow_castling_if_needed(&mut self, square: u8, piece: Piece) {
         if piece.piece_type != PieceType::ROOK {
@@ -397,49 +481,49 @@ impl Board {
         }
         match (square, piece.piece_color) {
             (0, PieceColor::WHITE)
-            if self
-                .game_state
-                .castle_white
-                .is_allowed(&CastlingSide::Queenside) =>
-                {
-                    self.game_state.disallow_castling(
-                        AllowedCastling::from(CastlingSide::Queenside),
-                        piece.piece_color,
-                    );
-                }
+                if self
+                    .game_state
+                    .castle_white
+                    .is_allowed(&CastlingSide::Queenside) =>
+            {
+                self.game_state.disallow_castling(
+                    AllowedCastling::from(CastlingSide::Queenside),
+                    piece.piece_color,
+                );
+            }
             (7, PieceColor::WHITE)
-            if self
-                .game_state
-                .castle_white
-                .is_allowed(&CastlingSide::Kingside) =>
-                {
-                    self.game_state.disallow_castling(
-                        AllowedCastling::from(CastlingSide::Kingside),
-                        piece.piece_color,
-                    );
-                }
+                if self
+                    .game_state
+                    .castle_white
+                    .is_allowed(&CastlingSide::Kingside) =>
+            {
+                self.game_state.disallow_castling(
+                    AllowedCastling::from(CastlingSide::Kingside),
+                    piece.piece_color,
+                );
+            }
             (56, PieceColor::BLACK)
-            if self
-                .game_state
-                .castle_black
-                .is_allowed(&CastlingSide::Queenside) =>
-                {
-                    self.game_state.disallow_castling(
-                        AllowedCastling::from(CastlingSide::Queenside),
-                        piece.piece_color,
-                    );
-                }
+                if self
+                    .game_state
+                    .castle_black
+                    .is_allowed(&CastlingSide::Queenside) =>
+            {
+                self.game_state.disallow_castling(
+                    AllowedCastling::from(CastlingSide::Queenside),
+                    piece.piece_color,
+                );
+            }
             (63, PieceColor::BLACK)
-            if self
-                .game_state
-                .castle_black
-                .is_allowed(&CastlingSide::Kingside) =>
-                {
-                    self.game_state.disallow_castling(
-                        AllowedCastling::from(CastlingSide::Kingside),
-                        piece.piece_color,
-                    );
-                }
+                if self
+                    .game_state
+                    .castle_black
+                    .is_allowed(&CastlingSide::Kingside) =>
+            {
+                self.game_state.disallow_castling(
+                    AllowedCastling::from(CastlingSide::Kingside),
+                    piece.piece_color,
+                );
+            }
             _ => {}
         }
     }
@@ -463,7 +547,9 @@ impl Board {
     }
 
     pub fn has_major_or_minor_material(&self) -> bool {
-        self.get_color_bitboard(self.turn) ^ (self.get_piece_bitboard(self.turn, KING) | self.get_piece_bitboard(self.turn, PAWN)) != 0
+        self.get_color_bitboard(self.turn)
+            ^ (self.get_piece_bitboard(self.turn, KING) | self.get_piece_bitboard(self.turn, PAWN))
+            != 0
     }
     pub fn unmake_null_move(&mut self) {
         if let Some(previous_state) = self.history.pop() {
