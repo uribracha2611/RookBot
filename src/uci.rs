@@ -4,18 +4,14 @@ use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::movegen::movedata::MoveData;
 
 use crate::engine::perft::perft_bulk;
-use crate::engine::search::search::search;
+use crate::engine::search::search::{eval, search};
 use crate::engine::search::transposition_table::TranspositionTable;
 use crate::engine::search::types::SearchInput;
 use std::time::{Duration, Instant};
 
 const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-pub fn handle_command(
-    command: &str,
-    board: &mut Board,
-    tt_table: &mut TranspositionTable,
-) {
+pub fn handle_command(command: &str, board: &mut Board, tt_table: &mut TranspositionTable) {
     let first_word = command.split(" ").collect::<Vec<&str>>()[0];
     match first_word {
         "uci" => {
@@ -59,6 +55,9 @@ pub fn handle_command(
         "bench" => {
             bench();
         }
+        "eval" => {
+            println!("eval: {}", eval(board));
+        }
         _ => {
             println!("Unknown command: {}", command);
         }
@@ -68,7 +67,6 @@ pub fn handle_command(
 fn bench() {
     let mut total_time: Duration = Duration::from_millis(0);
     let mut total_nodes: u64 = 0;
-
 
     for pos in FENS_FOR_BENCH {
         let mut tt_table = TranspositionTable::from_mb(64);
@@ -88,8 +86,12 @@ fn bench() {
     // Cast the float result to a u64, which truncates the decimal.
     let nps_integer: u64 = nps_float as u64;
 
-    println!("total nodes searched is {} time taken is {} ms nps is {}",
-             total_nodes, total_time.as_millis(), nps_integer);
+    println!(
+        "total nodes searched is {} time taken is {} ms nps is {}",
+        total_nodes,
+        total_time.as_millis(),
+        nps_integer
+    );
 }
 fn handle_position(command: String, board: &mut Board) {
     let parts: Vec<&str> = command.split(" ").collect();
@@ -133,11 +135,7 @@ fn apply_moves(board: &mut Board, moves: &Vec<&str>) {
         board.make_move(move_from_algebric);
     }
 }
-pub fn handle_go(
-    command: &str,
-    board: &mut Board,
-    tt_table: &mut TranspositionTable,
-) {
+pub fn handle_go(command: &str, board: &mut Board, tt_table: &mut TranspositionTable) {
     let mut depth = None;
     let mut movetime = None;
     let mut wtime = None;
@@ -145,7 +143,6 @@ pub fn handle_go(
     let mut winc = None;
     let mut binc = None;
     let mut nodes = None;
-
 
     let parts: Vec<&str> = command.split_whitespace().collect();
     let mut i = 1; // Skip the "go" part
@@ -199,10 +196,13 @@ pub fn handle_go(
         i += 1;
     }
 
-
-    let mut search_input = if let Some(wtime) = wtime && board.turn == WHITE {
+    let mut search_input = if let Some(wtime) = wtime
+        && board.turn == WHITE
+    {
         SearchInput::time_input(wtime / 20 + winc.unwrap_or_default() / 2)
-    } else if let Some(btime) = btime && board.turn == BLACK {
+    } else if let Some(btime) = btime
+        && board.turn == BLACK
+    {
         SearchInput::time_input(btime / 20 + binc.unwrap_or_default() / 2)
     } else if let Some(movetime) = movetime {
         SearchInput::time_input(movetime)
@@ -214,16 +214,9 @@ pub fn handle_go(
         panic!("only depth, movetime, winc, binc and nodes supported so far for go command");
     };
 
-
     let time_test = Instant::now();
 
-
-    let result = search(
-        board,
-        &mut search_input,
-        tt_table,
-    );
-
+    let result = search(board, &mut search_input, tt_table);
 
     let pv = result
         .principal_variation

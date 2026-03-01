@@ -1,9 +1,10 @@
-pub mod zobrist;
 pub mod constants;
 mod functions;
 mod late_move_reduction;
 pub mod move_ordering;
+pub mod nnue;
 pub mod psqt;
 pub mod search;
 pub mod transposition_table;
 pub mod types;
+pub mod zobrist;

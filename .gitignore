@@ -18,6 +18,13 @@ src/*
 !src/constants.rs
 !src/lmr_table.bin
 !src/bin/
+# 6. Open the path layer by layer
+!src/engine/
+!src/engine/search/
+!src/engine/search/nnue/
 
+# Now Git can see everything inside nnue
+!src/engine/search/nnue/**
 # 6. Allow everything inside the bin directory
 !src/bin/**/*
+!src/engine/search/nnue/**/*

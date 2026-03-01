@@ -2,6 +2,8 @@ use crate::engine::board::bitboard::Bitboard;
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::engine::board::piece::{Piece, PieceColor};
 use crate::engine::board::position::Position;
+use crate::engine::search::nnue::NNUE_NETWORK;
+use crate::engine::search::nnue::types::Accumulator;
 use crate::engine::search::zobrist::constants::{ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -16,9 +18,10 @@ pub struct GameState {
     pub is_check: bool,
     pub is_double_check: bool,
     pub check_ray: Bitboard,
+    pub acc_white: Accumulator,
+    pub acc_black: Accumulator,
     pub captured_piece: Option<Piece>,
     pub pinned_ray: Bitboard,
-
 }
 impl GameState {
     pub fn new(
@@ -40,10 +43,11 @@ impl GameState {
             zobrist_hash,
             check_ray: Bitboard::new(u64::MAX),
             pinned_ray: Bitboard::new(0),
+            acc_white: Accumulator::new(&NNUE_NETWORK),
+            acc_black: Accumulator::new(&NNUE_NETWORK),
             is_double_check: false,
             captured_piece: None,
             is_check: false,
-
         }
     }
 
@@ -153,9 +157,10 @@ impl GameState {
             captured_piece: None,
             check_ray: Bitboard::new(u64::MAX),
             pinned_ray: Bitboard::new(0),
+            acc_white: Accumulator::new(&NNUE_NETWORK),
+            acc_black: Accumulator::new(&NNUE_NETWORK),
             is_double_check: false,
             is_check: false,
-
         };
 
         game_state.init_zobrist_hash();

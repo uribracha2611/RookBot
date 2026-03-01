@@ -13,6 +13,7 @@ use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_
 use crate::engine::search::move_ordering::{
     BASE_CAPTURE, capture_formula, get_capture_score, get_moves_score,
 };
+use crate::engine::search::nnue::NNUE_NETWORK;
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
 use crate::engine::search::types::{SearchInput, SearchOutput, SearchRefs};
@@ -111,30 +112,47 @@ pub fn quiescence_search(
 }
 
 pub fn eval(board: &Board) -> i32 {
-    debug_assert!(
-        board.calc_eval()
-            == (
-                board.psqt_white.get_middle_game(),
-                board.psqt_white.get_end_game(),
-                board.psqt_black.get_middle_game(),
-                board.psqt_black.get_end_game()
-            )
-    );
-    debug_assert!(board.calc_gamephase() == board.game_phase);
     if board.is_insufficient_material() {
         return 0;
     }
-    let mg_phase = i32::min(board.game_phase, 24);
-    let eg_phase = 24 - mg_phase;
-    let mg_score = board.psqt_white.get_middle_game() - board.psqt_black.get_middle_game();
-    let eg_score = board.psqt_white.get_end_game() - board.psqt_black.get_end_game();
-    let score = (mg_score * mg_phase + eg_score * eg_phase) / 24;
+    #[cfg(debug_assertions)]
+    {
+        let (real_white, real_black) = board.rebuild_acc();
 
-    if board.turn == PieceColor::WHITE {
-        score
-    } else {
-        -score
+        if real_white != board.game_state.acc_white || real_black != board.game_state.acc_black {
+            println!("NNUE Drift Detected!");
+            println!("Side to move: {:?}", board.turn);
+
+            for i in 0..board.game_state.acc_white.vals.len() {
+                let diff = real_white.vals[i] - board.game_state.acc_white.vals[i];
+                if diff != 0 {
+                    println!(
+                        "White Acc Index [{}]: Expected {}, Got {} (Diff: {})",
+                        i, real_white.vals[i], board.game_state.acc_white.vals[i], diff
+                    );
+                }
+            }
+
+            for i in 0..board.game_state.acc_black.vals.len() {
+                let diff = real_black.vals[i] - board.game_state.acc_black.vals[i];
+                if diff != 0 {
+                    println!(
+                        "Black Acc Index [{}]: Expected {}, Got {} (Diff: {})",
+                        i, real_black.vals[i], board.game_state.acc_black.vals[i], diff
+                    );
+                }
+            }
+            panic!("Accumulator out of sync!");
+        }
     }
+    let (friendly_acc, opp_acc) = if board.turn == PieceColor::WHITE {
+        (board.game_state.acc_white, board.game_state.acc_black)
+    } else {
+        (board.game_state.acc_black, board.game_state.acc_white)
+    };
+    let score = NNUE_NETWORK.evaluate_nnue(&friendly_acc, &opp_acc);
+
+    score
 }
 pub fn pick_move(ml: &mut MoveList, start_index: u8, scores: &mut Vec<i32>) {
     for i in (start_index + 1)..(ml.len() as u8) {
@@ -375,6 +393,8 @@ fn search_common(
         let hist = refs.get_history_value(curr_move, board.turn)
             + refs.get_cont_history(board, ply, curr_move);
         refs.set_move_ply(ply, curr_move, board);
+        let (curr_white_acc, curr_black_acc) =
+            (board.game_state.acc_white, board.game_state.acc_black);
         board.make_move(curr_move);
 
         let mut score_mv = 0;
@@ -417,7 +437,10 @@ fn search_common(
         }
 
         board.unmake_move(curr_move);
-
+        debug_assert!(
+            curr_white_acc == board.game_state.acc_white
+                && curr_black_acc == board.game_state.acc_black
+        );
         if score_mv >= beta {
             entry_type = EntryType::LowerBound;
             best_move = Some(curr_move);
