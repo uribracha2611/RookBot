@@ -3,16 +3,23 @@ use super::{
     gamestate::GameState,
     piece::{Piece, PieceColor},
 };
+use crate::engine::board::castling::constants::{
+    BLACK_KINGSIDE_ROOK_START, BLACK_QUEENSIDE_ROOK_START, WHITE_KINGSIDE_ROOK_START,
+    WHITE_QUEENSIDE_ROOK_START,
+};
+use crate::engine::board::castling::types::CastlingSide::{Kingside, Queenside};
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::board::piece::PieceType;
 use crate::engine::board::piece::PieceType::{BISHOP, KING, KNIGHT, PAWN, QUEEN, ROOK};
+use crate::engine::datagen::format::Array32U4;
 use crate::engine::movegen::constants::KNIGHT_MOVES;
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::engine::movegen::movedata::MoveData;
+use crate::engine::search::nnue::types::Accumulator;
+use crate::engine::search::psqt::constants::GAMEPHASE_INC;
 use crate::engine::search::nnue::NNUE_NETWORK;
 use crate::engine::search::nnue::types::{Accumulator, get_feature_indices};
-use crate::engine::search::psqt::constants::GAMEPHASE_INC;
 use crate::engine::search::psqt::function::get_psqt;
 use crate::engine::search::psqt::weight::W;
 use crate::engine::search::zobrist::constants::{
@@ -128,6 +135,14 @@ impl Board {
         }
 
         (acc_white, acc_black)
+        debug_assert!(
+            self.get_piece_bitboard(piece.piece_color, piece.piece_type)
+                .contains_square(square)
+        );
+        debug_assert!(
+            self.get_color_bitboard(piece.piece_color)
+                .contains_square(square)
+        );
     }
 
     pub fn detect_pawns_only(&self, piece_color: PieceColor) -> bool {
@@ -176,6 +191,42 @@ impl Board {
         }
     }
 
+    fn viri_is_castling_right_square(self: &Board, sqr: u8) -> bool {
+        if sqr == WHITE_KINGSIDE_ROOK_START && self.game_state.castle_white.is_allowed(&Kingside) {
+            return true;
+        } else if sqr == WHITE_QUEENSIDE_ROOK_START
+            && self.game_state.castle_white.is_allowed(&Queenside)
+        {
+            return true;
+        }
+
+        if sqr == BLACK_KINGSIDE_ROOK_START && self.game_state.castle_black.is_allowed(&Kingside) {
+            return true;
+        } else if sqr == BLACK_QUEENSIDE_ROOK_START
+            && self.game_state.castle_black.is_allowed(&Queenside)
+        {
+            return true;
+        }
+        false
+    }
+
+    pub fn pack_pieces_into_viri(&self) -> Array32U4 {
+        let mut pieces = Array32U4::default();
+
+        let mut occ = self.all_pieces_bitboard;
+        let mut index = 0;
+        while occ != 0 {
+            let sqr = occ.pop_lsb();
+            let piece = self.squares[sqr as usize].unwrap();
+            if self.viri_is_castling_right_square(sqr) {
+                pieces.set(index, piece.piece_to_viri(true))
+            } else {
+                pieces.set(index, piece.piece_to_viri(false))
+            }
+            index += 1;
+        }
+        pieces
+    }
     pub fn is_threefold_repetition(&self) -> bool {
         // let len=self.repetition_table.len();
         // let start = len.saturating_sub(self.game_state.halfmove_clock as usize);

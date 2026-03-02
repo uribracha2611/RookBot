@@ -17,7 +17,9 @@ use super::piece::PieceColor;
     Shr,
     Mul,
     Default,
-    Debug, Eq)]
+    Debug,
+    Eq,
+)]
 pub struct Bitboard(u64);
 
 impl PartialEq<u64> for Bitboard {
@@ -69,6 +71,9 @@ impl Bitboard {
         let bit: u64 = 1u64 << square;
         self.clear(bit);
     }
+    pub fn to_unsinged(&self) -> u64 {
+        self.0
+    }
 
     /// Perform a pawn push in the specified direction for the given color.
     #[inline(always)]
@@ -113,11 +118,11 @@ impl Bitboard {
     pub fn pawn_attack(self, color: PieceColor, opponent: Bitboard, attack_left: bool) -> Bitboard {
         let pawn_mask = self
             & match (color, attack_left) {
-            (PieceColor::WHITE, true) => !A_FILE,
-            (PieceColor::WHITE, false) => !H_FILE,
-            (PieceColor::BLACK, true) => !H_FILE,
-            (PieceColor::BLACK, false) => !A_FILE,
-        };
+                (PieceColor::WHITE, true) => !A_FILE,
+                (PieceColor::WHITE, false) => !H_FILE,
+                (PieceColor::BLACK, true) => !H_FILE,
+                (PieceColor::BLACK, false) => !A_FILE,
+            };
 
         match (color, attack_left) {
             (PieceColor::WHITE, true) => (pawn_mask << 7) & opponent,

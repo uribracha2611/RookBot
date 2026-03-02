@@ -1,19 +1,15 @@
-# 1. Ignore everything by default
 *
 
-# 2. Allow top-level configuration files
 !.gitignore
 !Cargo.toml
 !Cargo.lock
 !README.md
 
-# 3. Allow the src directory itself (but not its contents yet)
 !src/
+!src/engine/
+!src/engine/datagen/
+!src/bin/
 
-# 4. Ignore everything inside src by default
-src/*
-
-# 5. Specifically allow your files and the bin directory
 !src/SEE.txt
 !src/constants.rs
 !src/lmr_table.bin
@@ -28,3 +24,4 @@ src/*
 # 6. Allow everything inside the bin directory
 !src/bin/**/*
 !src/engine/search/nnue/**/*
+!src/engine/datagen/**/*

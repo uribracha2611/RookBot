@@ -1,16 +1,16 @@
 use crate::engine::board::board::Board;
 use crate::engine::board::castling::types::CastlingSide;
+use crate::engine::board::piece::PieceColor::WHITE;
 use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::board::position::Position;
 use std::fmt;
-use std::num::NonZeroU16;
-
+use std::hint::unreachable_unchecked;
+use std::num::{NonZeroI16, NonZeroU16};
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct MoveData {
     data: NonZeroU16,
 }
-
 impl MoveData {
     // Define your Wiki/Standard flags
     pub const QUIET: u8 = 0;
@@ -29,9 +29,8 @@ impl MoveData {
     pub const PROMO_QUEEN_CAP: u8 = 15;
 
     pub fn new(from: u8, to: u8, flags: u8) -> Self {
-        let packed = ((flags as u16 & 0x0F) << 12)
-            | ((to as u16 & 0x3F) << 6)
-            | (from as u16 & 0x3F);
+        let packed =
+            ((flags as u16 & 0x0F) << 12) | ((to as u16 & 0x3F) << 6) | (from as u16 & 0x3F);
 
         unsafe {
             MoveData {
@@ -39,6 +38,7 @@ impl MoveData {
             }
         }
     }
+
     pub fn get_promotion_piece(self, color: PieceColor) -> Piece {
         let piece_type = match self.flags() {
             Self::PROMO_KNIGHT | Self::PROMO_KNIGHT_CAP => PieceType::KNIGHT,
@@ -50,10 +50,38 @@ impl MoveData {
         Piece::new(color, piece_type)
     }
 
-
     #[inline(always)]
     fn bits(self) -> u16 {
         self.data.get()
+    }
+    pub fn move_to_viri_format(&self, turn: PieceColor) -> NonZeroU16 {
+        let from = self.from() as u16;
+        let mut to = self.to() as u16;
+        let mut flag_bits = 0u16;
+        let mut promotion_piece = 0u16;
+
+        if self.is_castle() {
+            to = self.get_rook_start(turn) as u16;
+            flag_bits = 2;
+        } else if self.is_en_passant() {
+            flag_bits = 1;
+        } else if self.is_promotion() {
+            flag_bits = 3;
+            promotion_piece = match self.get_promotion_piece(turn).piece_type {
+                PieceType::KNIGHT => 0,
+                PieceType::BISHOP => 1,
+                PieceType::ROOK => 2,
+                PieceType::QUEEN => 3,
+                _ => 0,
+            };
+        }
+
+        //safaty from/=to from movegen correctness  so either from is A1=0 or To=A1=0 but not both
+        unsafe {
+            NonZeroU16::new_unchecked(
+                from | (to << 6) | (promotion_piece << 12) | (flag_bits << 14),
+            )
+        }
     }
     pub fn is_castle(self) -> bool {
         (self.flags() & 0b1110) == 0b0010
@@ -74,8 +102,20 @@ impl MoveData {
         let is_kside = self.flags() == Self::CASTLE_KING;
 
         match color {
-            PieceColor::WHITE => if is_kside { 7 } else { 0 },
-            PieceColor::BLACK => if is_kside { 63 } else { 56 },
+            PieceColor::WHITE => {
+                if is_kside {
+                    7
+                } else {
+                    0
+                }
+            }
+            PieceColor::BLACK => {
+                if is_kside {
+                    63
+                } else {
+                    56
+                }
+            }
         }
     }
 
@@ -84,11 +124,22 @@ impl MoveData {
         let is_kside = self.flags() == Self::CASTLE_KING;
 
         match color {
-            PieceColor::WHITE => if is_kside { 5 } else { 3 },
-            PieceColor::BLACK => if is_kside { 61 } else { 59 },
+            PieceColor::WHITE => {
+                if is_kside {
+                    5
+                } else {
+                    3
+                }
+            }
+            PieceColor::BLACK => {
+                if is_kside {
+                    61
+                } else {
+                    59
+                }
+            }
         }
     }
-
 
     pub fn is_capture(self) -> bool {
         (self.flags() & 0b0100) != 0
@@ -98,14 +149,19 @@ impl MoveData {
         (self.flags() & 0b1000) != 0
     }
 
-
     pub fn from_algebraic(algebraic: &str, board: &Board) -> Self {
         let notation = algebraic.to_lowercase(); // UCI is usually lowercase
 
         // 1) Handle special UCI cases for Castling (e1g1, etc.)
         // We can just detect the squares. If the King is moving from e1 to g1, it's a castle.
-        let from_sq = Position::from_chess_notation(&notation[0..2]).unwrap().to_sqr().unwrap() as u8;
-        let to_sq = Position::from_chess_notation(&notation[2..4]).unwrap().to_sqr().unwrap() as u8;
+        let from_sq = Position::from_chess_notation(&notation[0..2])
+            .unwrap()
+            .to_sqr()
+            .unwrap() as u8;
+        let to_sq = Position::from_chess_notation(&notation[2..4])
+            .unwrap()
+            .to_sqr()
+            .unwrap() as u8;
 
         let moving_piece = board.squares[from_sq as usize].expect("No piece at from square");
         let mut flags = Self::QUIET;
@@ -158,11 +214,7 @@ impl MoveData {
         let to = self.to();
 
         if self.is_en_passant() {
-            return if to >= 40 && to <= 47 {
-                to - 8
-            } else {
-                to + 8
-            };
+            return if to >= 40 && to <= 47 { to - 8 } else { to + 8 };
         }
 
         to
@@ -178,8 +230,14 @@ impl MoveData {
         let from_sq = self.from();
         let to_sq = self.to();
 
-        let from_notation = Position::from_sqr(from_sq as i8).unwrap().to_chess_notation().unwrap();
-        let to_notation = Position::from_sqr(to_sq as i8).unwrap().to_chess_notation().unwrap();
+        let from_notation = Position::from_sqr(from_sq as i8)
+            .unwrap()
+            .to_chess_notation()
+            .unwrap();
+        let to_notation = Position::from_sqr(to_sq as i8)
+            .unwrap()
+            .to_chess_notation()
+            .unwrap();
 
         let mut result = format!("{}{}", from_notation, to_notation);
 
@@ -202,11 +260,19 @@ impl fmt::Debug for MoveData {
         let mut info = String::new();
 
         // הוספת מידע על סוג המהלך לפי הדגלים
-        if self.is_capture() { info.push_str(" [Capture]"); }
-        if self.is_castle() { info.push_str(" [Castle]"); }
+        if self.is_capture() {
+            info.push_str(" [Capture]");
+        }
+        if self.is_castle() {
+            info.push_str(" [Castle]");
+        }
 
-        if flags == Self::DOUBLE_PUSH { info.push_str(" [Double Push]"); }
-        if flags == Self::EN_PASSANT { info.push_str(" [En Passant]"); }
+        if flags == Self::DOUBLE_PUSH {
+            info.push_str(" [Double Push]");
+        }
+        if flags == Self::EN_PASSANT {
+            info.push_str(" [En Passant]");
+        }
 
         // הצגת המהלך בפורמט: Move(e2e4 [Capture])
         write!(f, "Move({}{})", self.to_algebraic(), info)
