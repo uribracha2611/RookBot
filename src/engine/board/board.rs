@@ -16,10 +16,10 @@ use crate::engine::datagen::format::Array32U4;
 use crate::engine::movegen::constants::KNIGHT_MOVES;
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::search::nnue::types::Accumulator;
-use crate::engine::search::psqt::constants::GAMEPHASE_INC;
 use crate::engine::search::nnue::NNUE_NETWORK;
+
 use crate::engine::search::nnue::types::{Accumulator, get_feature_indices};
+use crate::engine::search::psqt::constants::GAMEPHASE_INC;
 use crate::engine::search::psqt::function::get_psqt;
 use crate::engine::search::psqt::weight::W;
 use crate::engine::search::zobrist::constants::{
@@ -135,14 +135,6 @@ impl Board {
         }
 
         (acc_white, acc_black)
-        debug_assert!(
-            self.get_piece_bitboard(piece.piece_color, piece.piece_type)
-                .contains_square(square)
-        );
-        debug_assert!(
-            self.get_color_bitboard(piece.piece_color)
-                .contains_square(square)
-        );
     }
 
     pub fn detect_pawns_only(&self, piece_color: PieceColor) -> bool {
