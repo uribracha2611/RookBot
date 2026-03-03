@@ -3,6 +3,7 @@ use crate::engine::board::piece::PieceColor::WHITE;
 use crate::engine::datagen::format::{BoardPacked, Game, PackedMove};
 use crate::engine::movegen::generate::{generate_moves, update_check};
 use crate::engine::search::constants::MATE_VALUE;
+use crate::engine::search::psqt::weight::W;
 use crate::engine::search::search::search;
 use crate::engine::search::transposition_table::TranspositionTable;
 use crate::engine::search::types::SearchInput;
@@ -30,9 +31,10 @@ pub fn run_game(initial_board: &Board, node_count: u64) -> Game {
 
         let best_move = result.principal_variation[0];
 
+        let to_white_side_factor = if board.turn == WHITE { 1 } else { -1 };
         let curr_move_packed = PackedMove::new(
             best_move.move_to_viri_format(board.turn),
-            result.eval as i16,
+            (result.eval as i16) * to_white_side_factor,
         );
 
         moves.push(curr_move_packed);

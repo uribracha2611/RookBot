@@ -155,15 +155,12 @@ pub mod avx512 {
             let mut v = _mm512_loadu_si512(acc.add(i) as *const _);
             v = _mm512_min_epi16(_mm512_max_epi16(v, zero), max_v);
             let w = _mm512_loadu_si512(weights.add(i) as *const _);
-
             let v_0 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(v, 0));
             let v_1 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(v, 1));
             let w_0 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(w, 0));
             let w_1 = _mm512_cvtepi16_epi32(_mm512_extracti64x4_epi64(w, 1));
-
             let p_0 = _mm512_mullo_epi32(_mm512_mullo_epi32(v_0, v_0), w_0);
             let p_1 = _mm512_mullo_epi32(_mm512_mullo_epi32(v_1, v_1), w_1);
-
             total_sum += _mm512_reduce_add_epi32(p_0) + _mm512_reduce_add_epi32(p_1);
         }
         total_sum
@@ -176,12 +173,11 @@ pub use avx512::{add, evaluate_part, sub};
 //#[cfg(all(target_feature = "avx2", not(target_feature = "avx512f")))]
 //pub use avx2::{add, evaluate_part, sub};
 
-/*#[cfg(all(
-    not(target_feature = "sse2"),
-    not(target_feature = "avx2"),
-    not(target_feature = "avx512f")
-))]
- */
+//#[cfg(all(
+//  not(target_feature = "sse2"),
+// not(target_feature = "avx2"),
+// not(target_feature = "avx512f")
+//))]
 pub use generic::{add, evaluate_part, sub};
 #[cfg(all(
     target_feature = "sse2",
