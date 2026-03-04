@@ -294,7 +294,11 @@ fn search_common(
     }
     let improving = is_improving(board, curr_eval, refs, ply);
 
-    if alpha.abs() < 2000 && depth <= RAZOR_DEPTH && curr_eval + RAZOR_MARGIN < beta {
+    if alpha.abs() < 2000
+        && depth <= RAZOR_DEPTH
+        && curr_eval + RAZOR_MARGIN < beta
+        && !board.game_state.is_check
+    {
         let value = quiescence_search(board, alpha, alpha + 1, refs);
         if value <= alpha {
             return value;
