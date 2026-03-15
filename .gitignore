@@ -1,27 +1,11 @@
-*
-
+/*
+!/*/
+/target/
+/DATA/
+/binaries_to_test/
+/.idea/
+/.cargo/
+/tests/
+/src/nnue.bin
+/src/nnue-64.bin
 !.gitignore
-!Cargo.toml
-!Cargo.lock
-!README.md
-
-!src/
-!src/engine/
-!src/engine/datagen/
-!src/bin/
-
-!src/SEE.txt
-!src/constants.rs
-!src/lmr_table.bin
-!src/bin/
-# 6. Open the path layer by layer
-!src/engine/
-!src/engine/search/
-!src/engine/search/nnue/
-
-# Now Git can see everything inside nnue
-!src/engine/search/nnue/**
-# 6. Allow everything inside the bin directory
-!src/bin/**/*
-!src/engine/search/nnue/**/*
-!src/engine/datagen/**/*
