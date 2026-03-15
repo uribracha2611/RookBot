@@ -286,7 +286,11 @@ fn search_common(
         }
     }
 
-    let curr_eval = eval(board);
+    let curr_eval = if board.game_state.is_check {
+        -INFINITY
+    } else {
+        eval(board)
+    };
     if board.game_state.is_check {
         refs.disable_eval_ply(ply);
     } else {
