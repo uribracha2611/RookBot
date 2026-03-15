@@ -201,7 +201,7 @@ impl SearchRefs<'_> {
         self.eval_stack[ply as usize] = None;
     }
     pub fn set_move_ply(&mut self, ply: i32, move_data: MoveData, board: &Board) {
-        self.move_stack[ply as usize] = Some(MoveEntryStack { mv: move_data, piece_moved: board.squares[move_data.from() as usize].unwrap() });
+        self.move_stack[ply as usize] = Some(MoveEntryStack { mv: move_data, piece_moved: board.game_state.squares[move_data.from() as usize].unwrap() });
     }
     pub fn get_move_ply(&self, ply: i32) -> Option<MoveEntryStack> {
         self.move_stack[ply as usize]
@@ -219,7 +219,7 @@ impl SearchRefs<'_> {
         for ply_index in 1..=2 {
             if ply >= ply_index
                 && let Some(stack_mv) = self.move_stack[(ply - ply_index) as usize] {
-                let piece_1 = board.squares[mv.from() as usize].unwrap();
+                let piece_1 = board.game_state.squares[mv.from() as usize].unwrap();
                 let index = Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved);
                 self.continuation_history[(ply_index - 1) as usize][index] += bonus - self.continuation_history[(ply_index - 1) as usize][index] * bonus.abs() / HISTORY_MAX;
             }
@@ -229,7 +229,7 @@ impl SearchRefs<'_> {
 
     pub fn get_cont_history(&self, board: &Board, ply: i32, mv: MoveData) -> i32 {
         let mut cont = 0;
-        let piece_1 = board.squares[mv.from() as usize].unwrap();
+        let piece_1 = board.game_state.squares[mv.from() as usize].unwrap();
 
         if ply >= 1
             && let Some(stack_mv) = self.move_stack[(ply - 1) as usize] {

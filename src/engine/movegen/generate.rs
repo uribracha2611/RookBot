@@ -132,7 +132,7 @@ pub fn find_hidden_attackers(board: &Board, delta: Position, square: u8) -> Opti
         let curr_pos = initial_pos + delta_search * i;
         curr_pos.to_sqr()?;
         let curr_sqr = curr_pos.to_sqr().unwrap();
-        if let Some(curr_piece) = board.squares[curr_sqr as usize] {
+        if let Some(curr_piece) = board.game_state.squares[curr_sqr as usize] {
             if (curr_piece.is_diag() && !is_ortho) || (curr_piece.is_ortho() && is_ortho) {
                 return Some((curr_piece, curr_sqr as u8));
             } else {
@@ -224,7 +224,7 @@ pub fn update_check_status(board: &mut Board) {
         } else {
             let checker_square = attackers.get_single_set_bit();
             let mut valid_moves = Bitboard::new(0);
-            let checker_piece = board.squares[checker_square as usize].unwrap();
+            let checker_piece = board.game_state.squares[checker_square as usize].unwrap();
 
             // If the checker is not a sliding piece, the only valid move is to capture the checker
             if checker_piece.piece_type != PieceType::BISHOP
@@ -703,14 +703,14 @@ pub fn in_check_after_en_passant(
     king_attacks != 0
 }
 pub fn is_legal_moves(board: &Board, mv: &MoveData) -> bool {
-    if board.squares[mv.get_capture_square() as usize] != None {
+    if board.game_state.squares[mv.get_capture_square() as usize] != None {
         return false;
     }
     if (is_pinned(board, mv.from()) || board.game_state.is_check) && ALIGN_MASK[mv.from() as usize][board.curr_king as usize]
         != ALIGN_MASK[mv.to() as usize][board.curr_king as usize] {
         return false;
     }
-    if board.squares[mv.from() as usize].unwrap().piece_type == KING && board.attacked_square.contains_square(mv.to()) {
+    if board.game_state.squares[mv.from() as usize].unwrap().piece_type == KING && board.attacked_square.contains_square(mv.to()) {
         return false;
     }
     true

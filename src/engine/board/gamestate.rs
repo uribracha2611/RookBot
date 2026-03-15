@@ -22,6 +22,10 @@ pub struct GameState {
     pub acc_black: Accumulator,
     pub captured_piece: Option<Piece>,
     pub pinned_ray: Bitboard,
+    pub squares: [Option<Piece>; 64],
+    pub color_bitboards: [Bitboard; 2],
+    pub piece_bitboards: [[Bitboard; 6]; 2],
+    pub all_pieces_bitboard: Bitboard,
 }
 impl GameState {
     pub fn new(
@@ -34,7 +38,12 @@ impl GameState {
         zobrist_hash: u64,
     ) -> GameState {
         GameState {
+            squares: [None; 64],
             castle_white,
+
+            color_bitboards: [Bitboard::new(0), Bitboard::new(0)],
+            piece_bitboards: [[Bitboard::new(0); 6]; 2],
+            all_pieces_bitboard: Bitboard::new(0),
             castle_black,
             halfmove_clock,
             fullmove_clock,
@@ -141,8 +150,8 @@ impl GameState {
         } else {
             panic!("Invalid en passant field in FEN string");
         };
-
         let mut game_state = GameState {
+            squares: [None; 64],
             castle_white: AllowedCastling::from_fen(castle_rights, PieceColor::WHITE),
             castle_black: AllowedCastling::from_fen(castle_rights, PieceColor::BLACK),
             halfmove_clock: parts[2]
@@ -161,6 +170,9 @@ impl GameState {
             acc_black: Accumulator::new(&NNUE_NETWORK),
             is_double_check: false,
             is_check: false,
+            color_bitboards: [Bitboard::new(0), Bitboard::new(0)],
+            piece_bitboards: [[Bitboard::new(0); 6]; 2],
+            all_pieces_bitboard: Bitboard::new(0),
         };
 
         game_state.init_zobrist_hash();

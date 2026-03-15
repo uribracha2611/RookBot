@@ -121,7 +121,6 @@ pub fn check_epd_line(line: &str) -> Result<(), String> {
     if parts.len() < 2 {
         return Err("Invalid EPD line format".to_string());
     }
-
     let fen = parts[0].trim();
     let board = Arc::new(Mutex::new(Board::from_fen(fen)));
 
@@ -134,8 +133,10 @@ pub fn check_epd_line(line: &str) -> Result<(), String> {
         let depth: u32 = depth_and_result[0][1..]
             .parse()
             .map_err(|_| "Invalid depth".to_string())?;
+
         let expected_result: u32 = depth_and_result[1]
             .trim_matches('"')
+            .trim_matches('\0')
             .parse()
             .map_err(|_| "Invalid result".to_string())?;
 
@@ -148,6 +149,7 @@ pub fn check_epd_line(line: &str) -> Result<(), String> {
                 .map_err(|_| "Mutex lock failed".to_string())?;
 
             let result = perft_bulk(&mut board_lock, depth);
+
             if result != expected_result {
                 return Err(format!(
                     "Mismatch for FEN: {} at depth {}: expected {}, got {}",

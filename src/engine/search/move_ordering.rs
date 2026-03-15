@@ -62,8 +62,8 @@ pub fn get_move_score(
 }
 #[inline(always)]
 pub fn capture_formula(board: &Board, mv: MoveData) -> i32 {
-    board.squares[mv.get_capture_square() as usize].unwrap().get_value() * 10
-        - board.squares[mv.from() as usize].unwrap().get_value()
+    board.game_state.squares[mv.get_capture_square() as usize].unwrap().get_value() * 10
+        - board.game_state.squares[mv.from() as usize].unwrap().get_value()
 }
 pub fn get_capture_score_only(
     board: &Board,

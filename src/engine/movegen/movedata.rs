@@ -163,7 +163,7 @@ impl MoveData {
             .to_sqr()
             .unwrap() as u8;
 
-        let moving_piece = board.squares[from_sq as usize].expect("No piece at from square");
+        let moving_piece = board.game_state.squares[from_sq as usize].expect("No piece at from square");
         let mut flags = Self::QUIET;
 
         // 2) Detect Castling by King movement
@@ -176,7 +176,7 @@ impl MoveData {
         }
 
         // 3) Detect Captures (Normal and EP)
-        if board.squares[to_sq as usize].is_some() {
+        if board.game_state.squares[to_sq as usize].is_some() {
             flags = Self::CAPTURE;
         } else if moving_piece.piece_type == PieceType::PAWN {
             // Diagonal pawn move to empty square is En Passant

@@ -29,11 +29,7 @@ use std::thread::AccessError;
 
 #[derive(Clone)]
 pub struct Board {
-    pub squares: [Option<Piece>; 64],
     pub turn: PieceColor,
-    color_bitboards: [Bitboard; 2],
-    piece_bitboards: [[Bitboard; 6]; 2],
-    all_pieces_bitboard: Bitboard,
     pub game_state: GameState,
     pub attacked_square: Bitboard,
     pub curr_king: u8,
@@ -43,7 +39,7 @@ pub struct Board {
 
 impl Board {
     fn remove_piece(&mut self, square: u8, piece: Piece) {
-        debug_assert!(self.squares[square as usize] == Some(piece));
+        debug_assert!(self.game_state.squares[square as usize] == Some(piece));
         debug_assert!(
             self.get_piece_bitboard(piece.piece_color, piece.piece_type)
                 .contains_square(square)
@@ -62,13 +58,13 @@ impl Board {
             &mut self.game_state.acc_black,
             false,
         );
-        self.squares[square as usize] = None;
+        self.game_state.squares[square as usize] = None;
         self.get_color_bitboard_mut(piece.piece_color)
             .clear_square(square);
         self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type)
             .clear_square(square);
-        self.all_pieces_bitboard.clear_square(square);
-        debug_assert!(self.squares[square as usize].is_none());
+        self.game_state.all_pieces_bitboard.clear_square(square);
+        debug_assert!(self.game_state.squares[square as usize].is_none());
         debug_assert!(
             !self
                 .get_piece_bitboard(piece.piece_color, piece.piece_type)
@@ -82,7 +78,7 @@ impl Board {
     }
 
     fn add_piece(&mut self, square: u8, piece: Piece) {
-        debug_assert!(self.squares[square as usize].is_none());
+        debug_assert!(self.game_state.squares[square as usize].is_none());
         debug_assert!(
             !self
                 .get_piece_bitboard(piece.piece_color, piece.piece_type)
@@ -105,13 +101,13 @@ impl Board {
             true,
         );
 
-        self.squares[square as usize] = Some(piece);
+        self.game_state.squares[square as usize] = Some(piece);
         self.get_color_bitboard_mut(piece.piece_color)
             .set_square(square);
         self.get_piece_bitboard_mut(piece.piece_color, piece.piece_type)
             .set_square(square);
-        self.all_pieces_bitboard.set_square(square);
-        debug_assert!(self.squares[square as usize] == Some(piece));
+        self.game_state.all_pieces_bitboard.set_square(square);
+        debug_assert!(self.game_state.squares[square as usize] == Some(piece));
         debug_assert!(
             self.get_piece_bitboard(piece.piece_color, piece.piece_type)
                 .contains_square(square)
@@ -126,7 +122,7 @@ impl Board {
         let mut acc_white = Accumulator::new(&NNUE_NETWORK);
         let mut acc_black = Accumulator::new(&NNUE_NETWORK);
 
-        for (sq, piece_opt) in self.squares.iter().enumerate() {
+        for (sq, piece_opt) in self.game_state.squares.iter().enumerate() {
             if let Some(piece) = piece_opt {
                 let (white_idx, black_idx) = get_feature_indices(*piece, sq);
                 acc_white.add_feature(white_idx, &NNUE_NETWORK);
@@ -149,9 +145,9 @@ impl Board {
     }
     pub fn is_move_check(&self, mv: MoveData) -> bool {
         let to = mv.to();
-        let piece_moved = self.squares[mv.from() as usize].unwrap();
+        let piece_moved = self.game_state.squares[mv.from() as usize].unwrap();
         let opp_king = self.get_piece_bitboard(piece_moved.piece_color.opposite(), PieceType::KING);
-        let blockers = self.all_pieces_bitboard & !Bitboard::create_from_square(to);
+        let blockers = self.game_state.all_pieces_bitboard & !Bitboard::create_from_square(to);
         match piece_moved.piece_type {
             PieceType::KING => false,
             PieceType::KNIGHT => KNIGHT_MOVES[to as usize] & opp_king != 0,
@@ -205,11 +201,11 @@ impl Board {
     pub fn pack_pieces_into_viri(&self) -> Array32U4 {
         let mut pieces = Array32U4::default();
 
-        let mut occ = self.all_pieces_bitboard;
+        let mut occ = self.game_state.all_pieces_bitboard;
         let mut index = 0;
         while occ != 0 {
             let sqr = occ.pop_lsb();
-            let piece = self.squares[sqr as usize].unwrap();
+            let piece = self.game_state.squares[sqr as usize].unwrap();
             if self.viri_is_castling_right_square(sqr) {
                 pieces.set(index, piece.piece_to_viri(true))
             } else {
@@ -244,17 +240,13 @@ impl Board {
         let active_color = parts[1]; // Second field (active color)
         let game_state_fen = parts[2..].join(" "); // Remaining fields (castling, en passant, clocks)
 
-        let squares = [None; 64];
         let mut board = Board {
-            squares,
             turn: if active_color == "w" {
                 PieceColor::WHITE
             } else {
                 PieceColor::BLACK
             },
-            color_bitboards: [Bitboard::new(0), Bitboard::new(0)],
-            piece_bitboards: [[Bitboard::new(0); 6]; 2],
-            all_pieces_bitboard: Bitboard::new(0),
+
             game_state: GameState::from_fen(&game_state_fen),
             curr_king: 0,
             attacked_square: Bitboard::new(0),
@@ -346,7 +338,7 @@ impl Board {
         for rank in (0..8).rev() {
             let mut empty_count = 0;
             for file in 0..8 {
-                if let Some(piece) = self.squares[rank * 8 + file] {
+                if let Some(piece) = self.game_state.squares[rank * 8 + file] {
                     if empty_count > 0 {
                         fen.push_str(&empty_count.to_string());
                         empty_count = 0;
@@ -375,9 +367,9 @@ impl Board {
     }
     pub fn make_move(&mut self, mv: MoveData) {
         let mut old_game_state = self.game_state;
-        let moved_piece = self.squares[mv.from() as usize].unwrap();
+        let moved_piece = self.game_state.squares[mv.from() as usize].unwrap();
         if mv.is_capture() {
-            let captured_piece = self.squares[mv.get_capture_square() as usize].unwrap();
+            let captured_piece = self.game_state.squares[mv.get_capture_square() as usize].unwrap();
             old_game_state.captured_piece = Some(captured_piece);
             self.remove_piece(mv.get_capture_square(), captured_piece);
             self.disallow_castling_if_needed(mv.get_capture_square(), captured_piece);
@@ -392,7 +384,7 @@ impl Board {
         if mv.is_castle() {
             let rook_start = mv.get_rook_start(self.turn);
             let rook_end = mv.get_rook_end(self.turn);
-            let rook = self.squares[rook_start as usize].unwrap();
+            let rook = self.game_state.squares[rook_start as usize].unwrap();
             self.remove_piece(rook_start, rook);
             self.add_piece(rook_end, rook);
             self.game_state
@@ -415,10 +407,10 @@ impl Board {
         }
         self.history.push(old_game_state);
         self.repetition_table.push(self.game_state.zobrist_hash);
-        debug_assert!(self.squares[mv.from() as usize].is_none());
+        debug_assert!(self.game_state.squares[mv.from() as usize].is_none());
         debug_assert!(
             (!mv.is_promotion()
-                || self.squares[mv.to() as usize]
+                || self.game_state.squares[mv.to() as usize]
                     == Some(mv.get_promotion_piece(moved_piece.piece_color)))
         );
         debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
@@ -449,47 +441,10 @@ impl Board {
     }
     pub fn unmake_move(&mut self, mv: MoveData) {
         let mut old_state = self.history.pop().unwrap();
-        let moved_piece = self.squares[mv.to() as usize].unwrap();
-        if mv.is_promotion() {
-            self.remove_piece(mv.to(), mv.get_promotion_piece(moved_piece.piece_color));
-            self.add_piece(mv.from(), Piece::new(moved_piece.piece_color, PAWN));
-        } else {
-            // Restore the piece to its original position
-            self.remove_piece(mv.to(), moved_piece);
-            self.add_piece(mv.from(), moved_piece);
-        }
-
-        // Restore captured piece if it was a capture move
-        if mv.is_capture() {
-            let captured_piece = old_state.captured_piece.unwrap();
-            self.add_piece(mv.get_capture_square(), captured_piece);
-        }
-
-        // Handle promotion
-
-        // Handle castling
-        if mv.is_castle() {
-            let rook_start = mv.get_rook_start(moved_piece.piece_color);
-            let rook_end = mv.get_rook_end(moved_piece.piece_color);
-            let rook = self.squares[rook_end as usize].unwrap();
-            self.remove_piece(rook_end, rook);
-            self.add_piece(rook_start, rook);
-        }
 
         self.game_state = old_state;
         self.repetition_table.pop();
         self.turn = self.turn.opposite();
-        debug_assert!(self.game_state.zobrist_hash == self.calc_zobrist());
-        debug_assert!(
-            (!mv.is_promotion() && self.squares[mv.from() as usize] == Some(moved_piece))
-                || (mv.is_promotion()
-                    && self.squares[mv.from() as usize]
-                        == Some(Piece::new(moved_piece.piece_color, PAWN)))
-        );
-        debug_assert!(
-            (!mv.is_capture() && self.squares[mv.to() as usize].is_none())
-                || (mv.is_capture() && self.squares[mv.to() as usize] != Some(moved_piece))
-        );
     }
 
     fn disallow_castling_if_needed(&mut self, square: u8, piece: Piece) {
@@ -583,7 +538,7 @@ impl Board {
 
         for rank in (0..8).rev() {
             for file in 0..8 {
-                if let Some(piece) = self.squares[rank * 8 + file] {
+                if let Some(piece) = self.game_state.squares[rank * 8 + file] {
                     stockfish_str.push_str(&piece.to_fen());
                 } else {
                     stockfish_str.push('.');
@@ -598,20 +553,20 @@ impl Board {
         stockfish_str
     }
     pub fn get_piece_bitboard(&self, color: PieceColor, piece: PieceType) -> Bitboard {
-        self.piece_bitboards[color as usize][piece as usize]
+        self.game_state.piece_bitboards[color as usize][piece as usize]
     }
     pub fn get_color_bitboard(&self, color: PieceColor) -> Bitboard {
-        self.color_bitboards[color as usize]
+        self.game_state.color_bitboards[color as usize]
     }
     fn get_piece_bitboard_mut(&mut self, color: PieceColor, piece: PieceType) -> &mut Bitboard {
-        &mut self.piece_bitboards[color as usize][piece as usize]
+        &mut self.game_state.piece_bitboards[color as usize][piece as usize]
     }
 
     fn get_color_bitboard_mut(&mut self, color: PieceColor) -> &mut Bitboard {
-        &mut self.color_bitboards[color as usize]
+        &mut self.game_state.color_bitboards[color as usize]
     }
     pub fn get_all_pieces_bitboard(&self) -> Bitboard {
-        self.all_pieces_bitboard
+        self.game_state.all_pieces_bitboard
     }
     pub fn calc_zobrist(&self) -> u64 {
         let mut zobrist = 0;
@@ -627,7 +582,7 @@ impl Board {
         )];
 
         for sqr in 0..64 {
-            if let Some(piece) = self.squares[sqr] {
+            if let Some(piece) = self.game_state.squares[sqr] {
                 let piece_index = piece.piece_color.to_index() * 6 + piece.piece_type.to_index();
                 zobrist ^= ZOBRIST_KEYS[piece_index][sqr]
             }
@@ -641,7 +596,7 @@ impl Board {
         let mut eval_white_eg = 0;
         let mut eval_black_eg = 0;
         for sqr in 0..64 {
-            if let Some(piece) = self.squares[sqr] {
+            if let Some(piece) = self.game_state.squares[sqr] {
                 let psqt = get_psqt(sqr, piece);
                 if piece.piece_color == PieceColor::WHITE {
                     eval_white_mg += psqt.get_middle_game();
@@ -657,7 +612,7 @@ impl Board {
     pub fn calc_gamephase(&self) -> i32 {
         let mut gamephase = 0;
         for sqr in 0..64 {
-            if let Some(piece) = self.squares[sqr] {
+            if let Some(piece) = self.game_state.squares[sqr] {
                 gamephase += GAMEPHASE_INC[piece.piece_type as usize];
             }
         }

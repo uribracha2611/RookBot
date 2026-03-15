@@ -17,7 +17,7 @@ pub const KING_VALUE: i32 = 20000;
 pub fn static_exchange_evaluation(board: &Board, curr_mv: MoveData) -> i32 {
     let capture_square = curr_mv.get_capture_square();
     let initial_square = curr_mv.from();
-    let piece_captures = board.squares[curr_mv.from() as usize].unwrap();
+    let piece_captures = board.game_state.squares[curr_mv.from() as usize].unwrap();
 
 
     let mut scores = Vec::new();
@@ -28,7 +28,7 @@ pub fn static_exchange_evaluation(board: &Board, curr_mv: MoveData) -> i32 {
     curr_turn_attackers
         .retain(|x| x.0.piece_type != piece_captures.piece_type || x.1 != initial_square);
 
-    let score = match board.squares[capture_square as usize] {
+    let score = match board.game_state.squares[capture_square as usize] {
         None => 0,
         Some(p) => get_piece_value(p.piece_type),
     };
