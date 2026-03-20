@@ -15,6 +15,7 @@ const_for = "0.1.5"
 clap = { version = "4.5.60", features = ["derive"] }
 rand = "0.10.0"
 chrono = "0.4.44"
+mimalloc = "0.1.48"
 [profile.perf]
 inherits = "release"
 debug = true

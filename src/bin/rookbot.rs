@@ -5,8 +5,11 @@ use RookBot::engine::search::clock::TimeManager;
 use RookBot::engine::search::constants::init_lmr;
 use RookBot::engine::search::transposition_table::TranspositionTable;
 use RookBot::uci::handle_command;
+use mimalloc::MiMalloc;
 use std::io::{self, BufRead};
 
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 fn main() {
     precompute_magics();
     init_lmr();
