@@ -5,6 +5,7 @@ use crate::engine::board::see::static_exchange_evaluation;
 use crate::engine::movegen::generate::{generate_moves, update_check};
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
+use crate::engine::search::clock::TimeManager;
 use crate::engine::search::constants::{
     INFINITY, MATE_VALUE, RAZOR_DEPTH, RAZOR_MARGIN, VAL_WINDOW,
 };
@@ -15,7 +16,7 @@ use crate::engine::search::move_ordering::{
 };
 use crate::engine::search::nnue::NNUE_NETWORK;
 use crate::engine::search::transposition_table::EntryType::UpperBound;
-use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
+use crate::engine::search::transposition_table::{self, EntryType, TranspositionTable};
 use crate::engine::search::types::{SearchInput, SearchOutput, SearchRefs};
 use num_traits::real::Real;
 use std::time::Duration;
@@ -25,12 +26,13 @@ pub fn quiescence_search(
     mut alpha: i32,
     beta: i32,
     refs: &mut SearchRefs,
+    time_manager: &TimeManager,
 ) -> i32 {
     debug_assert!(alpha < beta);
     debug_assert!(alpha >= -INFINITY);
     debug_assert!(beta <= INFINITY);
     // Check if time has exceeded
-    if refs.is_time_done() || refs.is_nodes_exceeded() {
+    if time_manager.check_if_done(refs.get_nodes_evaluated()) {
         return 0;
     }
 
@@ -71,7 +73,7 @@ pub fn quiescence_search(
 
     // Iterate through the moves
     for i in 0..moves.len() {
-        if refs.is_nodes_exceeded() {
+        if time_manager.check_if_only_nodes_done(refs.get_nodes_evaluated()) {
             return 0;
         }
         // Pick the move to search next
@@ -84,14 +86,14 @@ pub fn quiescence_search(
 
         // Check time again before making a move
 
-        if refs.is_time_done() {
+        if time_manager.check_if_time_only_done() {
             return 0;
         }
 
         refs.increment_nodes_evaluated();
         // Make the move and perform recursive quiescence search
         board.make_move(mv);
-        let score = -quiescence_search(board, -beta, -alpha, refs);
+        let score = -quiescence_search(board, -beta, -alpha, refs, time_manager);
         board.unmake_move(mv);
 
         // Apply pruning if necessary
@@ -165,29 +167,19 @@ pub fn pick_move(ml: &mut MoveList, start_index: u8, scores: &mut Vec<i32>) {
 
 pub fn search(
     board: &mut Board,
-    input: &mut SearchInput,
     tt_table: &mut TranspositionTable,
+    time_manager: &TimeManager,
 ) -> SearchOutput {
+    let mut refs = SearchRefs::new_search_refs(tt_table);
     let mut current_depth = 1;
-
     let mut principal_variation: Vec<MoveData> = Vec::new();
     let mut best_eval = -INFINITY;
-    let is_depth_search = input.depth.is_some();
-    let is_move_count_search = input.node_count.is_some();
-    let max_depth = input.depth.unwrap_or(63);
-    let node_count = input.node_count.unwrap_or(0);
-    let move_time = input.move_time.unwrap_or(Duration::from_millis(0));
+
     let mut alpha = -INFINITY;
     let mut beta = INFINITY;
-    let mut refs = if is_depth_search {
-        SearchRefs::new_depth_search(tt_table)
-    } else if is_move_count_search {
-        SearchRefs::new_node_search(node_count, tt_table)
-    } else {
-        SearchRefs::new_timed_search(&move_time, tt_table)
-    };
-    while current_depth <= max_depth {
-        if refs.is_time_elapsed_iterative_search() {
+
+    while !time_manager.check_if_depth_done(current_depth) {
+        if time_manager.check_if_soft_time_done() {
             break;
         }
         let old_pv = principal_variation.clone();
@@ -199,8 +191,9 @@ pub fn search(
             beta,
             &mut principal_variation,
             &mut refs,
+            time_manager,
         );
-        if refs.is_time_done() || refs.is_nodes_exceeded() {
+        if time_manager.check_if_done(refs.get_nodes_evaluated()) {
             principal_variation = old_pv;
             break;
         }
@@ -232,13 +225,14 @@ fn search_common(
     beta: i32,
     pv: &mut Vec<MoveData>,
     refs: &mut SearchRefs,
+    time_manager: &TimeManager,
 ) -> i32 {
     debug_assert!(ply >= 0);
     debug_assert!(alpha < beta);
     debug_assert!(alpha >= -INFINITY);
     debug_assert!(beta <= INFINITY);
     // Stop search if time has elapsed
-    if refs.is_time_done() || refs.is_nodes_exceeded() {
+    if time_manager.check_if_done(refs.get_nodes_evaluated()) {
         return 0;
     }
     let mut best_score = -INFINITY;
@@ -247,7 +241,7 @@ fn search_common(
         depth += 1;
     }
     if depth <= 0 {
-        return quiescence_search(board, alpha, beta, refs);
+        return quiescence_search(board, alpha, beta, refs, time_manager);
     }
 
     if board.is_board_draw() {
@@ -303,7 +297,7 @@ fn search_common(
         && curr_eval + RAZOR_MARGIN < beta
         && !board.game_state.is_check
     {
-        let value = quiescence_search(board, alpha, alpha + 1, refs);
+        let value = quiescence_search(board, alpha, alpha + 1, refs, time_manager);
         if value <= alpha {
             return value;
         }
@@ -324,8 +318,16 @@ fn search_common(
             3
         };
         board.make_null_move();
-        let null_move_score =
-            -search_common(board, depth - 1 - r, ply + 1, -beta, -beta + 1, pv, refs);
+        let null_move_score = -search_common(
+            board,
+            depth - 1 - r,
+            ply + 1,
+            -beta,
+            -beta + 1,
+            pv,
+            refs,
+            time_manager,
+        );
         board.unmake_null_move();
         if null_move_score >= beta {
             return null_move_score;
@@ -344,7 +346,7 @@ fn search_common(
     let mut quiet_moves: Vec<MoveData> = Vec::with_capacity(move_list.len());
     let mut is_pvs = false;
     for i in 0..move_list.len() {
-        if refs.is_nodes_exceeded() {
+        if time_manager.check_if_only_nodes_done(refs.get_nodes_evaluated()) {
             return 0;
         }
         let mut is_quiet_move = false;
@@ -417,6 +419,7 @@ fn search_common(
                 -alpha,
                 &mut node_pv,
                 refs,
+                time_manager,
             );
             if score_mv > alpha {
                 score_mv = -search_common(
@@ -427,6 +430,7 @@ fn search_common(
                     -alpha,
                     &mut node_pv,
                     refs,
+                    time_manager,
                 );
             }
         } else if is_pvs {
@@ -438,10 +442,20 @@ fn search_common(
                 -alpha,
                 &mut node_pv,
                 refs,
+                time_manager,
             );
         }
         if !is_pvs || score_mv > alpha {
-            score_mv = -search_common(board, depth - 1, ply + 1, -beta, -alpha, &mut node_pv, refs);
+            score_mv = -search_common(
+                board,
+                depth - 1,
+                ply + 1,
+                -beta,
+                -alpha,
+                &mut node_pv,
+                refs,
+                time_manager,
+            );
         }
 
         board.unmake_move(curr_move);

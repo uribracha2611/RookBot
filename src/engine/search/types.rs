@@ -1,12 +1,11 @@
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::{Piece, PieceColor};
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::search::move_ordering::{KillerMoves, BASE_KILLER};
+use crate::engine::search::move_ordering::{BASE_KILLER, KillerMoves};
 use crate::engine::search::transposition_table::TranspositionTable;
 use std::time::{Duration, Instant};
 
 const HISTORY_MAX: i32 = 16_384;
-
 
 pub struct SearchOutput {
     pub nodes_evaluated: u64,
@@ -39,22 +38,32 @@ impl SearchOutput {
     }
 }
 
-
 pub struct SearchInput {
     pub depth: Option<u8>,
     pub move_time: Option<Duration>,
     pub node_count: Option<u64>,
 }
 impl SearchInput {
-    pub fn depth_input(depth: u8) -> SearchInput
-    {
-        SearchInput { move_time: None, depth: Some(depth), node_count: None }
+    pub fn depth_input(depth: u8) -> SearchInput {
+        SearchInput {
+            move_time: None,
+            depth: Some(depth),
+            node_count: None,
+        }
     }
     pub fn time_input(move_time: Duration) -> SearchInput {
-        SearchInput { move_time: Some(move_time), depth: None, node_count: None }
+        SearchInput {
+            move_time: Some(move_time),
+            depth: None,
+            node_count: None,
+        }
     }
     pub fn node_count_input(node_count: u64) -> SearchInput {
-        SearchInput { move_time: None, depth: None, node_count: Some(node_count) }
+        SearchInput {
+            move_time: None,
+            depth: None,
+            node_count: Some(node_count),
+        }
     }
 }
 
@@ -67,88 +76,26 @@ pub struct SearchRefs<'a> {
     killer_moves: KillerMoves,
     nodes_evaluated: u64,
     start_time: Option<Instant>,
-    time_limit: Option<Duration>,
-    nodes_limit: Option<u64>,
     history_table: [[[i32; 64]; 64]; 2],
     eval_stack: [Option<i32>; 256],
     move_stack: [Option<MoveEntryStack>; 256],
     continuation_history: Vec<Vec<i32>>,
     pub table: &'a mut TranspositionTable,
-
 }
 impl SearchRefs<'_> {
-    pub fn new_timed_search<'a>(
-        time_limit: &Duration,
-        transposition_table: &'a mut TranspositionTable,
-    ) -> SearchRefs<'a> {
+    pub fn new_search_refs<'a>(transposition_table: &'a mut TranspositionTable) -> SearchRefs<'a> {
         let killer_moves: KillerMoves = [[None; 2]; 256];
         let history_table = [[[0; 64]; 64]; 2];
         SearchRefs {
             killer_moves,
             nodes_evaluated: 0,
             start_time: Some(Instant::now()),
-            time_limit: Some(*time_limit),
-            nodes_limit: None,
             history_table,
             eval_stack: [None; 256],
             move_stack: [None; 256],
             table: transposition_table,
             continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
         }
-    }
-    pub fn new_depth_search(
-        transposition_table: &'_ mut TranspositionTable,
-    ) -> SearchRefs<'_> {
-        let killer_moves: KillerMoves = [[None; 2]; 256];
-        let history_table = [[[0; 64]; 64]; 2];
-        SearchRefs {
-            killer_moves,
-            nodes_evaluated: 0,
-            start_time: None,
-            time_limit: None,
-            nodes_limit: None,
-            history_table,
-            eval_stack: [None; 256],
-            move_stack: [None; 256],
-            table: transposition_table, // Removed &mut here
-            continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
-        }
-    }
-    pub fn new_node_search(node_count: u64,
-                           transposition_table: &'_ mut TranspositionTable) -> SearchRefs<'_>
-    {
-        let killer_moves: KillerMoves = [[None; 2]; 256];
-        let history_table = [[[0; 64]; 64]; 2];
-        SearchRefs {
-            killer_moves,
-            nodes_evaluated: 0,
-            start_time: None,
-            time_limit: None,
-            nodes_limit: Some(node_count),
-            history_table,
-            eval_stack: [None; 256],
-            move_stack: [None; 256],
-            table: transposition_table, // Removed &mut here
-            continuation_history: vec![vec![0; 64 * 12 * 64 * 12]; 2],
-        }
-    }
-
-    #[inline(always)]
-    pub fn is_nodes_exceeded(&self) -> bool {
-        if let Some(node_limit) = self.nodes_limit {
-            return self.nodes_evaluated >= node_limit;
-        }
-        false
-    }
-    #[inline(always)]
-    pub fn is_time_elapsed_iterative_search(&self) -> bool {
-        if let Some(start_time) = self.start_time {
-            if let Some(time) = self.time_limit {
-                return start_time.elapsed() * 2 > time;
-            }
-            return false;
-        }
-        false
     }
 
     #[inline(always)]
@@ -164,8 +111,10 @@ impl SearchRefs<'_> {
         let sign = if is_malus { -1 } else { 1 };
         let bonus = (Self::calculate_history_bonus(depth) * sign).clamp(-HISTORY_MAX, HISTORY_MAX);
 
-
-        self.history_table[color as usize][mv.from() as usize][mv.to() as usize] += bonus - self.history_table[color as usize][mv.from() as usize][mv.to() as usize] * bonus.abs() / HISTORY_MAX;
+        self.history_table[color as usize][mv.from() as usize][mv.to() as usize] += bonus
+            - self.history_table[color as usize][mv.from() as usize][mv.to() as usize]
+                * bonus.abs()
+                / HISTORY_MAX;
     }
     #[inline(always)]
     pub fn get_history_value(&self, mv: MoveData, color: PieceColor) -> i32 {
@@ -174,14 +123,6 @@ impl SearchRefs<'_> {
     #[inline(always)]
     pub fn get_nodes_evaluated(&self) -> u64 {
         self.nodes_evaluated
-    }
-    #[inline(always)]
-    pub fn is_time_done(&self) -> bool {
-        if let (Some(start_time), Some(time_limit)) = (self.start_time, self.time_limit) {
-            return self.nodes_evaluated.is_multiple_of(8192) && start_time.elapsed() >= time_limit;
-        }
-
-        false
     }
     #[inline(always)]
     pub fn get_eval_ply(&self, ply: i32) -> Option<i32> {
@@ -201,7 +142,10 @@ impl SearchRefs<'_> {
         self.eval_stack[ply as usize] = None;
     }
     pub fn set_move_ply(&mut self, ply: i32, move_data: MoveData, board: &Board) {
-        self.move_stack[ply as usize] = Some(MoveEntryStack { mv: move_data, piece_moved: board.game_state.squares[move_data.from() as usize].unwrap() });
+        self.move_stack[ply as usize] = Some(MoveEntryStack {
+            mv: move_data,
+            piece_moved: board.game_state.squares[move_data.from() as usize].unwrap(),
+        });
     }
     pub fn get_move_ply(&self, ply: i32) -> Option<MoveEntryStack> {
         self.move_stack[ply as usize]
@@ -212,32 +156,45 @@ impl SearchRefs<'_> {
         ((to1 * 12 + piece1.to_history_index()) * 64 + to2) * 12 + piece2.to_history_index()
     }
     #[inline(always)]
-    pub fn add_cont_hist(&mut self, board: &Board, depth: i32, ply: i32, mv: MoveData, is_malus: bool) {
+    pub fn add_cont_hist(
+        &mut self,
+        board: &Board,
+        depth: i32,
+        ply: i32,
+        mv: MoveData,
+        is_malus: bool,
+    ) {
         let sign = if is_malus { -1 } else { 1 };
         let bonus = Self::calculate_history_bonus(depth) * sign;
 
         for ply_index in 1..=2 {
             if ply >= ply_index
-                && let Some(stack_mv) = self.move_stack[(ply - ply_index) as usize] {
+                && let Some(stack_mv) = self.move_stack[(ply - ply_index) as usize]
+            {
                 let piece_1 = board.game_state.squares[mv.from() as usize].unwrap();
                 let index = Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved);
-                self.continuation_history[(ply_index - 1) as usize][index] += bonus - self.continuation_history[(ply_index - 1) as usize][index] * bonus.abs() / HISTORY_MAX;
+                self.continuation_history[(ply_index - 1) as usize][index] += bonus
+                    - self.continuation_history[(ply_index - 1) as usize][index] * bonus.abs()
+                        / HISTORY_MAX;
             }
         }
     }
-
 
     pub fn get_cont_history(&self, board: &Board, ply: i32, mv: MoveData) -> i32 {
         let mut cont = 0;
         let piece_1 = board.game_state.squares[mv.from() as usize].unwrap();
 
         if ply >= 1
-            && let Some(stack_mv) = self.move_stack[(ply - 1) as usize] {
-            cont += self.continuation_history[0][Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)];
+            && let Some(stack_mv) = self.move_stack[(ply - 1) as usize]
+        {
+            cont += self.continuation_history[0]
+                [Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)];
         }
         if ply >= 2
-            && let Some(stack_mv) = self.move_stack[(ply - 2) as usize] {
-            cont += self.continuation_history[1][Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)];
+            && let Some(stack_mv) = self.move_stack[(ply - 2) as usize]
+        {
+            cont += self.continuation_history[1]
+                [Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)];
         }
         cont
     }

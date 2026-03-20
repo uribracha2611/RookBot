@@ -1,7 +1,10 @@
+use std::result;
+
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor::WHITE;
 use crate::engine::datagen::format::{BoardPacked, Game, PackedMove};
 use crate::engine::movegen::generate::{generate_moves, update_check};
+use crate::engine::search::clock::{self, TimeManager};
 use crate::engine::search::constants::MATE_VALUE;
 use crate::engine::search::psqt::weight::W;
 use crate::engine::search::search::search;
@@ -14,16 +17,16 @@ pub fn run_game(initial_board: &Board, node_count: u64) -> Game {
     let mut moves: Vec<PackedMove> = Vec::new();
     let mut tb_white = TranspositionTable::from_mb(4);
     let mut tb_black = TranspositionTable::from_mb(4);
-
+    let mut time_manager = TimeManager::default();
+    time_manager.set_clock(clock::ClockOption::NODES(node_count));
     loop {
-        let mut search_limit = SearchInput::node_count_input(node_count);
         let curr_tt = if board.turn == WHITE {
             &mut tb_white
         } else {
             &mut tb_black
         };
 
-        let result = search(&mut board, &mut search_limit, curr_tt);
+        let result = search(&mut board, curr_tt, &time_manager);
 
         if result.principal_variation.is_empty() || result.eval.abs() >= ACTUAL_MATE {
             break;

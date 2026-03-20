@@ -4,6 +4,7 @@ use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::movegen::movedata::MoveData;
 
 use crate::engine::perft::perft_bulk;
+use crate::engine::search::clock::{self, ClockOption, DYNAMICTIME, TimeManager};
 use crate::engine::search::search::{eval, search};
 use crate::engine::search::transposition_table::TranspositionTable;
 use crate::engine::search::types::SearchInput;
@@ -11,7 +12,12 @@ use std::time::{Duration, Instant};
 
 const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
-pub fn handle_command(command: &str, board: &mut Board, tt_table: &mut TranspositionTable) {
+pub fn handle_command(
+    command: &str,
+    board: &mut Board,
+    tt_table: &mut TranspositionTable,
+    time_manager: &mut TimeManager,
+) {
     let first_word = command.split(" ").collect::<Vec<&str>>()[0];
     match first_word {
         "uci" => {
@@ -34,7 +40,7 @@ pub fn handle_command(command: &str, board: &mut Board, tt_table: &mut Transposi
             handle_position(remaining_string, board)
         }
         "go" => {
-            handle_go(command, board, tt_table);
+            handle_go(command, board, tt_table, time_manager);
         }
         "perft" => {
             let parts: Vec<&str> = command.split_whitespace().collect();
@@ -68,11 +74,13 @@ fn bench() {
     let mut total_time: Duration = Duration::from_millis(0);
     let mut total_nodes: u64 = 0;
 
+    let mut time_managment = TimeManager::default();
+    time_managment.set_clock(ClockOption::from_depth(7));
     for pos in FENS_FOR_BENCH {
         let mut tt_table = TranspositionTable::from_mb(64);
         let mut board = Board::from_fen(pos);
         let now = Instant::now();
-        let res = search(&mut board, &mut SearchInput::depth_input(7), &mut tt_table);
+        let res = search(&mut board, &mut tt_table, &time_managment);
         total_time += now.elapsed();
         total_nodes += res.nodes_evaluated as u64;
     }
@@ -135,7 +143,13 @@ fn apply_moves(board: &mut Board, moves: &Vec<&str>) {
         board.make_move(move_from_algebric);
     }
 }
-pub fn handle_go(command: &str, board: &mut Board, tt_table: &mut TranspositionTable) {
+pub fn handle_go(
+    command: &str,
+    board: &mut Board,
+    tt_table: &mut TranspositionTable,
+    time_manager: &mut TimeManager,
+) {
+    time_manager.start();
     let mut depth = None;
     let mut movetime = None;
     let mut wtime = None;
@@ -157,31 +171,32 @@ pub fn handle_go(command: &str, board: &mut Board, tt_table: &mut TranspositionT
             }
             "movetime" => {
                 if i + 1 < parts.len() {
-                    movetime = Some(Duration::from_millis(parts[i + 1].parse::<u64>().unwrap()));
+                    movetime = Some(parts[i + 1].parse::<u64>().unwrap());
                     i += 1;
                 }
             }
             "wtime" => {
                 if i + 1 < parts.len() {
-                    wtime = Some(Duration::from_millis(parts[i + 1].parse::<u64>().unwrap()));
+                    wtime = Some(parts[i + 1].parse::<u64>().unwrap());
                     i += 1;
                 }
             }
             "btime" => {
                 if i + 1 < parts.len() {
-                    btime = Some(Duration::from_millis(parts[i + 1].parse::<u64>().unwrap()));
+                    btime = Some(parts[i + 1].parse::<u64>().unwrap());
+
                     i += 1;
                 }
             }
             "winc" => {
                 if i + 1 < parts.len() {
-                    winc = Some(Duration::from_millis(parts[i + 1].parse::<u64>().unwrap()));
+                    winc = Some(parts[i + 1].parse::<u64>().unwrap());
                     i += 1;
                 }
             }
             "binc" => {
                 if i + 1 < parts.len() {
-                    binc = Some(Duration::from_millis(parts[i + 1].parse::<u64>().unwrap()));
+                    binc = Some(parts[i + 1].parse::<u64>().unwrap());
                     i += 1;
                 }
             }
@@ -196,27 +211,33 @@ pub fn handle_go(command: &str, board: &mut Board, tt_table: &mut TranspositionT
         i += 1;
     }
 
-    let mut search_input = if let Some(wtime) = wtime
+    if let Some(wtime) = wtime
         && board.turn == WHITE
     {
-        SearchInput::time_input(wtime / 20 + winc.unwrap_or_default() / 2)
+        time_manager.set_clock(ClockOption::form_time(DYNAMICTIME::new(
+            wtime,
+            winc.unwrap_or(0),
+        )));
     } else if let Some(btime) = btime
         && board.turn == BLACK
     {
-        SearchInput::time_input(btime / 20 + binc.unwrap_or_default() / 2)
+        time_manager.set_clock(ClockOption::form_time(DYNAMICTIME::new(
+            btime,
+            binc.unwrap_or(0),
+        )));
     } else if let Some(movetime) = movetime {
-        SearchInput::time_input(movetime)
+        time_manager.set_clock(ClockOption::MOVETIME(movetime));
     } else if let Some(depth) = depth {
-        SearchInput::depth_input(depth as u8)
+        time_manager.set_clock(ClockOption::DEPTH(depth));
     } else if let Some(nodes) = nodes {
-        SearchInput::node_count_input(nodes)
+        time_manager.set_clock(ClockOption::NODES(nodes));
     } else {
         panic!("only depth, movetime, winc, binc and nodes supported so far for go command");
     };
 
     let time_test = Instant::now();
 
-    let result = search(board, &mut search_input, tt_table);
+    let result = search(board, tt_table, time_manager);
 
     let pv = result
         .principal_variation
