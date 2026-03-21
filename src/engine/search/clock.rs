@@ -113,7 +113,7 @@ impl TimeManager {
         match self.clock {
             ClockOption::DEPTH(depth) => current_depth > depth,
 
-            _ => current_depth > 64,
+            _ => current_depth >= 64,
         }
     }
 }

@@ -2,6 +2,7 @@ use RookBot::engine::board::board::Board;
 use RookBot::engine::board::piece::PieceColor::{BLACK, WHITE};
 use RookBot::engine::datagen::functions::run_game;
 use RookBot::engine::movegen::generate::{generate_moves, update_check};
+use RookBot::engine::search::clock::{ClockOption, TimeManager};
 use RookBot::engine::search::search::search;
 use RookBot::engine::search::transposition_table::TranspositionTable;
 use RookBot::engine::search::types::SearchInput;
@@ -187,12 +188,10 @@ pub fn choose_random_opening(fens: &[String], random_move_count: i32, node_limit
         if failed {
             continue;
         }
+        let mut time_management = TimeManager::default();
+        time_management.set_clock(ClockOption::from_nodes(node_limit));
 
-        let result = search(
-            &mut board,
-            &mut SearchInput::node_count_input(node_limit),
-            &mut basic_tt,
-        );
+        let result = search(&mut board, &mut basic_tt, &time_management);
 
         if result.eval.abs() < 400 {
             return board;
