@@ -208,7 +208,18 @@ pub fn search(
         beta = best_eval + VAL_WINDOW;
         current_depth += 1;
     }
-
+    if principal_variation.is_empty() {
+        let tt_mv = refs
+            .get_transposition_table()
+            .get_tt_move(board.game_state.zobrist_hash);
+        let mut moves = generate_moves(board, false);
+        if moves.is_empty() {
+            panic!("ran search in a position with zero legal moves")
+        }
+        let mut scores = get_moves_score(&moves, 0, board, tt_mv, &refs);
+        pick_move(&mut moves, 0, &mut scores);
+        principal_variation.push(moves.get_move(0));
+    }
     SearchOutput {
         nodes_evaluated: refs.get_nodes_evaluated(),
         principal_variation,
