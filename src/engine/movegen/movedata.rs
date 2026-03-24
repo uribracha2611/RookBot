@@ -187,10 +187,34 @@ impl MoveData {
             let is_cap = flags == Self::CAPTURE || flags == Self::EN_PASSANT; // Handle Promo-Capture
 
             flags = match promo_char {
-                'n' => Self::PROMO_KNIGHT,
-                'b' => Self::PROMO_BISHOP,
-                'r' => Self::PROMO_ROOK,
-                _ => Self::PROMO_QUEEN,
+                'n' => {
+                    if is_cap {
+                        Self::PROMO_KNIGHT_CAP
+                    } else {
+                        Self::PROMO_KNIGHT
+                    }
+                }
+                'b' => {
+                    if is_cap {
+                        Self::PROMO_BISHOP_CAP
+                    } else {
+                        Self::PROMO_BISHOP
+                    }
+                }
+                'r' => {
+                    if is_cap {
+                        Self::PROMO_ROOK_CAP
+                    } else {
+                        Self::PROMO_ROOK
+                    }
+                }
+                _ => {
+                    if is_cap {
+                        Self::PROMO_QUEEN_CAP
+                    } else {
+                        Self::PROMO_QUEEN
+                    }
+                }
             };
         }
 
