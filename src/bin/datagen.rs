@@ -77,7 +77,7 @@ fn main() -> Result<(), Error> {
             let mut i = 1;
             while i <= thread_games {
                 let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    let board = choose_random_opening(&fens_ref, 6, node_limit);
+                    let board = choose_random_opening(&fens_ref, 5, node_limit);
                     run_game(&board, node_limit)
                 }));
 
@@ -189,7 +189,7 @@ pub fn choose_random_opening(fens: &[String], random_move_count: i32, node_limit
             continue;
         }
         let mut time_management = TimeManager::default();
-        time_management.set_clock(ClockOption::from_nodes(node_limit));
+        time_management.set_clock(ClockOption::from_nodes(node_limit / 2));
 
         let result = search(&mut board, &mut basic_tt, &time_management);
 
