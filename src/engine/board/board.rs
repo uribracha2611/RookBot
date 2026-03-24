@@ -49,7 +49,6 @@ impl Board {
                 .contains_square(square)
         );
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
-        // Update zobrist hash before removing the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
         NNUE_NETWORK.update_piece(
             piece,
@@ -90,7 +89,6 @@ impl Board {
                 .contains_square(square)
         );
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
-        // Update zobrist hash before adding the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
 
         NNUE_NETWORK.update_piece(
@@ -235,10 +233,9 @@ impl Board {
             panic!("Invalid FEN string: insufficient parts");
         }
 
-        // Parse piece placement string (first field of FEN)
         let piece_placement = parts[0];
-        let active_color = parts[1]; // Second field (active color)
-        let game_state_fen = parts[2..].join(" "); // Remaining fields (castling, en passant, clocks)
+        let active_color = parts[1];
+        let game_state_fen = parts[2..].join(" ");
 
         let mut board = Board {
             turn: if active_color == "w" {
@@ -258,7 +255,6 @@ impl Board {
         let mut rank = 7;
         let mut file = 0;
 
-        // Parse piece placement into the board squares
         for c in piece_placement.chars() {
             match c {
                 '/' => {

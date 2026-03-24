@@ -12,7 +12,6 @@ pub struct MoveData {
     data: NonZeroU16,
 }
 impl MoveData {
-    // Define your Wiki/Standard flags
     pub const QUIET: u8 = 0;
     pub const DOUBLE_PUSH: u8 = 1;
     pub const CASTLE_KING: u8 = 2;
@@ -76,7 +75,6 @@ impl MoveData {
             };
         }
 
-        //safaty from/=to from movegen correctness  so either from is A1=0 or To=A1=0 but not both
         unsafe {
             NonZeroU16::new_unchecked(
                 from | (to << 6) | (promotion_piece << 12) | (flag_bits << 14),
@@ -119,7 +117,6 @@ impl MoveData {
         }
     }
 
-    /// Returns the square where the rook lands after jumping over the king.
     pub fn get_rook_end(&self, color: PieceColor) -> u8 {
         let is_kside = self.flags() == Self::CASTLE_KING;
 
@@ -152,8 +149,6 @@ impl MoveData {
     pub fn from_algebraic(algebraic: &str, board: &Board) -> Self {
         let notation = algebraic.to_lowercase(); // UCI is usually lowercase
 
-        // 1) Handle special UCI cases for Castling (e1g1, etc.)
-        // We can just detect the squares. If the King is moving from e1 to g1, it's a castle.
         let from_sq = Position::from_chess_notation(&notation[0..2])
             .unwrap()
             .to_sqr()
@@ -163,7 +158,8 @@ impl MoveData {
             .to_sqr()
             .unwrap() as u8;
 
-        let moving_piece = board.game_state.squares[from_sq as usize].expect("No piece at from square");
+        let moving_piece =
+            board.game_state.squares[from_sq as usize].expect("No piece at from square");
         let mut flags = Self::QUIET;
 
         // 2) Detect Castling by King movement
@@ -175,7 +171,6 @@ impl MoveData {
             }
         }
 
-        // 3) Detect Captures (Normal and EP)
         if board.game_state.squares[to_sq as usize].is_some() {
             flags = Self::CAPTURE;
         } else if moving_piece.piece_type == PieceType::PAWN {
@@ -187,7 +182,6 @@ impl MoveData {
             }
         }
 
-        // 4) Detect Promotion
         if notation.len() > 4 {
             let promo_char = notation.chars().nth(4).unwrap();
             let is_cap = flags == Self::CAPTURE || flags == Self::EN_PASSANT; // Handle Promo-Capture
@@ -206,7 +200,6 @@ impl MoveData {
         self.flags() == Self::DOUBLE_PUSH
     }
 
-    // Check if the move is an en passant
     pub fn is_en_passant(&self) -> bool {
         self.flags() == Self::EN_PASSANT
     }
@@ -246,7 +239,7 @@ impl MoveData {
                 Self::PROMO_KNIGHT => 'n',
                 Self::PROMO_BISHOP => 'b',
                 Self::PROMO_ROOK => 'r',
-                _ => 'q', // Default to Queen for PROMO_QUEEN or Promo-Captures
+                _ => 'q',
             };
             result.push(promo_char);
         }
@@ -259,7 +252,6 @@ impl fmt::Debug for MoveData {
         let flags = self.flags();
         let mut info = String::new();
 
-        // הוספת מידע על סוג המהלך לפי הדגלים
         if self.is_capture() {
             info.push_str(" [Capture]");
         }
@@ -274,13 +266,11 @@ impl fmt::Debug for MoveData {
             info.push_str(" [En Passant]");
         }
 
-        // הצגת המהלך בפורמט: Move(e2e4 [Capture])
         write!(f, "Move({}{})", self.to_algebraic(), info)
     }
 }
 impl fmt::Display for MoveData {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // פשוט קורא לדיבאג שכבר כתבנו
         write!(f, "{:?}", self)
     }
 }
