@@ -1,3 +1,4 @@
+use RookBot::engine::board;
 use RookBot::engine::board::board::Board;
 use RookBot::engine::board::piece::PieceColor::{BLACK, WHITE};
 use RookBot::engine::datagen::functions::run_game;
@@ -76,9 +77,11 @@ fn main() -> Result<(), Error> {
 
             let mut i = 1;
             while i <= thread_games {
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-                    let board = choose_random_opening(&fens_ref, 5, node_limit);
-                    run_game(&board, node_limit)
+                let mut board = choose_random_opening(&fens_ref, 5, node_limit);
+
+                let mut wrapper = std::panic::AssertUnwindSafe(&mut board);
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
+                    run_game(*wrapper, node_limit)
                 }));
 
                 match result {
@@ -99,6 +102,13 @@ fn main() -> Result<(), Error> {
                         i += 1;
                     }
                     Err(_) => {
+                        let moves = generate_moves(&mut board, false);
+                        eprintln!(
+                            "the value of moves is_empty is {} the amount of moves are {} and the fen is {}",
+                            moves.is_empty(),
+                            moves.len(),
+                            board.to_fen()
+                        );
                         eprintln!("Thread {} recovered from a panic. Retrying game...", t_id);
                         continue;
                     }
@@ -184,13 +194,17 @@ pub fn choose_random_opening(fens: &[String], random_move_count: i32, node_limit
             };
             board.make_move(random_move);
         }
+        update_check(&mut board);
+        let moves = generate_moves(&mut board, false);
 
+        if moves.is_empty() {
+            failed = true;
+        }
         if failed {
             continue;
         }
         let mut time_management = TimeManager::default();
-        time_management.set_clock(ClockOption::from_nodes(node_limit / 2));
-
+        time_management.set_clock(ClockOption::from_nodes(node_limit * 2));
         let result = search(&mut board, &mut basic_tt, &time_management);
 
         if result.eval.abs() < 400 {

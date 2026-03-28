@@ -3,15 +3,18 @@ use super::{
     gamestate::GameState,
     piece::{Piece, PieceColor},
 };
-use crate::engine::board::castling::constants::{
-    BLACK_KINGSIDE_ROOK_START, BLACK_QUEENSIDE_ROOK_START, WHITE_KINGSIDE_ROOK_START,
-    WHITE_QUEENSIDE_ROOK_START,
-};
 use crate::engine::board::castling::types::CastlingSide::{Kingside, Queenside};
 use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
 use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::board::piece::PieceType;
 use crate::engine::board::piece::PieceType::{BISHOP, KING, KNIGHT, PAWN, QUEEN, ROOK};
+use crate::engine::board::{
+    self,
+    castling::constants::{
+        BLACK_KINGSIDE_ROOK_START, BLACK_QUEENSIDE_ROOK_START, WHITE_KINGSIDE_ROOK_START,
+        WHITE_QUEENSIDE_ROOK_START,
+    },
+};
 use crate::engine::datagen::format::Array32U4;
 use crate::engine::movegen::constants::KNIGHT_MOVES;
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
@@ -49,6 +52,7 @@ impl Board {
                 .contains_square(square)
         );
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
+        // Update zobrist hash before removing the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
         NNUE_NETWORK.update_piece(
             piece,
@@ -89,6 +93,7 @@ impl Board {
                 .contains_square(square)
         );
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
+        // Update zobrist hash before adding the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
 
         NNUE_NETWORK.update_piece(
@@ -233,9 +238,10 @@ impl Board {
             panic!("Invalid FEN string: insufficient parts");
         }
 
+        // Parse piece placement string (first field of FEN)
         let piece_placement = parts[0];
-        let active_color = parts[1];
-        let game_state_fen = parts[2..].join(" ");
+        let active_color = parts[1]; // Second field (active color)
+        let game_state_fen = parts[2..].join(" "); // Remaining fields (castling, en passant, clocks)
 
         let mut board = Board {
             turn: if active_color == "w" {
@@ -255,6 +261,7 @@ impl Board {
         let mut rank = 7;
         let mut file = 0;
 
+        // Parse piece placement into the board squares
         for c in piece_placement.chars() {
             match c {
                 '/' => {
@@ -434,6 +441,26 @@ impl Board {
             self.game_state.en_passant_file = None;
             self.game_state.en_passant_square = None;
         }
+    }
+    #[inline(always)]
+    pub fn is_move_legal(self, mv: &MoveData) -> bool {
+        let king_square = self
+            .get_piece_bitboard(self.turn, KING)
+            .get_single_set_bit();
+        if mv.from() == king_square && self.attacked_square.contains_square(mv.to()) {
+            return false;
+        }
+        let them = self.get_color_bitboard(self.turn.opposite());
+        let opp_rooks = self.get_piece_bitboard(self.turn.opposite(), ROOK);
+        let opp_queen = self.get_piece_bitboard(self.turn.opposite(), QUEEN);
+        let opp_bishop = self.get_piece_bitboard(self.turn.opposite(), BISHOP);
+        let opp_diag = opp_queen | opp_bishop;
+        let opp_ortho = opp_queen | opp_rooks;
+        let diag_attacks = get_bishop_attacks(king_square as usize, them) & opp_diag;
+        let ortho_attacks = get_rook_attacks(king_square as usize, them) & opp_ortho;
+        let overall_attacks = ortho_attacks | diag_attacks;
+
+        true
     }
     pub fn unmake_move(&mut self, mv: MoveData) {
         let mut old_state = self.history.pop().unwrap();
