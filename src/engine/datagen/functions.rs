@@ -85,9 +85,9 @@ pub fn run_game(mut initial_board: &mut Board, node_count: u64) -> Game {
         } else {
             draw_adj_count = 0;
         }
-        if result.eval.abs() >= 400 {
+        if result.eval.abs() >= 1000 {
             win_adj_count += 1;
-            is_white_adj = result.eval >= 400
+            is_white_adj = result.eval >= 1000
         } else {
             win_adj_count = 0;
             is_white_adj = false;
