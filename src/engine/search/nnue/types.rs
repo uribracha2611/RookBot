@@ -33,8 +33,8 @@ pub struct Network {
 impl Network {
     pub fn evaluate_nnue(&self, us: &Accumulator, them: &Accumulator) -> i32 {
         let mut output = unsafe {
-            evaluate_part(us.vals.as_ptr(), self.output_weight.as_ptr(), HL)
-                + evaluate_part(them.vals.as_ptr(), self.output_weight.as_ptr().add(HL), HL)
+            evaluate_part(&us.vals, &self.output_weight, HL)
+                + evaluate_part(&them.vals, &self.output_weight[HL..], HL)
         };
 
         output /= i32::from(QA);

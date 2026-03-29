@@ -175,10 +175,13 @@ pub fn search(
     let mut principal_variation: Vec<MoveData> = Vec::new();
     let mut best_eval = -INFINITY;
 
-    let mut alpha = -INFINITY;
-    let mut beta = INFINITY;
-
     while !time_manager.check_if_depth_done(current_depth) {
+        let mut alpha = -INFINITY;
+        let mut beta = INFINITY;
+        if current_depth >= 5 {
+            alpha = best_eval - VAL_WINDOW;
+            beta = best_eval + VAL_WINDOW;
+        }
         if time_manager.check_if_soft_time_done() {
             break;
         }
@@ -199,13 +202,21 @@ pub fn search(
         }
 
         best_eval = eval;
-        if best_eval >= beta || best_eval <= alpha {
+        if current_depth >= 5 && best_eval >= beta || best_eval <= alpha {
             alpha = -INFINITY;
             beta = INFINITY;
-            continue;
+            let eval = search_common(
+                board,
+                current_depth as i32,
+                0,
+                alpha,
+                beta,
+                &mut principal_variation,
+                &mut refs,
+                time_manager,
+            );
+            best_eval = eval;
         }
-        alpha = best_eval - VAL_WINDOW;
-        beta = best_eval + VAL_WINDOW;
         current_depth += 1;
     }
     if principal_variation.is_empty() {
