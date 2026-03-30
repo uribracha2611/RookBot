@@ -39,15 +39,21 @@ impl TranspositionTable {
         entry_type: EntryType,
         best_move: Option<MoveData>,
     ) {
+        let mut move_to_insert = best_move;
         let index = (hash as usize) % self.table.len();
-
+        if let Some(curr_entry) = self.table[index]
+            && move_to_insert.is_none()
+            && curr_entry.hash == hash
+        {
+            move_to_insert = curr_entry.best_move;
+        }
 
         self.table[index] = Some(Entry {
             hash,
             depth,
             eval,
             entry_type,
-            best_move,
+            best_move: move_to_insert,
         });
     }
 
@@ -70,7 +76,8 @@ impl TranspositionTable {
     pub fn get_tt_move(&self, hash: u64) -> Option<MoveData> {
         let index = (hash as usize) % self.table.len();
         if let Some(entry) = self.table[index]
-            && entry.hash == hash {
+            && entry.hash == hash
+        {
             return entry.best_move;
         }
         None
