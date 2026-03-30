@@ -28,7 +28,13 @@ impl TranspositionTable {
         }
     }
     pub fn from_mb(mb_size: usize) -> Self {
-        TranspositionTable::new(mb_size * 1024 * 1024 / std::mem::size_of::<Entry>())
+        let bytes = mb_size * 1024 * 1024;
+        let max_entries = bytes / std::mem::size_of::<Entry>();
+        let mut size = max_entries.next_power_of_two();
+        if size > max_entries && size > 1 {
+            size /= 2;
+        }
+        TranspositionTable::new(size)
     }
 
     pub fn store(
@@ -40,7 +46,7 @@ impl TranspositionTable {
         best_move: Option<MoveData>,
     ) {
         let mut move_to_insert = best_move;
-        let index = (hash as usize) % self.table.len();
+        let index = (hash & ((self.table.len() - 1) as u64)) as usize;
         if let Some(curr_entry) = self.table[index]
             && move_to_insert.is_none()
             && curr_entry.hash == hash
@@ -58,7 +64,8 @@ impl TranspositionTable {
     }
 
     pub fn retrieve(&self, hash: u64) -> Option<Entry> {
-        let index = (hash as usize) % self.table.len();
+        let index = (hash & ((self.table.len() - 1) as u64)) as usize;
+
         let elem = self.table[index];
         unsafe {
             if elem.is_some() {
@@ -74,32 +81,12 @@ impl TranspositionTable {
     }
 
     pub fn get_tt_move(&self, hash: u64) -> Option<MoveData> {
-        let index = (hash as usize) % self.table.len();
+        let index = (hash & ((self.table.len() - 1) as u64)) as usize;
         if let Some(entry) = self.table[index]
             && entry.hash == hash
         {
             return entry.best_move;
         }
         None
-    }
-}
-
-pub fn is_mate_score(score: i32) -> bool {
-    score.abs() > MATE_VALUE
-}
-pub fn correct_mate_score_for_storage(score: i32, ply: i32) -> i32 {
-    if is_mate_score(score) {
-        let sign = score.signum();
-        (score * sign + ply) * sign
-    } else {
-        score
-    }
-}
-pub fn correct_mate_score_for_display(score: i32, ply: i32) -> i32 {
-    if is_mate_score(score) {
-        let sign = score.signum();
-        (score * sign - ply) * sign
-    } else {
-        score
     }
 }
