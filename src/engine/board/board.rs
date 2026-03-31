@@ -522,6 +522,62 @@ impl Board {
             _ => {}
         }
     }
+    fn disallow_castling_if_needed_hash(&self, hash: &mut u64, square: u8, piece: Piece) {
+        if piece.piece_type != PieceType::ROOK {
+            return;
+        }
+        match (square, piece.piece_color) {
+            (0, PieceColor::WHITE)
+                if self
+                    .game_state
+                    .castle_white
+                    .is_allowed(&CastlingSide::Queenside) =>
+            {
+                self.game_state.disallow_castling_hash(
+                    hash,
+                    AllowedCastling::from(CastlingSide::Queenside),
+                    piece.piece_color,
+                );
+            }
+            (7, PieceColor::WHITE)
+                if self
+                    .game_state
+                    .castle_white
+                    .is_allowed(&CastlingSide::Kingside) =>
+            {
+                self.game_state.disallow_castling_hash(
+                    hash,
+                    AllowedCastling::from(CastlingSide::Kingside),
+                    piece.piece_color,
+                );
+            }
+            (56, PieceColor::BLACK)
+                if self
+                    .game_state
+                    .castle_black
+                    .is_allowed(&CastlingSide::Queenside) =>
+            {
+                self.game_state.disallow_castling_hash(
+                    hash,
+                    AllowedCastling::from(CastlingSide::Queenside),
+                    piece.piece_color,
+                );
+            }
+            (63, PieceColor::BLACK)
+                if self
+                    .game_state
+                    .castle_black
+                    .is_allowed(&CastlingSide::Kingside) =>
+            {
+                self.game_state.disallow_castling_hash(
+                    hash,
+                    AllowedCastling::from(CastlingSide::Kingside),
+                    piece.piece_color,
+                );
+            }
+            _ => {}
+        }
+    }
 
     pub fn make_null_move(&mut self) {
         let old_game_state = self.game_state;
@@ -640,5 +696,81 @@ impl Board {
             }
         }
         gamephase
+    }
+    fn toggle_only_hash_piece(hash: &mut u64, square: u8, piece: Piece) {
+        let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
+        *hash ^= ZOBRIST_KEYS[index][square as usize];
+    }
+    pub fn calc_hash_after_move(&self, mv: &MoveData) -> u64 {
+        let mut curr_hash = self.game_state.zobrist_hash;
+        let moved_piece = self.game_state.squares[mv.from() as usize].unwrap();
+        if mv.is_capture() {
+            let captured_piece = self.game_state.squares[mv.get_capture_square() as usize].unwrap();
+            Self::toggle_only_hash_piece(&mut curr_hash, mv.get_capture_square(), captured_piece);
+
+            self.disallow_castling_if_needed_hash(
+                &mut curr_hash,
+                mv.get_capture_square(),
+                captured_piece,
+            );
+        }
+        if mv.is_promotion() {
+            Self::toggle_only_hash_piece(&mut curr_hash, mv.from(), moved_piece);
+            Self::toggle_only_hash_piece(
+                &mut curr_hash,
+                mv.to(),
+                mv.get_promotion_piece(self.turn),
+            );
+        } else {
+            Self::toggle_only_hash_piece(&mut curr_hash, mv.from(), moved_piece);
+            Self::toggle_only_hash_piece(&mut curr_hash, mv.to(), moved_piece);
+        }
+        if mv.is_castle() {
+            let rook_start = mv.get_rook_start(self.turn);
+            let rook_end = mv.get_rook_end(self.turn);
+            Self::toggle_only_hash_piece(&mut curr_hash, rook_start, moved_piece);
+            Self::toggle_only_hash_piece(&mut curr_hash, rook_end, moved_piece);
+            self.game_state.disallow_castling_hash(
+                &mut curr_hash,
+                AllowedCastling::Kingside,
+                moved_piece.piece_color,
+            );
+            self.game_state.disallow_castling_hash(
+                &mut curr_hash,
+                AllowedCastling::Queenside,
+                moved_piece.piece_color,
+            );
+        }
+        if moved_piece.piece_type == PieceType::KING {
+            self.game_state.disallow_castling_hash(
+                &mut curr_hash,
+                AllowedCastling::Kingside,
+                moved_piece.piece_color,
+            );
+            self.game_state.disallow_castling_hash(
+                &mut curr_hash,
+                AllowedCastling::Queenside,
+                moved_piece.piece_color,
+            );
+        }
+        self.disallow_castling_if_needed_hash(&mut curr_hash, mv.from(), moved_piece);
+        if let Some(file) = self.game_state.en_passant_file {
+            // Remove old en passant from zobrist hash
+            curr_hash ^= ZOBRIST_EN_PASSANT[file as usize];
+        }
+        if mv.is_double_push() {
+            curr_hash ^= ZOBRIST_EN_PASSANT[(mv.to() % 8) as usize];
+        }
+        curr_hash ^= ZOBRIST_SIDE_TO_MOVE;
+
+        curr_hash
+    }
+    pub fn calc_hash_after_null_move(&self) -> u64 {
+        let mut curr_hash = self.game_state.zobrist_hash;
+        curr_hash ^= ZOBRIST_SIDE_TO_MOVE;
+        if let Some(file) = self.game_state.en_passant_file {
+            curr_hash ^= ZOBRIST_EN_PASSANT[file as usize];
+        }
+        curr_hash
     }
 }

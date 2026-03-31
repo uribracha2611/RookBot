@@ -89,4 +89,23 @@ impl TranspositionTable {
         }
         None
     }
+    pub fn prefetch(&self, hash: u64) {
+        let index = (hash & ((self.table.len() - 1) as u64)) as usize;
+        unsafe {
+            use core::arch::x86_64::{_MM_HINT_T0, _mm_prefetch};
+            _mm_prefetch(self.table.as_ptr().add(index) as *const i8, _MM_HINT_T0);
+        }
+    }
+
+    #[cfg(target_arch = "aarch64")]
+    pub fn prefetch(&self, hash: u64) {
+        let index = (hash & ((self.table.len() - 1) as u64)) as usize;
+        unsafe {
+            use core::arch::aarch64::__prefetch;
+            __prefetch(self.table.as_ptr().add(index) as *const i8);
+        }
+    }
+
+    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64")))]
+    pub fn prefetch(&self, _hash: u64) {}
 }

@@ -60,6 +60,24 @@ impl GameState {
         }
     }
 
+    pub fn disallow_castling_hash(self, hash: &mut u64, side: AllowedCastling, color: PieceColor) {
+        let (mut old_white_castle, mut old_black_castle) = (self.castle_white, self.castle_black);
+        let old_castling_index =
+            GameState::zobrist_castling_index(old_white_castle, old_black_castle);
+
+        // Remove the old castling right from the hash
+        *hash ^= ZOBRIST_CASTLING[old_castling_index];
+        if color == PieceColor::WHITE {
+            old_white_castle = old_white_castle.disallow_castling(side);
+        } else {
+            old_black_castle = old_black_castle.disallow_castling(side);
+        }
+        let new_castling_index =
+            GameState::zobrist_castling_index(old_white_castle, old_black_castle);
+
+        // Remove the old castling right from the hash
+        *hash ^= ZOBRIST_CASTLING[new_castling_index];
+    }
     pub fn disallow_castling(&mut self, side: AllowedCastling, color: PieceColor) {
         let (old_white_castle, old_black_castle) = (self.castle_white, self.castle_black);
         let old_castling_index =

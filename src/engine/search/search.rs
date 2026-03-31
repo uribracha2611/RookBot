@@ -83,7 +83,7 @@ pub fn quiescence_search(
         if Some(mv) != tt_move && static_exchange_evaluation(board, mv) < 0 {
             continue;
         }
-
+        refs.table.prefetch(board.calc_hash_after_move(&mv));
         // Check time again before making a move
 
         if time_manager.check_if_time_only_done() {
@@ -332,6 +332,7 @@ fn search_common(
         && curr_eval >= beta
         && board.has_major_or_minor_material()
     {
+        refs.table.prefetch(board.calc_hash_after_null_move());
         let r = if depth > 10 {
             5
         } else if depth > 6 {
@@ -420,6 +421,7 @@ fn search_common(
             }
             quiet_moves_count += 1;
         }
+        refs.table.prefetch(board.calc_hash_after_move(&curr_move));
         refs.increment_nodes_evaluated();
         let mut node_pv: Vec<MoveData> = Vec::new();
         let hist = refs.get_history_value(curr_move, board.turn)
