@@ -9,3 +9,4 @@
 /src/nnue.bin
 /src/nnue-64.bin
 !.gitignore
+!rust-toolchain.toml
