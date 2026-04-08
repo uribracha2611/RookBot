@@ -333,13 +333,7 @@ fn search_common(
         && board.has_major_or_minor_material()
     {
         refs.table.prefetch(board.calc_hash_after_null_move());
-        let r = if depth > 10 {
-            5
-        } else if depth > 6 {
-            4
-        } else {
-            3
-        };
+        let r = 3 + depth / 4;
         board.make_null_move();
         let null_move_score = -search_common(
             board,
