@@ -57,30 +57,34 @@ pub fn get_move_score(
     } else if let Some(killer_val) = refs.return_killer_move_score(ply as i32, mv) {
         killer_val
     } else {
-        refs.get_history_value(mv, board.turn) + refs.get_cont_history(board, ply as i32, mv)
+        (refs.get_history_value(mv, board.turn) as i32)
+            + (refs.get_cont_history(board, ply as i32, mv) as i32)
     }
 }
 #[inline(always)]
 pub fn capture_formula(board: &Board, mv: MoveData) -> i32 {
-    board.game_state.squares[mv.get_capture_square() as usize].unwrap().get_value() * 10
-        - board.game_state.squares[mv.from() as usize].unwrap().get_value()
+    board.game_state.squares[mv.get_capture_square() as usize]
+        .unwrap()
+        .get_value()
+        * 10
+        - board.game_state.squares[mv.from() as usize]
+            .unwrap()
+            .get_value()
 }
 pub fn get_capture_score_only(
     board: &Board,
     move_data: MoveData,
     tt_move: Option<MoveData>,
 ) -> i32 {
-    if let Some(tt_move) = tt_move && tt_move == move_data {
+    if let Some(tt_move) = tt_move
+        && tt_move == move_data
+    {
         i32::MAX
     } else {
         BASE_CAPTURE + capture_formula(board, move_data)
     }
 }
-pub fn get_capture_score(
-    mv_list: MoveList,
-    tt_move: Option<MoveData>,
-    board: &Board,
-) -> Vec<i32> {
+pub fn get_capture_score(mv_list: MoveList, tt_move: Option<MoveData>, board: &Board) -> Vec<i32> {
     let mut scores = Vec::with_capacity(mv_list.len());
     for mv in mv_list.iter() {
         scores.push(get_capture_score_only(board, mv, tt_move));

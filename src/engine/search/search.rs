@@ -427,7 +427,7 @@ fn search_common(
 
         let mut score_mv = 0;
         if depth >= 3 && !curr_move.is_capture() && !curr_move.is_promotion() && is_pvs {
-            let new_depth = depth - reduce_depth(depth, i as i32, improving, hist);
+            let new_depth = depth - reduce_depth(depth, i as i32, improving, hist as i32);
 
             score_mv = -search_common(
                 board,

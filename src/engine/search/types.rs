@@ -5,7 +5,7 @@ use crate::engine::search::move_ordering::{BASE_KILLER, KillerMoves};
 use crate::engine::search::transposition_table::TranspositionTable;
 use std::time::{Duration, Instant};
 
-const HISTORY_MAX: i32 = 16_384;
+const HISTORY_MAX: i16 = 16_384;
 
 pub struct SearchOutput {
     pub nodes_evaluated: u64,
@@ -76,10 +76,10 @@ pub struct SearchRefs<'a> {
     killer_moves: KillerMoves,
     nodes_evaluated: u64,
     start_time: Option<Instant>,
-    history_table: [[[i32; 64]; 64]; 2],
+    history_table: [[[i16; 64]; 64]; 2],
     eval_stack: [Option<i32>; 256],
     move_stack: [Option<MoveEntryStack>; 256],
-    continuation_history: Vec<Vec<i32>>,
+    continuation_history: Vec<Vec<i16>>,
     pub table: &'a mut TranspositionTable,
 }
 impl SearchRefs<'_> {
@@ -110,15 +110,15 @@ impl SearchRefs<'_> {
     pub fn add_history(&mut self, color: PieceColor, mv: MoveData, depth: i32, is_malus: bool) {
         let sign = if is_malus { -1 } else { 1 };
         let bonus = (Self::calculate_history_bonus(depth) * sign).clamp(-HISTORY_MAX, HISTORY_MAX);
-
-        self.history_table[color as usize][mv.from() as usize][mv.to() as usize] += bonus
-            - self.history_table[color as usize][mv.from() as usize][mv.to() as usize]
-                * bonus.abs()
-                / HISTORY_MAX;
+        let entry = &mut self.history_table[color as usize][mv.from() as usize][mv.to() as usize];
+        let current = *entry as i32;
+        let b = bonus as i32;
+        let max = HISTORY_MAX as i32;
+        *entry = (current + b - current * b.abs() / max) as i16;
     }
     #[inline(always)]
     pub fn get_history_value(&self, mv: MoveData, color: PieceColor) -> i32 {
-        self.history_table[color as usize][mv.from() as usize][mv.to() as usize]
+        self.history_table[color as usize][mv.from() as usize][mv.to() as usize] as i32
     }
     #[inline(always)]
     pub fn get_nodes_evaluated(&self) -> u64 {
@@ -132,8 +132,8 @@ impl SearchRefs<'_> {
         self.eval_stack[ply as usize]
     }
     #[inline(always)]
-    pub fn calculate_history_bonus(depth: i32) -> i32 {
-        300 * depth - 250
+    pub fn calculate_history_bonus(depth: i32) -> i16 {
+        300 * (depth as i16) - 250
     }
     pub fn set_eval_ply(&mut self, ply: i32, eval: i32) {
         self.eval_stack[ply as usize] = Some(eval);
@@ -173,9 +173,14 @@ impl SearchRefs<'_> {
             {
                 let piece_1 = board.game_state.squares[mv.from() as usize].unwrap();
                 let index = Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved);
-                self.continuation_history[(ply_index - 1) as usize][index] += bonus
-                    - self.continuation_history[(ply_index - 1) as usize][index] * bonus.abs()
-                        / HISTORY_MAX;
+
+                let entry = &mut self.continuation_history[(ply_index - 1) as usize][index];
+
+                let current = *entry as i32;
+                let b = bonus as i32;
+                let max = HISTORY_MAX as i32;
+
+                *entry = (current + b - current * b.abs() / max) as i16;
             }
         }
     }
@@ -196,7 +201,7 @@ impl SearchRefs<'_> {
             cont += self.continuation_history[1]
                 [Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)];
         }
-        cont
+        cont as i32
     }
 
     pub fn store_killers(&mut self, mv: MoveData, ply: usize) {
