@@ -522,7 +522,7 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
             let start_sq = pawns_can_capture.pop_lsb();
             if (!is_pinned(board, start_sq)
                 || ALIGN_MASK[start_sq as usize][board.curr_king as usize]
-                == ALIGN_MASK[en_passant_target as usize][board.curr_king as usize])
+                    == ALIGN_MASK[en_passant_square as usize][board.curr_king as usize])
                 && !in_check_after_en_passant(board, start_sq, en_passant_square, en_passant_target)
             {
                 let curr_move = MoveData::new(
