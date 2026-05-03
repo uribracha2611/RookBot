@@ -1,4 +1,5 @@
 use RookBot::engine::board::board::Board;
+use RookBot::engine::search::clock::TimeManager;
 use RookBot::engine::search::transposition_table::TranspositionTable;
 use RookBot::uci::handle_command;
 
@@ -59,6 +60,7 @@ pub fn main() {
     for pos in BENCHMARK_POSITIONS.iter() {
         let mut board = Board::from_fen(pos);
         let mut tt_table = TranspositionTable::from_mb(64);
-        handle_command("go depth 12", &mut board, &mut tt_table);
+        let mut time_manager = TimeManager::default();
+        handle_command("go depth 12", &mut board, &mut tt_table, &mut time_manager);
     }
 }
