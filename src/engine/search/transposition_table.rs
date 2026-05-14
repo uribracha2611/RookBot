@@ -13,6 +13,7 @@ pub struct Entry {
     pub hash: u64,
     pub depth: u8,
     pub eval: i32,
+    pub static_eval: i32,
     pub entry_type: EntryType,
     pub best_move: Option<MoveData>,
 }
@@ -42,6 +43,7 @@ impl TranspositionTable {
         hash: u64,
         depth: u8,
         eval: i32,
+        static_eval: i32,
         entry_type: EntryType,
         best_move: Option<MoveData>,
     ) {
@@ -58,6 +60,7 @@ impl TranspositionTable {
             hash,
             depth,
             eval,
+            static_eval,
             entry_type,
             best_move: move_to_insert,
         });

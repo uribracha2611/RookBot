@@ -35,24 +35,15 @@ pub fn quiescence_search(
     if time_manager.check_if_done(refs.get_nodes_evaluated()) {
         return 0;
     }
-
-    let stand_pat = eval(board);
-    let mut best_val = stand_pat;
-
-    // Alpha-Beta pruning
-    if stand_pat >= beta {
-        return stand_pat;
-    }
-    if alpha < stand_pat {
-        alpha = stand_pat;
-    }
     let mut tt_move = None;
+
+    let mut tt_static_eval = -INFINITY;
     if let Some(entry) = refs
         .get_transposition_table()
         .retrieve(board.game_state.zobrist_hash)
     {
         tt_move = entry.best_move;
-
+        tt_static_eval = entry.static_eval;
         match entry.entry_type {
             EntryType::Exact => return entry.eval,
             EntryType::LowerBound => {
@@ -67,6 +58,21 @@ pub fn quiescence_search(
             }
         }
     }
+    let stand_pat = if tt_static_eval != -INFINITY {
+        tt_static_eval
+    } else {
+        eval(board)
+    };
+    let mut best_val = stand_pat;
+
+    // Alpha-Beta pruning
+    if stand_pat >= beta {
+        return stand_pat;
+    }
+    if alpha < stand_pat {
+        alpha = stand_pat;
+    }
+
     update_check(board);
     let mut moves = generate_moves(board, true);
     let mut scores = get_capture_score(moves, tt_move, board);
@@ -258,6 +264,7 @@ fn search_common(
         return 0;
     }
     let mut best_score = -INFINITY;
+    let mut tt_static_eval = -INFINITY;
     update_check(board);
     if board.game_state.is_check && depth < 63 {
         depth += 1;
@@ -285,6 +292,7 @@ fn search_common(
         .retrieve(board.game_state.zobrist_hash)
     {
         tt_move = entry.best_move;
+        tt_static_eval = entry.static_eval;
         if ply > 0 && entry.depth >= depth as u8 {
             match entry.entry_type {
                 EntryType::Exact => return entry.eval,
@@ -304,6 +312,8 @@ fn search_common(
 
     let curr_eval = if board.game_state.is_check {
         -INFINITY
+    } else if tt_static_eval != -INFINITY {
+        tt_static_eval
     } else {
         eval(board)
     };
@@ -489,6 +499,7 @@ fn search_common(
                 board.game_state.zobrist_hash,
                 depth as u8,
                 score_mv,
+                curr_eval,
                 entry_type,
                 best_move,
             );
@@ -529,6 +540,7 @@ fn search_common(
         board.game_state.zobrist_hash,
         depth as u8,
         best_score,
+        curr_eval,
         entry_type,
         best_move,
     );
