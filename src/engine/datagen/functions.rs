@@ -1,34 +1,39 @@
-use std::result;
+use crate::engine::{
+    board::{board::Board, piece::PieceColor},
+    datagen::format::{BoardPacked, Game, PackedMove},
+    movegen::generate::{generate_moves, update_check},
+    search::{
+        clock::{self, TimeManager},
+        search::search,
+        transposition_table::TranspositionTable,
+    },
+};
 
-use crate::engine::board::board::Board;
-use crate::engine::board::piece::PieceColor::{self, WHITE};
-use crate::engine::datagen::format::{BoardPacked, Game, PackedMove};
-use crate::engine::movegen::generate::{generate_moves, update_check};
-use crate::engine::search::clock::{self, TimeManager};
-use crate::engine::search::constants::MATE_VALUE;
-use crate::engine::search::psqt::weight::W;
-use crate::engine::search::search::search;
-use crate::engine::search::transposition_table::TranspositionTable;
-use crate::engine::search::types::SearchInput;
-
-const ACTUAL_MATE: i32 = MATE_VALUE - 100;
-pub fn run_game(mut initial_board: &mut Board, node_count: u64) -> Game {
+pub fn run_game(
+    initial_board: &mut Board,
+    node_count: u64,
+    tb_white: &mut TranspositionTable,
+    tb_black: &mut TranspositionTable,
+) -> Game {
     let mut win_adj_count = 0;
     let mut draw_adj_count = 0;
     let mut is_white_adj = true;
     let mut wdl: u8 = 1;
     let mut moves: Vec<PackedMove> = Vec::new();
-    let mut tb_white = TranspositionTable::from_mb(4);
-    let mut tb_black = TranspositionTable::from_mb(4);
     let mut time_manager = TimeManager::default();
     let mut board = initial_board.clone();
+
+    tb_white.clear();
+    tb_black.clear();
+
     time_manager.set_clock(clock::ClockOption::NODES(node_count));
     loop {
-        let curr_tt = if board.turn == WHITE {
-            &mut tb_white
+        let curr_tt = if board.turn == PieceColor::WHITE {
+            &mut *tb_white
         } else {
-            &mut tb_black
+            &mut *tb_black
         };
+
         if board.is_board_draw() {
             wdl = 1;
             break;
@@ -72,7 +77,11 @@ pub fn run_game(mut initial_board: &mut Board, node_count: u64) -> Game {
         }
         let best_move = result.principal_variation[0];
 
-        let to_white_side_factor = if board.turn == WHITE { 1 } else { -1 };
+        let to_white_side_factor = if board.turn == PieceColor::WHITE {
+            1
+        } else {
+            -1
+        };
         let curr_move_packed = PackedMove::new(
             best_move.move_to_viri_format(board.turn),
             (result.eval as i16) * to_white_side_factor,
@@ -80,14 +89,16 @@ pub fn run_game(mut initial_board: &mut Board, node_count: u64) -> Game {
 
         moves.push(curr_move_packed);
         board.make_move(best_move);
+
         if result.eval.abs() <= 10 {
             draw_adj_count += 1;
         } else {
             draw_adj_count = 0;
         }
+
         if result.eval.abs() >= 1000 {
             win_adj_count += 1;
-            is_white_adj = result.eval >= 1000
+            is_white_adj = result.eval >= 1000;
         } else {
             win_adj_count = 0;
             is_white_adj = false;
@@ -103,11 +114,11 @@ pub fn run_game(mut initial_board: &mut Board, node_count: u64) -> Game {
     } else {
         wdl
     };
-    let game_initial_pos = BoardPacked::pack(initial_board, 0, wdl, 0);
 
+    let game_initial_pos = BoardPacked::pack(initial_board, 0, wdl, 0);
     Game::new(game_initial_pos, moves)
 }
 #[inline(always)]
 pub fn compute_wdl_for_win(color: PieceColor) -> u8 {
-    if color == WHITE { 2 } else { 0 }
+    if color == PieceColor::WHITE { 2 } else { 0 }
 }

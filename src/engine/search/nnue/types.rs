@@ -7,7 +7,7 @@ const FEATURE_COUNT: usize = 768;
 const SCALE: i32 = 400;
 const QA: i16 = 255;
 const QB: i16 = 64;
-const HL: usize = 64;
+const HL: usize = 128;
 pub fn get_feature_indices(piece: Piece, sq: usize) -> (usize, usize) {
     let pc = piece.piece_color;
     let pt = piece.piece_type as usize;

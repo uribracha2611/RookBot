@@ -26,12 +26,12 @@ struct DatagenArgs {
     game_count: i32,
     #[arg(short, long)]
     threads: usize,
+    #[arg(short, long, default_value = "DATA")]
+    output_path: String,
 }
-
 struct ThreadResult {
     positions_generated: u64,
 }
-
 fn main() -> Result<(), Error> {
     let args = DatagenArgs::parse();
     let fens = Arc::new(parse_epdfile(&args.book_path)?);
@@ -42,7 +42,7 @@ fn main() -> Result<(), Error> {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let session_dir = format!("DATA/session_{}", timestamp);
+    let session_dir = format!("{}/session_{}", args.output_path, timestamp);
     fs::create_dir_all(&session_dir)?;
 
     let total_games_finished = Arc::new(Mutex::new(0));
@@ -75,14 +75,25 @@ fn main() -> Result<(), Error> {
             let file = File::create(file_path).unwrap();
             let mut writer = BufWriter::new(file);
 
+            let mut tb_white = TranspositionTable::from_mb(4);
+            let mut tb_black = TranspositionTable::from_mb(4);
+
             let mut i = 1;
             while i <= thread_games {
                 let mut board = choose_random_opening(&fens_ref, 5, node_limit);
 
-                let mut wrapper = std::panic::AssertUnwindSafe(&mut board);
-                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || {
-                    run_game(*wrapper, node_limit)
-                }));
+                let mut tb_white_ptr = &mut tb_white as *mut TranspositionTable;
+                let mut tb_black_ptr = &mut tb_black as *mut TranspositionTable;
+
+                let result =
+                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || unsafe {
+                        run_game(
+                            &mut board,
+                            node_limit,
+                            &mut *tb_white_ptr,
+                            &mut *tb_black_ptr,
+                        )
+                    }));
 
                 match result {
                     Ok(game) => {
@@ -102,13 +113,6 @@ fn main() -> Result<(), Error> {
                         i += 1;
                     }
                     Err(_) => {
-                        let moves = generate_moves(&mut board, false);
-                        eprintln!(
-                            "the value of moves is_empty is {} the amount of moves are {} and the fen is {}",
-                            moves.is_empty(),
-                            moves.len(),
-                            board.to_fen()
-                        );
                         eprintln!("Thread {} recovered from a panic. Retrying game...", t_id);
                         continue;
                     }

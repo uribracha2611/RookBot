@@ -28,6 +28,9 @@ impl TranspositionTable {
             table: vec![None; size],
         }
     }
+    pub fn clear(&mut self) {
+        self.table.fill(None);
+    }
     pub fn from_mb(mb_size: usize) -> Self {
         let bytes = mb_size * 1024 * 1024;
         let max_entries = bytes / std::mem::size_of::<Entry>();
