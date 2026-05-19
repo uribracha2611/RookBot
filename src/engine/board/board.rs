@@ -373,7 +373,6 @@ impl Board {
         let moved_piece = self.game_state.squares[mv.from() as usize].unwrap();
         if mv.is_capture() {
             let captured_piece = self.game_state.squares[mv.get_capture_square() as usize].unwrap();
-            old_game_state.captured_piece = Some(captured_piece);
             self.remove_piece(mv.get_capture_square(), captured_piece);
             self.disallow_castling_if_needed(mv.get_capture_square(), captured_piece);
         }

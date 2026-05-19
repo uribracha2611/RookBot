@@ -20,7 +20,6 @@ pub struct GameState {
     pub check_ray: Bitboard,
     pub acc_white: Accumulator,
     pub acc_black: Accumulator,
-    pub captured_piece: Option<Piece>,
     pub pinned_ray: Bitboard,
     pub squares: [Option<Piece>; 64],
     pub color_bitboards: [Bitboard; 2],
@@ -55,7 +54,6 @@ impl GameState {
             acc_white: Accumulator::new(&NNUE_NETWORK),
             acc_black: Accumulator::new(&NNUE_NETWORK),
             is_double_check: false,
-            captured_piece: None,
             is_check: false,
         }
     }
@@ -181,7 +179,6 @@ impl GameState {
             en_passant_file,
             en_passant_square,
             zobrist_hash: 0,
-            captured_piece: None,
             check_ray: Bitboard::new(u64::MAX),
             pinned_ray: Bitboard::new(0),
             acc_white: Accumulator::new(&NNUE_NETWORK),
