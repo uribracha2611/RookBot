@@ -18,6 +18,7 @@ use crate::engine::search::nnue::NNUE_NETWORK;
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{self, EntryType, TranspositionTable};
 use crate::engine::search::types::{SearchInput, SearchOutput, SearchRefs};
+use num_traits::bounds::LowerBounded;
 use num_traits::real::Real;
 use std::time::Duration;
 
@@ -36,7 +37,7 @@ pub fn quiescence_search(
         return 0;
     }
     let mut tt_move = None;
-
+    let mut bound = EntryType::UpperBound;
     let mut tt_static_eval = -INFINITY;
     if let Some(entry) = refs
         .get_transposition_table()
@@ -58,11 +59,13 @@ pub fn quiescence_search(
             }
         }
     }
-    let stand_pat = if tt_static_eval != -INFINITY {
+    let static_eval = if tt_static_eval != -INFINITY {
         tt_static_eval
     } else {
         eval(board)
     };
+
+    let stand_pat = static_eval;
     let mut best_val = stand_pat;
 
     // Alpha-Beta pruning
@@ -76,7 +79,7 @@ pub fn quiescence_search(
     update_check(board);
     let mut moves = generate_moves(board, true);
     let mut scores = get_capture_score(moves, tt_move, board);
-
+    let mut best_move = None;
     // Iterate through the moves
     for i in 0..moves.len() {
         if time_manager.check_if_only_nodes_done(refs.get_nodes_evaluated()) {
@@ -104,10 +107,22 @@ pub fn quiescence_search(
 
         // Apply pruning if necessary
         if score >= beta {
+            best_move = Some(mv);
+
+            bound = EntryType::LowerBound;
+            refs.table.store(
+                board.game_state.zobrist_hash,
+                0,
+                score,
+                static_eval,
+                bound,
+                best_move,
+            );
             return score;
         }
 
         if score > best_val {
+            bound = EntryType::Exact;
             best_val = score;
         }
 
@@ -116,6 +131,14 @@ pub fn quiescence_search(
         }
     }
 
+    refs.table.store(
+        board.game_state.zobrist_hash,
+        0,
+        best_val,
+        static_eval,
+        bound,
+        best_move,
+    );
     best_val
 }
 
