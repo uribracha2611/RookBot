@@ -9,7 +9,16 @@ pub enum EntryType {
 }
 
 #[derive(Clone, Copy, Eq, PartialEq)]
-pub struct Entry {
+pub struct InsertEntry {
+    pub hash: u64,
+    pub depth: u8,
+    pub eval: i16,
+    pub static_eval: i16,
+    pub entry_type: EntryType,
+    pub best_move: Option<MoveData>,
+}
+#[derive(Clone, Copy, Eq, PartialEq)]
+pub struct ResultEntry {
     pub hash: u64,
     pub depth: u8,
     pub eval: i32,
@@ -19,7 +28,7 @@ pub struct Entry {
 }
 
 pub struct TranspositionTable {
-    table: Vec<Option<Entry>>,
+    table: Vec<Option<InsertEntry>>,
 }
 
 impl TranspositionTable {
@@ -33,7 +42,7 @@ impl TranspositionTable {
     }
     pub fn from_mb(mb_size: usize) -> Self {
         let bytes = mb_size * 1024 * 1024;
-        let max_entries = bytes / std::mem::size_of::<Entry>();
+        let max_entries = bytes / std::mem::size_of::<InsertEntry>();
         let mut size = max_entries.next_power_of_two();
         if size > max_entries && size > 1 {
             size /= 2;
@@ -59,33 +68,33 @@ impl TranspositionTable {
             move_to_insert = curr_entry.best_move;
         }
 
-        self.table[index] = Some(Entry {
+        self.table[index] = Some(InsertEntry {
             hash,
             depth,
-            eval,
-            static_eval,
+            eval: eval as i16,
+            static_eval: static_eval as i16,
             entry_type,
             best_move: move_to_insert,
         });
     }
-
-    pub fn retrieve(&self, hash: u64) -> Option<Entry> {
+    pub fn retrieve(&self, hash: u64) -> Option<ResultEntry> {
         let index = (hash & ((self.table.len() - 1) as u64)) as usize;
 
-        let elem = self.table[index];
-        unsafe {
-            if elem.is_some() {
-                if elem.unwrap_unchecked().hash == hash {
-                    elem
-                } else {
-                    None
-                }
-            } else {
-                None
-            }
-        }
-    }
+        let entry = self.table[index]?;
 
+        if entry.hash != hash {
+            return None;
+        }
+
+        Some(ResultEntry {
+            hash: entry.hash,
+            depth: entry.depth,
+            eval: entry.eval as i32,
+            static_eval: entry.static_eval as i32,
+            entry_type: entry.entry_type,
+            best_move: entry.best_move,
+        })
+    }
     pub fn get_tt_move(&self, hash: u64) -> Option<MoveData> {
         let index = (hash & ((self.table.len() - 1) as u64)) as usize;
         if let Some(entry) = self.table[index]

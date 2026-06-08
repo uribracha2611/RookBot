@@ -2,7 +2,7 @@ pub const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQ
 use RookBot::engine::movegen::magic::precomputed::precompute_magics;
 use RookBot::engine::search::clock::TimeManager;
 use RookBot::engine::search::constants::init_lmr;
-use RookBot::engine::search::transposition_table::{Entry, TranspositionTable};
+use RookBot::engine::search::transposition_table::{InsertEntry, TranspositionTable};
 use RookBot::uci::handle_command;
 use RookBot::{engine::board::board::Board, uci::UciOption};
 use mimalloc::MiMalloc;

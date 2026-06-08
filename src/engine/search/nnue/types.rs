@@ -1,5 +1,6 @@
 use crate::engine::board::piece::PieceColor::WHITE;
 use crate::engine::board::piece::{Piece, PieceColor};
+use crate::engine::search::constants::MATE_VALUE;
 use crate::engine::search::nnue::simd;
 use crate::engine::search::nnue::simd::evaluate_part;
 
@@ -42,7 +43,7 @@ impl Network {
         output *= SCALE;
         output /= i32::from(QA) * i32::from(QB);
 
-        output
+        output.clamp(-(MATE_VALUE - 1024), MATE_VALUE - 1024)
     }
 
     pub fn update_piece(
