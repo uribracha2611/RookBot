@@ -88,6 +88,9 @@ pub fn handle_command(
     let first_word = words[0];
     match first_word {
         "uci" => {
+            println!("id name rookbot");
+            println!("id author rookbot");
+            println!("option name Hash type spin default 64 min 1 max 33554432");
             println!("uciok");
         }
         "isready" => {
