@@ -1,3 +1,5 @@
+use clap::Subcommand;
+
 use crate::constants::FENS_FOR_BENCH;
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
@@ -8,17 +10,82 @@ use crate::engine::search::clock::{self, ClockOption, DYNAMICTIME, TimeManager};
 use crate::engine::search::search::{eval, search};
 use crate::engine::search::transposition_table::TranspositionTable;
 use crate::engine::search::types::SearchInput;
+use std::default::Default;
 use std::time::{Duration, Instant};
 
 const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
+const TT_MB_DEFAULT: i32 = 64;
+pub struct UciOption {
+    tt_mb: i32,
+}
+impl Default for UciOption {
+    fn default() -> Self {
+        UciOption {
+            tt_mb: TT_MB_DEFAULT,
+        }
+    }
+}
+pub fn handle_setoption(
+    subcommand: &str,
+    uci_option: &mut UciOption,
+    tt_table: &mut TranspositionTable,
+) {
+    let rest = match subcommand.strip_prefix("name ") {
+        Some(str) => str,
+        None => {
+            println!("wrong format for setoption should be setoption name <id> [value <x>]");
+            return;
+        }
+    };
+
+    let (id, value) = if let Some(pos) = rest.find(" value ") {
+        (
+            rest[..pos].trim(),
+            Some(rest[pos + " value ".len()..].trim()),
+        )
+    } else {
+        (rest.trim(), None)
+    };
+    match id {
+        "Hash" => {
+            let mb_amount = match value {
+                Some(val) => match val.parse::<i32>() {
+                    Ok(int_val) => {
+                        if !(1..=33554432).contains(&int_val) {
+                            println!("value outside bounds");
+                            return;
+                        }
+                        int_val
+                    }
+                    Err(_) => {
+                        println!("value for Hash must be an integer");
+                        return;
+                    }
+                },
+                None => {
+                    println!("this option needs a value");
+                    return;
+                }
+            };
+
+            uci_option.tt_mb = mb_amount;
+            *tt_table = TranspositionTable::from_mb(mb_amount as usize);
+        }
+        _ => {
+            println!("no such option");
+        }
+    }
+}
 
 pub fn handle_command(
     command: &str,
     board: &mut Board,
     tt_table: &mut TranspositionTable,
     time_manager: &mut TimeManager,
+    uci_option: &mut UciOption,
 ) {
-    let first_word = command.split(" ").collect::<Vec<&str>>()[0];
+    let words = command.split_whitespace().collect::<Vec<&str>>();
+    let first_word = words[0];
     match first_word {
         "uci" => {
             println!("uciok");
@@ -30,7 +97,10 @@ pub fn handle_command(
             std::process::exit(0);
         }
         "ucinewgame" => {
-            *tt_table = TranspositionTable::from_mb(64);
+            *tt_table = TranspositionTable::from_mb(TT_MB_DEFAULT as usize);
+        }
+        "setoption" => {
+            handle_setoption(&words[1..].join(" "), uci_option, tt_table);
         }
         "d" => {
             println!("{}", board.to_stockfish_string());

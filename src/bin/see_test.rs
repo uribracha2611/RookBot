@@ -3,7 +3,7 @@ use RookBot::engine::board::see::static_exchange_evaluation;
 use RookBot::engine::movegen::movedata::MoveData;
 use RookBot::engine::search::clock::TimeManager;
 use RookBot::engine::search::transposition_table::TranspositionTable;
-use RookBot::uci::handle_command;
+use RookBot::uci::{UciOption, handle_command};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::time::{Duration, Instant};
@@ -35,11 +35,13 @@ pub fn handle_single_line(line: String, duration: &mut Duration, counter: &mut i
     let curr_move = MoveData::from_algebraic(move_text, &board);
 
     let mut time_manager = TimeManager::default();
+    let mut uci_option = UciOption::default();
     handle_command(
         "ucinewgame",
         &mut board,
         &mut TranspositionTable::from_mb(10),
         &mut time_manager,
+        &mut uci_option,
     );
 
     if curr_move.is_promotion() {

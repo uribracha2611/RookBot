@@ -1,7 +1,7 @@
 use RookBot::engine::board::board::Board;
 use RookBot::engine::search::clock::TimeManager;
 use RookBot::engine::search::transposition_table::TranspositionTable;
-use RookBot::uci::handle_command;
+use RookBot::uci::{UciOption, handle_command};
 
 pub const STARTPOS_FEN: &str = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 pub const BENCHMARK_POSITIONS: [&str; 50] = [
@@ -61,6 +61,13 @@ pub fn main() {
         let mut board = Board::from_fen(pos);
         let mut tt_table = TranspositionTable::from_mb(64);
         let mut time_manager = TimeManager::default();
-        handle_command("go depth 12", &mut board, &mut tt_table, &mut time_manager);
+        let mut uci_option = UciOption::default();
+        handle_command(
+            "go depth 12",
+            &mut board,
+            &mut tt_table,
+            &mut time_manager,
+            &mut uci_option,
+        );
     }
 }
