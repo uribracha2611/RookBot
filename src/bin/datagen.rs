@@ -9,8 +9,8 @@ use RookBot::engine::search::transposition_table::TranspositionTable;
 use RookBot::engine::search::types::SearchInput;
 use clap::Parser;
 use rand::prelude::*;
-use std::fs::{self, File};
-use std::io::{BufRead, BufReader, BufWriter, Error, Write};
+use std::fs::{self, File, OpenOptions};
+use std::io::{BufRead, BufReader, BufWriter, Error, Read, Seek, SeekFrom, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
@@ -26,12 +26,14 @@ struct DatagenArgs {
     game_count: i32,
     #[arg(short, long)]
     threads: usize,
-    #[arg(short, long, default_value = "DATA")]
-    output_path: String,
+    #[arg(short, long)]
+    output_path: Option<String>,
 }
+
 struct ThreadResult {
     positions_generated: u64,
 }
+
 fn main() -> Result<(), Error> {
     let args = DatagenArgs::parse();
     let fens = Arc::new(parse_epdfile(&args.book_path)?);
@@ -42,8 +44,27 @@ fn main() -> Result<(), Error> {
         .duration_since(UNIX_EPOCH)
         .unwrap()
         .as_secs();
-    let session_dir = format!("{}/session_{}", args.output_path, timestamp);
+
+    let session_dir = match args.output_path {
+        Some(output) => output,
+        None => "DATA/".to_string() + &timestamp.to_string(),
+    };
+
     fs::create_dir_all(&session_dir)?;
+
+    let final_path = format!("{}/finaldata.bin", session_dir);
+
+    let exists = fs::metadata(&final_path).is_ok();
+
+    if exists {
+        println!("finaldata.bin already exists: appending");
+    }
+    let file = OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&final_path)?;
+
+    let final_writer = Arc::new(Mutex::new(BufWriter::new(file)));
 
     let total_games_finished = Arc::new(Mutex::new(0));
     let start_time = Instant::now();
@@ -64,41 +85,47 @@ fn main() -> Result<(), Error> {
             thread_games += 1;
             extra_games -= 1;
         }
+
         let fens_ref = Arc::clone(&fens);
         let progress = Arc::clone(&total_games_finished);
+        let writer = Arc::clone(&final_writer);
         let node_limit = args.node_count;
-        let thread_dir = session_dir.clone();
 
         let handle = thread::spawn(move || {
             let mut thread_pos_count = 0;
-            let file_path = format!("{}/thread_{}.binpack", thread_dir, t_id);
-            let file = File::create(file_path).unwrap();
-            let mut writer = BufWriter::new(file);
 
             let mut tb_white = TranspositionTable::from_mb(4);
             let mut tb_black = TranspositionTable::from_mb(4);
 
+            let mut buffer = Vec::with_capacity(8 * 1024 * 1024);
             let mut i = 1;
+
             while i <= thread_games {
                 let mut board = choose_random_opening(&fens_ref, 5, node_limit);
 
-                let mut tb_white_ptr = &mut tb_white as *mut TranspositionTable;
-                let mut tb_black_ptr = &mut tb_black as *mut TranspositionTable;
+                let tb_white_ptr = &mut tb_white as *mut TranspositionTable;
+                let tb_black_ptr = &mut tb_black as *mut TranspositionTable;
 
-                let result =
-                    std::panic::catch_unwind(std::panic::AssertUnwindSafe(move || unsafe {
-                        run_game(
-                            &mut board,
-                            node_limit,
-                            &mut *tb_white_ptr,
-                            &mut *tb_black_ptr,
-                        )
-                    }));
+                let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| unsafe {
+                    run_game(
+                        &mut board,
+                        node_limit,
+                        &mut *tb_white_ptr,
+                        &mut *tb_black_ptr,
+                    )
+                }));
 
                 match result {
                     Ok(game) => {
                         thread_pos_count += game.get_moves().len() as u64;
-                        let _ = game.write_to_bin(&mut writer);
+
+                        let _ = game.write_to_bin(&mut buffer);
+
+                        if buffer.len() >= 8 * 1024 * 1024 {
+                            let mut w = writer.lock().unwrap();
+                            let _ = w.write_all(&buffer);
+                            buffer.clear();
+                        }
 
                         let mut count = progress.lock().unwrap();
                         *count += 1;
@@ -110,6 +137,7 @@ fn main() -> Result<(), Error> {
                                 new_count, total_game_count
                             );
                         }
+
                         i += 1;
                     }
                     Err(_) => {
@@ -119,11 +147,16 @@ fn main() -> Result<(), Error> {
                 }
             }
 
-            let _ = writer.flush();
+            if !buffer.is_empty() {
+                let mut w = writer.lock().unwrap();
+                let _ = w.write_all(&buffer);
+            }
+
             ThreadResult {
                 positions_generated: thread_pos_count,
             }
         });
+
         handles.push(handle);
     }
 
@@ -134,8 +167,6 @@ fn main() -> Result<(), Error> {
         }
     }
 
-    merge_files(&session_dir, args.threads)?;
-
     let duration = start_time.elapsed();
     println!("\n--- Datagen Report ---");
     println!("Total Time:        {:.2?}", duration);
@@ -143,20 +174,6 @@ fn main() -> Result<(), Error> {
     println!("Final File:        {}/finaldata.bin", session_dir);
     println!("----------------------");
 
-    Ok(())
-}
-
-fn merge_files(dir: &str, num_threads: usize) -> Result<(), Error> {
-    println!("Merging thread files into finaldata.bin...");
-    let final_path = format!("{}/finaldata.bin", dir);
-    let mut final_file = File::create(final_path)?;
-
-    for t_id in 0..num_threads {
-        let thread_file_path = format!("{}/thread_{}.binpack", dir, t_id);
-        if let Ok(mut thread_file) = File::open(&thread_file_path) {
-            std::io::copy(&mut thread_file, &mut final_file)?;
-        }
-    }
     Ok(())
 }
 
@@ -196,19 +213,24 @@ pub fn choose_random_opening(fens: &[String], random_move_count: i32, node_limit
                     break;
                 }
             };
+
             board.make_move(random_move);
         }
+
         update_check(&mut board);
         let moves = generate_moves(&mut board, false);
 
         if moves.is_empty() {
             failed = true;
         }
+
         if failed {
             continue;
         }
+
         let mut time_management = TimeManager::default();
         time_management.set_clock(ClockOption::from_nodes(node_limit * 2));
+
         let result = search(&mut board, &mut basic_tt, &time_management);
 
         if result.eval.abs() < 400 {
