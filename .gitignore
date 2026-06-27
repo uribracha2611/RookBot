@@ -6,6 +6,14 @@
 /.idea/
 /.cargo/
 /tests/
+src/
+src/bin/
+src/bin/*
+
+!/src/
+!/src/bin/
+!/src/bin/rookbot.rs
+!/src/bin/datagen.rs
 /src/nnue.bin
 /src/nnue-64.bin
 !.gitignore
