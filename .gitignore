@@ -9,7 +9,7 @@
 src/
 src/bin/
 src/bin/*
-
+src/engine/search/nnue/nets
 !/src/
 !/src/bin/
 !/src/bin/rookbot.rs
