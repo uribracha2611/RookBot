@@ -20,7 +20,6 @@ use crate::engine::movegen::constants::KNIGHT_MOVES;
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::nnue::NNUE_NETWORK;
-
 use crate::engine::search::nnue::types::{Accumulator, get_feature_indices};
 use crate::engine::search::psqt::constants::GAMEPHASE_INC;
 use crate::engine::search::psqt::function::get_psqt;
@@ -54,13 +53,6 @@ impl Board {
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update zobrist hash before removing the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
-        NNUE_NETWORK.update_piece(
-            piece,
-            square as usize,
-            &mut self.game_state.acc_white,
-            &mut self.game_state.acc_black,
-            false,
-        );
         self.game_state.squares[square as usize] = None;
         self.get_color_bitboard_mut(piece.piece_color)
             .clear_square(square);
@@ -95,14 +87,6 @@ impl Board {
         let index = 6 * piece.piece_color.to_index() + piece.piece_type.to_index();
         // Update zobrist hash before adding the piece
         self.game_state.zobrist_hash ^= ZOBRIST_KEYS[index][square as usize];
-
-        NNUE_NETWORK.update_piece(
-            piece,
-            square as usize,
-            &mut self.game_state.acc_white,
-            &mut self.game_state.acc_black,
-            true,
-        );
 
         self.game_state.squares[square as usize] = Some(piece);
         self.get_color_bitboard_mut(piece.piece_color)
@@ -283,6 +267,7 @@ impl Board {
             board.game_state.zobrist_hash ^= ZOBRIST_SIDE_TO_MOVE;
         }
         board.repetition_table.push(board.game_state.zobrist_hash);
+        (board.game_state.acc_white, board.game_state.acc_black) = board.rebuild_acc();
         board
     }
 
@@ -370,6 +355,7 @@ impl Board {
     }
     pub fn make_move(&mut self, mv: MoveData) {
         let mut old_game_state = self.game_state;
+        NNUE_NETWORK.handle_mv_nnue(self, mv);
         let moved_piece = self.game_state.squares[mv.from() as usize].unwrap();
         if mv.is_capture() {
             let captured_piece = self.game_state.squares[mv.get_capture_square() as usize].unwrap();
