@@ -90,7 +90,7 @@ impl Piece {
 
         piece_type_bit | color_bit
     }
-    pub fn get_value(&self) -> i32 {
+    pub const fn get_value(&self) -> i32 {
         match self.piece_type {
             PieceType::PAWN => 1,
             PieceType::KNIGHT => 3,

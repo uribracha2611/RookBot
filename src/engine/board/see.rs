@@ -19,7 +19,6 @@ pub fn static_exchange_evaluation(board: &Board, curr_mv: MoveData) -> i32 {
     let initial_square = curr_mv.from();
     let piece_captures = board.game_state.squares[curr_mv.from() as usize].unwrap();
 
-
     let mut scores = Vec::new();
     let mut turn = board.turn;
     let initial_turn = turn;
@@ -94,7 +93,7 @@ pub fn static_exchange_evaluation(board: &Board, curr_mv: MoveData) -> i32 {
     }
     scores[0]
 }
-pub fn get_piece_value(piece: PieceType) -> i32 {
+pub const fn get_piece_value(piece: PieceType) -> i32 {
     match piece {
         PieceType::PAWN => PAWN_VALUE,
         PieceType::KNIGHT => KNIGHT_VALUE,

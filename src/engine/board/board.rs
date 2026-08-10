@@ -3,9 +3,6 @@ use super::{
     gamestate::GameState,
     piece::{Piece, PieceColor},
 };
-use crate::engine::board::castling::types::CastlingSide::{Kingside, Queenside};
-use crate::engine::board::castling::types::{AllowedCastling, CastlingSide};
-use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::board::piece::PieceType;
 use crate::engine::board::piece::PieceType::{BISHOP, KING, KNIGHT, PAWN, QUEEN, ROOK};
 use crate::engine::board::{
@@ -27,14 +24,24 @@ use crate::engine::search::psqt::weight::W;
 use crate::engine::search::zobrist::constants::{
     ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE,
 };
+use crate::engine::{
+    board::castling::types::CastlingSide::{Kingside, Queenside},
+    movegen::constants::{ALIGN_MASK, KING_MOVES},
+};
+use crate::engine::{
+    board::castling::types::{AllowedCastling, CastlingSide},
+    movegen::generate::is_pinned,
+};
+use crate::engine::{
+    board::piece::PieceColor::{BLACK, WHITE},
+    movegen::generate::in_check_after_en_passant,
+};
 use std::thread::AccessError;
 
 #[derive(Clone)]
 pub struct Board {
     pub turn: PieceColor,
     pub game_state: GameState,
-    pub attacked_square: Bitboard,
-    pub curr_king: u8,
     history: Vec<GameState>,
     pub repetition_table: Vec<u64>,
 }
@@ -235,9 +242,6 @@ impl Board {
             },
 
             game_state: GameState::from_fen(&game_state_fen),
-            curr_king: 0,
-            attacked_square: Bitboard::new(0),
-
             history: Vec::new(),
             repetition_table: Vec::new(),
         };
@@ -428,22 +432,135 @@ impl Board {
         }
     }
     #[inline(always)]
-    pub fn is_move_legal(self, mv: &MoveData) -> bool {
-        let king_square = self
-            .get_piece_bitboard(self.turn, KING)
-            .get_single_set_bit();
-        if mv.from() == king_square && self.attacked_square.contains_square(mv.to()) {
+    pub fn is_move_legal(&self, mv: MoveData) -> bool {
+        let from = mv.from() as usize;
+        let to = mv.to() as usize;
+
+        let from_piece = match self.game_state.squares[from] {
+            Some(piece) if piece.piece_color == self.turn => piece,
+            _ => return false,
+        };
+        if mv.is_promotion() && from_piece.piece_type != PAWN {
             return false;
         }
-        let them = self.get_color_bitboard(self.turn.opposite());
-        let opp_rooks = self.get_piece_bitboard(self.turn.opposite(), ROOK);
-        let opp_queen = self.get_piece_bitboard(self.turn.opposite(), QUEEN);
-        let opp_bishop = self.get_piece_bitboard(self.turn.opposite(), BISHOP);
-        let opp_diag = opp_queen | opp_bishop;
-        let opp_ortho = opp_queen | opp_rooks;
-        let diag_attacks = get_bishop_attacks(king_square as usize, them) & opp_diag;
-        let ortho_attacks = get_rook_attacks(king_square as usize, them) & opp_ortho;
-        let overall_attacks = ortho_attacks | diag_attacks;
+
+        if mv.is_capture() {
+            let cap_square = mv.get_capture_square() as usize;
+            match self.game_state.squares[cap_square] {
+                Some(cap_piece) if cap_piece.piece_color != self.turn => {
+                    if mv.is_en_passant()
+                        && in_check_after_en_passant(self, from as u8, to as u8, cap_square as u8)
+                    {
+                        return false;
+                    }
+                }
+
+                _ => return false,
+            }
+        }
+
+        let diff_to_from = (mv.to() as i8) - (mv.from() as i8);
+        let abs_diff_to_from = diff_to_from.abs();
+        match from_piece.piece_type {
+            PAWN => {
+                if mv.is_capture() {
+                    if abs_diff_to_from != 7 && abs_diff_to_from != 9 {
+                        return false;
+                    }
+                } else if mv.is_double_push() {
+                    if abs_diff_to_from != 16 {
+                        return false;
+                    }
+                    let intermediate_square = if self.turn == PieceColor::WHITE {
+                        from + 8
+                    } else {
+                        from - 8
+                    };
+                    if self.game_state.squares[intermediate_square].is_some() {
+                        return false;
+                    }
+                } else {
+                    if abs_diff_to_from != 8 {
+                        return false;
+                    }
+                }
+
+                if self.turn == PieceColor::WHITE && diff_to_from < 0 {
+                    return false;
+                }
+                if self.turn == PieceColor::BLACK && diff_to_from > 0 {
+                    return false;
+                }
+            }
+            KNIGHT => {
+                if !KNIGHT_MOVES[from].contains_square(to as u8) {
+                    return false;
+                }
+            }
+            BISHOP => {
+                if !get_bishop_attacks(from, self.get_all_pieces_bitboard())
+                    .contains_square(to as u8)
+                {
+                    return false;
+                }
+            }
+            ROOK => {
+                if !get_rook_attacks(from, self.get_all_pieces_bitboard()).contains_square(to as u8)
+                {
+                    return false;
+                }
+            }
+            QUEEN => {
+                let blockers = self.get_all_pieces_bitboard();
+                let attacks = get_bishop_attacks(from, blockers) | get_rook_attacks(from, blockers);
+                if !attacks.contains_square(to as u8) {
+                    return false;
+                }
+            }
+            KING => {
+                if !mv.is_castle() && !KING_MOVES[from].contains_square(to as u8) {
+                    return false;
+                }
+            }
+        }
+        if from_piece.piece_type == KING {
+            if self.game_state.attacked_square.contains_square(to as u8) {
+                return false;
+            }
+        } else {
+            if self.game_state.is_check
+                && ((self.game_state.is_double_check
+                    || !self.game_state.check_ray.contains_square(to as u8))
+                    && !mv.is_en_passant())
+            {
+                return false;
+            }
+            if is_pinned(&self, from as u8)
+                && ALIGN_MASK[from][self.game_state.curr_king as usize]
+                    != ALIGN_MASK[to][self.game_state.curr_king as usize]
+            {
+                return false;
+            }
+        }
+        if !mv.is_capture() && self.game_state.squares[to].is_some() {
+            return false;
+        }
+        if mv.is_castle() {
+            let side = unsafe { mv.get_castling_side().unwrap_unchecked() };
+            let rights = if self.turn == PieceColor::WHITE {
+                self.game_state.castle_white
+            } else {
+                self.game_state.castle_black
+            };
+
+            if !rights.is_allowed(&side)
+                || self.game_state.is_check
+                || (self.get_all_pieces_bitboard() & side.required_empty(self.turn) != 0)
+                || (self.game_state.attacked_square & side.king_moves_trough(self.turn) != 0)
+            {
+                return false;
+            }
+        }
 
         true
     }

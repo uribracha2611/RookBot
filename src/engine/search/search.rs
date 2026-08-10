@@ -2,18 +2,18 @@ use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor;
 use crate::engine::board::piece::PieceType::KING;
 use crate::engine::board::see::static_exchange_evaluation;
+use crate::engine::movegen::constants::MAX_MOVES;
 use crate::engine::movegen::generate::{generate_moves, update_check};
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
+use crate::engine::movegen::movepicker::{MovePicker, MovegenStages};
 use crate::engine::search::clock::TimeManager;
 use crate::engine::search::constants::{
     INFINITY, MATE_VALUE, RAZOR_DEPTH, RAZOR_MARGIN, VAL_WINDOW,
 };
 use crate::engine::search::functions::{is_allowed_reverse_futility_pruning, is_improving};
 use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
-use crate::engine::search::move_ordering::{
-    BASE_CAPTURE, capture_formula, get_capture_score, get_moves_score,
-};
+use crate::engine::search::move_ordering::{BASE_CAPTURE, capture_formula, get_moves_score};
 use crate::engine::search::nnue::NNUE_NETWORK;
 use crate::engine::search::transposition_table::EntryType::UpperBound;
 use crate::engine::search::transposition_table::{self, EntryType, TranspositionTable};
@@ -77,21 +77,13 @@ pub fn quiescence_search(
     }
 
     update_check(board);
-    let mut moves = generate_moves(board, true);
-    let mut scores = get_capture_score(moves, tt_move, board);
     let mut best_move = None;
-    // Iterate through the moves
-    for i in 0..moves.len() {
+    let mut move_picker = MovePicker::new(0, true, tt_move);
+    while let Some(mv) = move_picker.next(board, refs) {
         if time_manager.check_if_only_nodes_done(refs.get_nodes_evaluated()) {
             return 0;
         }
-        // Pick the move to search next
-        pick_move(&mut moves, i as u8, &mut scores);
-        let mv = moves.get_move(i);
 
-        if Some(mv) != tt_move && static_exchange_evaluation(board, mv) < 0 {
-            continue;
-        }
         refs.table.prefetch(board.calc_hash_after_move(&mv));
         // Check time again before making a move
 
@@ -252,14 +244,32 @@ pub fn search(
         let tt_mv = refs
             .get_transposition_table()
             .get_tt_move(board.game_state.zobrist_hash);
-        let mut moves = generate_moves(board, false);
-        if moves.is_empty() {
-            panic!("ran search in a position with zero legal moves")
+        if let Some(tt_mv) = tt_mv
+            && board.is_move_legal(tt_mv)
+        {
+            principal_variation.push(tt_mv);
+        } else {
+            let mut moves = MoveList::new();
+            generate_moves(
+                board,
+                crate::engine::movegen::generate::GENTYPE::AllMoves,
+                &mut moves,
+            );
+            if moves.is_empty() {
+                panic!("ran search in a position with zero legal moves")
+            }
+            let length = moves.len();
+            get_moves_score(&mut moves, 0, board, &refs, 0, length);
+            principal_variation.push(
+                moves
+                    .iter()
+                    .max_by_key(|mv| mv.get_score())
+                    .unwrap()
+                    .get_mv(),
+            );
         }
-        let mut scores = get_moves_score(&moves, 0, board, tt_mv, &refs);
-        pick_move(&mut moves, 0, &mut scores);
-        principal_variation.push(moves.get_move(0));
     }
+
     SearchOutput {
         nodes_evaluated: refs.get_nodes_evaluated(),
         principal_variation,
@@ -299,15 +309,7 @@ fn search_common(
     if board.is_board_draw() {
         return 0;
     }
-    let mut move_list = generate_moves(board, false);
 
-    if move_list.len() == 0 {
-        return if board.game_state.is_check {
-            -MATE_VALUE + ply
-        } else {
-            0
-        };
-    }
     let mut tt_move = None;
 
     if let Some(entry) = refs
@@ -388,53 +390,27 @@ fn search_common(
         depth -= 2;
     }
 
-    let mut move_score = get_moves_score(&move_list, ply as usize, board, tt_move, &*refs);
     let mut best_move = None;
     let mut entry_type = EntryType::UpperBound;
     let mut quiet_moves_count = 0;
 
-    let mut quiet_moves: Vec<MoveData> = Vec::with_capacity(move_list.len());
+    let mut quiet_moves: Vec<MoveData> = Vec::with_capacity(MAX_MOVES);
     let mut is_pvs = false;
-    for i in 0..move_list.len() {
+    let mut legal_move_count = 0;
+    let mut move_picker = MovePicker::new(ply as usize, false, tt_move);
+    while let Some(curr_move) = move_picker.next(board, refs) {
+        legal_move_count += 1;
         if time_manager.check_if_only_nodes_done(refs.get_nodes_evaluated()) {
             return 0;
         }
         let mut is_quiet_move = false;
-        pick_move(&mut move_list, i as u8, &mut move_score);
-
-        let mut curr_move = move_list.get_move(i);
-        let mut see_val = 0;
-        while Some(curr_move) != tt_move && curr_move.is_capture() {
-            see_val = static_exchange_evaluation(board, curr_move);
-            if see_val >= 0 {
-                break;
-            }
-
-            let old_move = curr_move;
-            move_score[i] = -BASE_CAPTURE + capture_formula(board, curr_move);
-            pick_move(&mut move_list, i as u8, &mut move_score);
-
-            curr_move = move_list.get_move(i);
-            debug_assert!(
-                curr_move.to()
-                    != board
-                        .get_piece_bitboard(board.turn.opposite(), KING)
-                        .pop_lsb(),
-                "move is {:?} and fen is {}",
-                curr_move,
-                board.to_fen()
-            );
-            if curr_move == old_move {
-                break;
-            };
-        }
 
         if curr_move.is_capture()
-            && Some(curr_move) != tt_move
-            && see_val < -25 * depth * depth
+            && move_picker.stage == MovegenStages::BadCap
+            && static_exchange_evaluation(board, curr_move) < -25 * depth * depth
             && !board.game_state.is_check
             && alpha > -MATE_VALUE + 500
-            && i > 1
+            && legal_move_count > 1
         {
             continue;
         }
@@ -460,7 +436,8 @@ fn search_common(
 
         let mut score_mv = 0;
         if depth >= 3 && !curr_move.is_capture() && !curr_move.is_promotion() && is_pvs {
-            let new_depth = depth - reduce_depth(depth, i as i32, improving, hist as i32);
+            let new_depth =
+                depth - reduce_depth(depth, legal_move_count as i32, improving, hist as i32);
 
             score_mv = -search_common(
                 board,
@@ -559,6 +536,13 @@ fn search_common(
         is_pvs = true;
     }
 
+    if legal_move_count == 0 {
+        return if board.game_state.is_check {
+            -MATE_VALUE + ply
+        } else {
+            0
+        };
+    }
     refs.get_transposition_table().store(
         board.game_state.zobrist_hash,
         depth as u8,

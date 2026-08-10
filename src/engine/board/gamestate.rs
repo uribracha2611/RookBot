@@ -25,6 +25,8 @@ pub struct GameState {
     pub color_bitboards: [Bitboard; 2],
     pub piece_bitboards: [[Bitboard; 6]; 2],
     pub all_pieces_bitboard: Bitboard,
+    pub attacked_square: Bitboard,
+    pub curr_king: u8,
 }
 impl GameState {
     pub fn new(
@@ -39,7 +41,8 @@ impl GameState {
         GameState {
             squares: [None; 64],
             castle_white,
-
+            curr_king: 0,
+            attacked_square: Bitboard::new(0),
             color_bitboards: [Bitboard::new(0), Bitboard::new(0)],
             piece_bitboards: [[Bitboard::new(0); 6]; 2],
             all_pieces_bitboard: Bitboard::new(0),
@@ -181,6 +184,8 @@ impl GameState {
             zobrist_hash: 0,
             check_ray: Bitboard::new(u64::MAX),
             pinned_ray: Bitboard::new(0),
+            attacked_square: Bitboard::new(0),
+            curr_king: 0,
             acc_white: Accumulator::new(&NNUE_NETWORK),
             acc_black: Accumulator::new(&NNUE_NETWORK),
             is_double_check: false,

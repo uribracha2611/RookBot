@@ -6,11 +6,18 @@ use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::board::position::Position;
 use crate::engine::board::see::get_piece_value;
 use crate::engine::movegen;
-use crate::engine::movegen::constants::{ALIGN_MASK, KING_MOVES, KNIGHT_MOVES, RANK_1, RANK_8, SQR_A_B_MASK};
+use crate::engine::movegen::constants::{
+    ALIGN_MASK, KING_MOVES, KNIGHT_MOVES, RANK_1, RANK_8, SQR_A_B_MASK,
+};
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::movegen::movelist::MoveList;
-
+#[derive(PartialEq, Clone, Copy)]
+pub enum GENTYPE {
+    AllMoves,
+    CapOnly,
+    QuietOnly,
+}
 
 pub fn generate_all_opp_attacks(board: &Board) -> Bitboard {
     let opp_color = board.turn.opposite();
@@ -23,11 +30,25 @@ pub fn generate_all_opp_attacks(board: &Board) -> Bitboard {
         PieceType::QUEEN,
         PieceType::KING,
     ]
-        .iter()
+    .iter()
     {
         all_attacks |= generate_piece_attack_bitboard(board, &opp_color, piece_type);
     }
     all_attacks
+}
+
+fn get_quiet_bitboard(opp_pieces: Bitboard, gen_type: GENTYPE) -> Bitboard {
+    match gen_type {
+        GENTYPE::CapOnly => {
+            return opp_pieces;
+        }
+        GENTYPE::AllMoves => {
+            return Bitboard::new(u64::MAX);
+        }
+        GENTYPE::QuietOnly => {
+            return !opp_pieces;
+        }
+    }
 }
 
 pub fn get_attacking_pieces(board: &Board, square: u8, piece_color: PieceColor) -> Bitboard {
@@ -79,8 +100,8 @@ pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> 
     }
 
     // Check for knight attacks
-    let mut knight_attackers = KNIGHT_MOVES[square as usize]
-        & board.get_piece_bitboard(piece_color, PieceType::KNIGHT);
+    let mut knight_attackers =
+        KNIGHT_MOVES[square as usize] & board.get_piece_bitboard(piece_color, PieceType::KNIGHT);
 
     while knight_attackers != 0 {
         let start_square = knight_attackers.pop_lsb();
@@ -114,8 +135,8 @@ pub fn get_attackers_vec(board: &Board, square: u8, piece_color: PieceColor) -> 
         let start_square = queen_attackers.pop_lsb();
         attackers.push((Piece::new(piece_color, PieceType::QUEEN), start_square));
     }
-    let mut king_attacks = KING_MOVES[square as usize]
-        & board.get_piece_bitboard(piece_color, PieceType::KING);
+    let mut king_attacks =
+        KING_MOVES[square as usize] & board.get_piece_bitboard(piece_color, PieceType::KING);
     while king_attacks != 0 {
         let start_square = king_attacks.pop_lsb();
         attackers.push((Piece::new(piece_color, PieceType::KING), start_square));
@@ -206,17 +227,22 @@ fn generate_piece_attack_bitboard(
     }
 }
 pub fn update_check(board: &mut Board) {
-    board.curr_king = board
+    board.game_state.curr_king = board
         .get_piece_bitboard(board.turn, PieceType::KING)
         .get_single_set_bit();
-    board.attacked_square = generate_all_opp_attacks(board);
-    let king_square = board.curr_king;
+    board.game_state.attacked_square = generate_all_opp_attacks(board);
+    let king_square = board.game_state.curr_king;
 
-    board.game_state.is_check = board.attacked_square.contains_square(king_square);
+    board.game_state.is_check = board
+        .game_state
+        .attacked_square
+        .contains_square(king_square);
+    update_check_status(board);
+    board.game_state.pinned_ray = find_pinned_pieces(board);
 }
 pub fn update_check_status(board: &mut Board) {
     board.game_state.is_double_check = false;
-    let king_square = board.curr_king;
+    let king_square = board.game_state.curr_king;
     if board.game_state.is_check {
         let attackers = get_attacking_pieces(board, king_square, board.turn);
         if attackers.pop_count() > 1 {
@@ -250,34 +276,25 @@ pub fn update_check_status(board: &mut Board) {
         board.game_state.check_ray = Bitboard::new(u64::MAX);
     }
 }
-pub fn generate_moves(board: &mut Board, only_captures: bool) -> MoveList {
-    update_check_status(board);
-    board.game_state.pinned_ray = find_pinned_pieces(board);
-
-    let mut move_list = MoveList::new();
-    generate_king_move(board, &mut move_list, only_captures);
+pub fn generate_moves(board: &mut Board, gen_type: GENTYPE, move_list: &mut MoveList) {
+    generate_king_move(board, move_list, gen_type);
     if !board.game_state.is_double_check {
-        generate_knight_move(board, &mut move_list, only_captures);
+        generate_knight_move(board, move_list, gen_type);
 
-        generate_pawn_moves(board, &mut move_list, only_captures);
-        get_rook_moves(board, &mut move_list, only_captures);
-        get_bishop_moves(board, &mut move_list, only_captures);
-        get_queen_moves(board, &mut move_list, only_captures);
+        generate_pawn_moves(board, move_list, gen_type);
+        get_rook_moves(board, move_list, gen_type);
+        get_bishop_moves(board, move_list, gen_type);
+        get_queen_moves(board, move_list, gen_type);
     }
-    move_list
 }
-fn is_pinned(board: &Board, sqr: u8) -> bool {
+pub fn is_pinned(board: &Board, sqr: u8) -> bool {
     board.game_state.pinned_ray.contains_square(sqr)
 }
-pub fn generate_knight_move(board: &Board, move_list: &mut MoveList, only_captures: bool) {
+pub fn generate_knight_move(board: &Board, move_list: &mut MoveList, gen_type: GENTYPE) {
     let knights = &mut board.get_piece_bitboard(board.turn, PieceType::KNIGHT);
     let opp_pieces = board.get_color_bitboard(board.turn.opposite());
     let blockers = board.get_color_bitboard(board.turn);
-    let quiet_bitboard = if only_captures {
-        opp_pieces
-    } else {
-        Bitboard::new(u64::MAX)
-    };
+    let quiet_bitboard = get_quiet_bitboard(opp_pieces, gen_type);
     while *knights != 0 {
         let from_sqr = knights.pop_lsb();
         let mut moves = KNIGHT_MOVES[from_sqr as usize]
@@ -285,63 +302,43 @@ pub fn generate_knight_move(board: &Board, move_list: &mut MoveList, only_captur
             & board.game_state.check_ray
             & quiet_bitboard;
         if is_pinned(board, from_sqr) {
-            moves &= ALIGN_MASK[from_sqr as usize][board.curr_king as usize];
+            moves &= ALIGN_MASK[from_sqr as usize][board.game_state.curr_king as usize];
         }
         let mut captures = moves & opp_pieces;
         moves &= !captures;
         while moves != 0 {
             let to_sqr = moves.pop_lsb();
-            let curr_move = MoveData::new(
-                from_sqr,
-                to_sqr,
-                MoveData::QUIET,
-            );
+            let curr_move = MoveData::new(from_sqr, to_sqr, MoveData::QUIET);
             move_list.add_move(curr_move);
         }
         while captures != 0 {
             let to_sqr = captures.pop_lsb();
-            let curr_move = MoveData::new(
-                from_sqr,
-                to_sqr,
-                MoveData::CAPTURE,
-            );
+            let curr_move = MoveData::new(from_sqr, to_sqr, MoveData::CAPTURE);
             move_list.add_move(curr_move);
         }
     }
 }
-pub fn generate_king_move(board: &Board, move_list: &mut MoveList, only_captures: bool) {
+pub fn generate_king_move(board: &Board, move_list: &mut MoveList, gen_type: GENTYPE) {
     let kings = &mut board.get_piece_bitboard(board.turn, PieceType::KING);
     let opp_pieces = board.get_color_bitboard(board.turn.opposite());
     let blockers = board.get_color_bitboard(board.turn);
-    let quiet_bitboard = if only_captures {
-        opp_pieces
-    } else {
-        Bitboard::new(u64::MAX)
-    };
+    let quiet_bitboard = get_quiet_bitboard(opp_pieces, gen_type);
     let from_sqr = kings.pop_lsb();
     let mut moves = KING_MOVES[from_sqr as usize]
         & !blockers
-        & !board.attacked_square
+        & !board.game_state.attacked_square
         & quiet_bitboard;
     let mut captures = moves & opp_pieces;
     moves &= !captures;
     moves &= !board.get_color_bitboard(board.turn);
     while moves != 0 {
         let to_sqr = moves.pop_lsb();
-        let curr_move = MoveData::new(
-            from_sqr,
-            to_sqr,
-            MoveData::QUIET,
-        );
+        let curr_move = MoveData::new(from_sqr, to_sqr, MoveData::QUIET);
         move_list.add_move(curr_move);
     }
     while captures != 0 {
         let to_sqr = captures.pop_lsb();
-        let curr_move = MoveData::new(
-            from_sqr,
-            to_sqr,
-            MoveData::CAPTURE,
-        );
+        let curr_move = MoveData::new(from_sqr, to_sqr, MoveData::CAPTURE);
         move_list.add_move(curr_move);
     }
     let castling_options = [CastlingSide::Kingside, CastlingSide::Queenside];
@@ -351,21 +348,21 @@ pub fn generate_king_move(board: &Board, move_list: &mut MoveList, only_captures
         board.game_state.castle_black
     };
 
-    if !only_captures {
+    if gen_type != GENTYPE::CapOnly {
         for side in castling_options.iter() {
             if castling_rights.is_allowed(side)
                 && !board.game_state.is_check
                 && (board.get_all_pieces_bitboard() & side.required_empty(board.turn) == 0)
-                && (board.attacked_square & side.king_moves_trough(board.turn) == 0)
+                && (board.game_state.attacked_square & side.king_moves_trough(board.turn) == 0)
             {
-                let flag = if *side == CastlingSide::Kingside { MoveData::CASTLE_KING } else { MoveData::CASTLE_QUEEN };
+                let flag = if *side == CastlingSide::Kingside {
+                    MoveData::CASTLE_KING
+                } else {
+                    MoveData::CASTLE_QUEEN
+                };
                 let king_start = side.king_start(board.turn);
                 let king_end = side.king_end(board.turn);
-                let castle_move = MoveData::new(
-                    king_start,
-                    king_end,
-                    flag,
-                );
+                let castle_move = MoveData::new(king_start, king_end, flag);
                 move_list.add_move(castle_move);
             }
         }
@@ -373,7 +370,7 @@ pub fn generate_king_move(board: &Board, move_list: &mut MoveList, only_captures
 }
 pub fn find_pinned_pieces(board: &Board) -> Bitboard {
     let mut pinned_ray = Bitboard::new(0);
-    let king_square = Position::from_sqr(board.curr_king as i8).unwrap();
+    let king_square = Position::from_sqr(board.game_state.curr_king as i8).unwrap();
     let opponent_color = board.turn.opposite();
     let opp_ortho = board.get_piece_bitboard(opponent_color, PieceType::ROOK)
         | board.get_piece_bitboard(opponent_color, PieceType::QUEEN);
@@ -403,32 +400,25 @@ fn get_promotion_bitboard(color: PieceColor) -> Bitboard {
 }
 
 pub fn get_pawn_dir(color: PieceColor) -> i8 {
-    if color == PieceColor::WHITE {
-        1
-    } else {
-        -1
-    }
+    if color == PieceColor::WHITE { 1 } else { -1 }
 }
 fn get_pawn_attack_dir(color: PieceColor, left: bool) -> i8 {
     if color == PieceColor::WHITE {
-        if left {
-            7
-        } else {
-            9
-        }
+        if left { 7 } else { 9 }
     } else if left {
         -7
     } else {
         -9
     }
 }
-pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_captures: bool) {
+pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, gen_type: GENTYPE) {
     let pawns = &mut board.get_piece_bitboard(board.turn, PieceType::PAWN);
     let opp_pieces = board.get_color_bitboard(board.turn.opposite());
     let blockers = board.get_all_pieces_bitboard();
     let promotion_bitboard = get_promotion_bitboard(board.turn);
-    if !only_captures {
-        let mut double_pushes = pawns.pawn_double_push(&board.turn, blockers) & board.game_state.check_ray;
+    if gen_type != GENTYPE::CapOnly {
+        let mut double_pushes =
+            pawns.pawn_double_push(&board.turn, blockers) & board.game_state.check_ray;
         let mut single_pushes =
             pawns.pawn_push(&board.turn) & !blockers & !opp_pieces & board.game_state.check_ray;
         let mut single_pushes_promote = single_pushes & promotion_bitboard;
@@ -437,14 +427,10 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
             let end_sq = single_pushes.pop_lsb();
             let start_sq = (end_sq as i8 - (8 * get_pawn_dir(board.turn))) as u8;
             if !is_pinned(board, start_sq)
-                || ALIGN_MASK[start_sq as usize][board.curr_king as usize]
-                == ALIGN_MASK[end_sq as usize][board.curr_king as usize]
+                || ALIGN_MASK[start_sq as usize][board.game_state.curr_king as usize]
+                    == ALIGN_MASK[end_sq as usize][board.game_state.curr_king as usize]
             {
-                let curr_move = MoveData::new(
-                    start_sq,
-                    end_sq,
-                    MoveData::QUIET,
-                );
+                let curr_move = MoveData::new(start_sq, end_sq, MoveData::QUIET);
                 move_list.add_move(curr_move)
             }
         }
@@ -452,8 +438,8 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
             let end_sq = single_pushes_promote.pop_lsb();
             let start_sq = (end_sq as i8 - (8 * get_pawn_dir(board.turn))) as u8;
             if !is_pinned(board, start_sq)
-                || ALIGN_MASK[start_sq as usize][board.curr_king as usize]
-                == ALIGN_MASK[end_sq as usize][board.curr_king as usize]
+                || ALIGN_MASK[start_sq as usize][board.game_state.curr_king as usize]
+                    == ALIGN_MASK[end_sq as usize][board.game_state.curr_king as usize]
             {
                 generate_promote(board, start_sq, end_sq, move_list, false);
             }
@@ -461,76 +447,69 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, only_capture
         while double_pushes != 0 {
             let end_sq = double_pushes.pop_lsb();
             let start_sq = (end_sq as i8 - (16 * get_pawn_dir(board.turn))) as u8;
-            let curr_move = MoveData::new(
-                start_sq,
-                end_sq,
-                MoveData::DOUBLE_PUSH,
-            );
+            let curr_move = MoveData::new(start_sq, end_sq, MoveData::DOUBLE_PUSH);
             if !is_pinned(board, start_sq)
-                || ALIGN_MASK[start_sq as usize][board.curr_king as usize]
-                == ALIGN_MASK[end_sq as usize][board.curr_king as usize]
+                || ALIGN_MASK[start_sq as usize][board.game_state.curr_king as usize]
+                    == ALIGN_MASK[end_sq as usize][board.game_state.curr_king as usize]
             {
                 move_list.add_move(curr_move);
             }
         }
     }
-    let is_left: [bool; 2] = [true, false];
-    for left in is_left.iter() {
-        let mut attacks = pawns.pawn_attack(board.turn, opp_pieces, *left) & board.game_state.check_ray;
-        let mut promote_attacks = attacks & promotion_bitboard;
-        attacks &= !promotion_bitboard;
-        while attacks != 0 {
-            let end_sq = attacks.pop_lsb();
-            let start_sq = (end_sq as i8 - (get_pawn_attack_dir(board.turn, *left))) as u8;
-            if !is_pinned(board, start_sq)
-                || ALIGN_MASK[start_sq as usize][board.curr_king as usize]
-                == ALIGN_MASK[end_sq as usize][board.curr_king as usize]
-            {
-                let curr_move = MoveData::new(
-                    start_sq,
-                    end_sq,
-                    MoveData::CAPTURE,
-                );
-                move_list.add_move(curr_move);
+    if gen_type != GENTYPE::QuietOnly {
+        let is_left: [bool; 2] = [true, false];
+        for left in is_left.iter() {
+            let mut attacks =
+                pawns.pawn_attack(board.turn, opp_pieces, *left) & board.game_state.check_ray;
+            let mut promote_attacks = attacks & promotion_bitboard;
+            attacks &= !promotion_bitboard;
+            while attacks != 0 {
+                let end_sq = attacks.pop_lsb();
+                let start_sq = (end_sq as i8 - (get_pawn_attack_dir(board.turn, *left))) as u8;
+                if !is_pinned(board, start_sq)
+                    || ALIGN_MASK[start_sq as usize][board.game_state.curr_king as usize]
+                        == ALIGN_MASK[end_sq as usize][board.game_state.curr_king as usize]
+                {
+                    let curr_move = MoveData::new(start_sq, end_sq, MoveData::CAPTURE);
+                    move_list.add_move(curr_move);
+                }
+            }
+            while promote_attacks != 0 {
+                let end_sq = promote_attacks.pop_lsb();
+                let start_sq = (end_sq as i8 - (get_pawn_attack_dir(board.turn, *left))) as u8;
+                if !is_pinned(board, start_sq)
+                    || ALIGN_MASK[start_sq as usize][board.game_state.curr_king as usize]
+                        == ALIGN_MASK[end_sq as usize][board.game_state.curr_king as usize]
+                {
+                    generate_promote(board, start_sq, end_sq, move_list, true);
+                }
             }
         }
-        while promote_attacks != 0 {
-            let end_sq = promote_attacks.pop_lsb();
-            let start_sq = (end_sq as i8 - (get_pawn_attack_dir(board.turn, *left))) as u8;
-            if !is_pinned(board, start_sq)
-                || ALIGN_MASK[start_sq as usize][board.curr_king as usize]
-                == ALIGN_MASK[end_sq as usize][board.curr_king as usize]
-            {
-                generate_promote(
-                    board,
-                    start_sq,
-                    end_sq,
-                    move_list,
-                    true,
-                );
-            }
-        }
-    }
-    if let Some(en_passant_square) = board.game_state.en_passant_square {
-        let en_passant_target = (en_passant_square as i8 - (8 * get_pawn_dir(board.turn))) as u8;
-        let en_passent_bitboard = Bitboard::create_from_square(en_passant_square);
-        let mut pawns_can_capture =
-            en_passent_bitboard.pawn_attack(board.turn.opposite(), *pawns, true)
-                | en_passent_bitboard.pawn_attack(board.turn.opposite(), *pawns, false);
-        // let mut pawns_can_capture = pawns_attack_pattern & *pawns;
-        while pawns_can_capture != 0 {
-            let start_sq = pawns_can_capture.pop_lsb();
-            if (!is_pinned(board, start_sq)
-                || ALIGN_MASK[start_sq as usize][board.curr_king as usize]
-                    == ALIGN_MASK[en_passant_square as usize][board.curr_king as usize])
-                && !in_check_after_en_passant(board, start_sq, en_passant_square, en_passant_target)
-            {
-                let curr_move = MoveData::new(
-                    start_sq,
-                    en_passant_square,
-                    MoveData::EN_PASSANT,
-                );
-                move_list.add_move(curr_move);
+        if let Some(en_passant_square) = board.game_state.en_passant_square {
+            let en_passant_target =
+                (en_passant_square as i8 - (8 * get_pawn_dir(board.turn))) as u8;
+            let en_passent_bitboard = Bitboard::create_from_square(en_passant_square);
+            let mut pawns_can_capture =
+                en_passent_bitboard.pawn_attack(board.turn.opposite(), *pawns, true)
+                    | en_passent_bitboard.pawn_attack(board.turn.opposite(), *pawns, false);
+            // let mut pawns_can_capture = pawns_attack_pattern & *pawns;
+            while pawns_can_capture != 0 {
+                let start_sq = pawns_can_capture.pop_lsb();
+                if (!is_pinned(board, start_sq)
+                    || ALIGN_MASK[start_sq as usize][board.game_state.curr_king as usize]
+                        == ALIGN_MASK[en_passant_square as usize]
+                            [board.game_state.curr_king as usize])
+                    && !in_check_after_en_passant(
+                        board,
+                        start_sq,
+                        en_passant_square,
+                        en_passant_target,
+                    )
+                {
+                    let curr_move =
+                        MoveData::new(start_sq, en_passant_square, MoveData::EN_PASSANT);
+                    move_list.add_move(curr_move);
+                }
             }
         }
     }
@@ -541,8 +520,7 @@ pub fn generate_promote(
     end_square: u8,
     move_list: &mut MoveList,
     is_capture: bool,
-)
-{
+) {
     let promote_pieces = [
         PieceType::QUEEN,
         PieceType::ROOK,
@@ -551,29 +529,45 @@ pub fn generate_promote(
     ];
     for piece in promote_pieces.iter() {
         let flag = match piece {
-            QUEEN => if is_capture { MoveData::PROMO_QUEEN_CAP } else { MoveData::PROMO_QUEEN },
-            ROOK => if is_capture { MoveData::PROMO_ROOK_CAP } else { MoveData::PROMO_ROOK },
-            BISHOP => if is_capture { MoveData::PROMO_BISHOP_CAP } else { MoveData::PROMO_BISHOP },
-            PieceType::KNIGHT => if is_capture { MoveData::PROMO_KNIGHT_CAP } else { MoveData::PROMO_KNIGHT },
+            QUEEN => {
+                if is_capture {
+                    MoveData::PROMO_QUEEN_CAP
+                } else {
+                    MoveData::PROMO_QUEEN
+                }
+            }
+            ROOK => {
+                if is_capture {
+                    MoveData::PROMO_ROOK_CAP
+                } else {
+                    MoveData::PROMO_ROOK
+                }
+            }
+            BISHOP => {
+                if is_capture {
+                    MoveData::PROMO_BISHOP_CAP
+                } else {
+                    MoveData::PROMO_BISHOP
+                }
+            }
+            PieceType::KNIGHT => {
+                if is_capture {
+                    MoveData::PROMO_KNIGHT_CAP
+                } else {
+                    MoveData::PROMO_KNIGHT
+                }
+            }
             _ => unreachable!(),
         };
-        let curr_move = MoveData::new(
-            start_square,
-            end_square,
-            flag,
-        );
+        let curr_move = MoveData::new(start_square, end_square, flag);
         move_list.add_move(curr_move);
     }
 }
-pub fn get_rook_moves(board: &Board, move_list: &mut MoveList, only_captures: bool) {
+pub fn get_rook_moves(board: &Board, move_list: &mut MoveList, gen_type: GENTYPE) {
     let rooks = &mut board.get_piece_bitboard(board.turn, PieceType::ROOK);
     let opp_pieces = board.get_color_bitboard(board.turn.opposite());
     let blockers = board.get_all_pieces_bitboard();
-    let quiet_bitboard = if only_captures {
-        opp_pieces
-    } else {
-        Bitboard::new(u64::MAX)
-    };
+    let quiet_bitboard = get_quiet_bitboard(opp_pieces, gen_type);
     while *rooks != 0 {
         let from_sqr = rooks.pop_lsb();
         let mut moves = get_rook_attacks(from_sqr as usize, blockers)
@@ -581,40 +575,28 @@ pub fn get_rook_moves(board: &Board, move_list: &mut MoveList, only_captures: bo
             & !board.get_color_bitboard(board.turn)
             & quiet_bitboard;
         if is_pinned(board, from_sqr) {
-            moves &= ALIGN_MASK[from_sqr as usize][board.curr_king as usize];
+            moves &= ALIGN_MASK[from_sqr as usize][board.game_state.curr_king as usize];
         }
         let mut captures = moves & opp_pieces;
         moves &= !captures;
         while moves != 0 {
             let to_sqr = moves.pop_lsb();
-            let curr_move = MoveData::new(
-                from_sqr,
-                to_sqr,
-                MoveData::QUIET,
-            );
+            let curr_move = MoveData::new(from_sqr, to_sqr, MoveData::QUIET);
             move_list.add_move(curr_move);
         }
         while captures != 0 {
             let to_sqr = captures.pop_lsb();
-            let curr_move = MoveData::new(
-                from_sqr,
-                to_sqr,
-                MoveData::CAPTURE,
-            );
+            let curr_move = MoveData::new(from_sqr, to_sqr, MoveData::CAPTURE);
             move_list.add_move(curr_move);
         }
     }
 }
-pub fn get_bishop_moves(board: &Board, move_list: &mut MoveList, only_captures: bool) {
+pub fn get_bishop_moves(board: &Board, move_list: &mut MoveList, gen_type: GENTYPE) {
     let bishops = &mut board.get_piece_bitboard(board.turn, PieceType::BISHOP);
     let opp_pieces = board.get_color_bitboard(board.turn.opposite());
     let blockers = board.get_all_pieces_bitboard();
     let our_pieces = board.get_color_bitboard(board.turn);
-    let quiet_bitboard = if only_captures {
-        opp_pieces
-    } else {
-        Bitboard::new(u64::MAX)
-    };
+    let quiet_bitboard = get_quiet_bitboard(opp_pieces, gen_type);
     while *bishops != 0 {
         let from_sqr = bishops.pop_lsb();
         let mut moves = get_bishop_attacks(from_sqr as usize, blockers)
@@ -622,41 +604,29 @@ pub fn get_bishop_moves(board: &Board, move_list: &mut MoveList, only_captures: 
             & !our_pieces
             & quiet_bitboard;
         if is_pinned(board, from_sqr) {
-            moves &= ALIGN_MASK[from_sqr as usize][board.curr_king as usize];
+            moves &= ALIGN_MASK[from_sqr as usize][board.game_state.curr_king as usize];
         }
         let mut captures = moves & opp_pieces;
         moves &= !captures;
         while moves != 0 {
             let to_sqr = moves.pop_lsb();
-            let curr_move = MoveData::new(
-                from_sqr,
-                to_sqr,
-                MoveData::QUIET,
-            );
+            let curr_move = MoveData::new(from_sqr, to_sqr, MoveData::QUIET);
             move_list.add_move(curr_move);
         }
         while captures != 0 {
             let to_sqr = captures.pop_lsb();
-            let curr_move = MoveData::new(
-                from_sqr,
-                to_sqr,
-                MoveData::CAPTURE,
-            );
+            let curr_move = MoveData::new(from_sqr, to_sqr, MoveData::CAPTURE);
             move_list.add_move(curr_move);
         }
     }
 }
-pub fn get_queen_moves(board: &Board, move_list: &mut MoveList, only_captures: bool) {
+pub fn get_queen_moves(board: &Board, move_list: &mut MoveList, gen_type: GENTYPE) {
     let queens = &mut board.get_piece_bitboard(board.turn, PieceType::QUEEN);
     let opp_pieces = board.get_color_bitboard(board.turn.opposite());
     let blockers = board.get_all_pieces_bitboard();
     let our_pieces = board.get_color_bitboard(board.turn);
 
-    let quiet_bitboard = if only_captures {
-        opp_pieces
-    } else {
-        Bitboard::new(u64::MAX)
-    };
+    let quiet_bitboard = get_quiet_bitboard(opp_pieces, gen_type);
     while *queens != 0 {
         let from_sqr = queens.pop_lsb();
         let mut moves = (get_bishop_attacks(from_sqr as usize, blockers)
@@ -666,52 +636,38 @@ pub fn get_queen_moves(board: &Board, move_list: &mut MoveList, only_captures: b
             & quiet_bitboard;
         moves &= !our_pieces;
         if is_pinned(board, from_sqr) {
-            moves &= ALIGN_MASK[from_sqr as usize][board.curr_king as usize];
+            moves &= ALIGN_MASK[from_sqr as usize][board.game_state.curr_king as usize];
         }
         let mut captures = moves & opp_pieces;
         moves &= !captures;
         while moves != 0 {
             let to_sqr = moves.pop_lsb();
-            let curr_move = MoveData::new(
-                from_sqr,
-                to_sqr,
-                MoveData::QUIET,
-            );
+            let curr_move = MoveData::new(from_sqr, to_sqr, MoveData::QUIET);
             move_list.add_move(curr_move);
         }
         while captures != 0 {
             let to_sqr = captures.pop_lsb();
-            let curr_move = MoveData::new(
-                from_sqr,
-                to_sqr,
-                MoveData::CAPTURE,
-            );
+            let curr_move = MoveData::new(from_sqr, to_sqr, MoveData::CAPTURE);
             move_list.add_move(curr_move);
         }
     }
 }
+
 pub fn in_check_after_en_passant(
     board: &Board,
     start_square: u8,
     target_square: u8,
     ep_capture_square: u8,
 ) -> bool {
-    let ortho_attackers = board.get_piece_bitboard(board.turn.opposite(), ROOK) | board.get_piece_bitboard(board.turn.opposite(), QUEEN);
-    let diag_attackers = board.get_piece_bitboard(board.turn.opposite(), BISHOP) | board.get_piece_bitboard(board.turn.opposite(), QUEEN);
-    let blockers = (board.get_all_pieces_bitboard() ^ Bitboard::create_from_square(start_square)) ^ Bitboard::create_from_square(target_square) ^ Bitboard::create_from_square(ep_capture_square);
-    let king_attacks = (get_rook_attacks(board.curr_king as usize, blockers) & ortho_attackers) | (get_bishop_attacks(board.curr_king as usize, blockers) & diag_attackers);
+    let ortho_attackers = board.get_piece_bitboard(board.turn.opposite(), ROOK)
+        | board.get_piece_bitboard(board.turn.opposite(), QUEEN);
+    let diag_attackers = board.get_piece_bitboard(board.turn.opposite(), BISHOP)
+        | board.get_piece_bitboard(board.turn.opposite(), QUEEN);
+    let blockers = (board.get_all_pieces_bitboard() ^ Bitboard::create_from_square(start_square))
+        ^ Bitboard::create_from_square(target_square)
+        ^ Bitboard::create_from_square(ep_capture_square);
+    let king_attacks = (get_rook_attacks(board.game_state.curr_king as usize, blockers)
+        & ortho_attackers)
+        | (get_bishop_attacks(board.game_state.curr_king as usize, blockers) & diag_attackers);
     king_attacks != 0
-}
-pub fn is_legal_moves(board: &Board, mv: &MoveData) -> bool {
-    if board.game_state.squares[mv.get_capture_square() as usize] != None {
-        return false;
-    }
-    if (is_pinned(board, mv.from()) || board.game_state.is_check) && ALIGN_MASK[mv.from() as usize][board.curr_king as usize]
-        != ALIGN_MASK[mv.to() as usize][board.curr_king as usize] {
-        return false;
-    }
-    if board.game_state.squares[mv.from() as usize].unwrap().piece_type == KING && board.attacked_square.contains_square(mv.to()) {
-        return false;
-    }
-    true
 }

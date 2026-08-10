@@ -1,7 +1,10 @@
 use crate::engine::{
     board::{board::Board, piece::PieceColor},
     datagen::format::{BoardPacked, Game, PackedMove},
-    movegen::generate::{generate_moves, update_check},
+    movegen::{
+        generate::{GENTYPE::AllMoves, generate_moves, update_check},
+        movelist::MoveList,
+    },
     search::{
         clock::{self, TimeManager},
         search::search,
@@ -52,7 +55,9 @@ pub fn run_game(
             break;
         }
         update_check(&mut board);
-        let no_moves = generate_moves(&mut board, false).is_empty();
+        let mut legal_moves = MoveList::new();
+        generate_moves(&mut board, AllMoves, &mut legal_moves);
+        let no_moves = legal_moves.is_empty();
         if no_moves {
             if board.game_state.is_check {
                 wdl = compute_wdl_for_win(board.turn.opposite());
@@ -106,8 +111,10 @@ pub fn run_game(
     }
 
     update_check(&mut board);
-    let num_of_moves = generate_moves(&mut board, false).len();
-    wdl = if board.game_state.is_check && num_of_moves == 0 {
+    let mut legal_moves = MoveList::new();
+    generate_moves(&mut board, AllMoves, &mut legal_moves);
+    let num_of_moves = legal_moves.len();
+    let wdl = if board.game_state.is_check && num_of_moves == 0 {
         compute_wdl_for_win(board.turn.opposite())
     } else if board.is_board_draw() || num_of_moves == 0 {
         1

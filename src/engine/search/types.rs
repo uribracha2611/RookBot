@@ -1,7 +1,7 @@
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::{Piece, PieceColor};
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::search::move_ordering::{BASE_KILLER, KillerMoves};
+use crate::engine::search::move_ordering::KillerMoves;
 use crate::engine::search::transposition_table::TranspositionTable;
 use std::time::{Duration, Instant};
 
@@ -73,7 +73,7 @@ struct MoveEntryStack {
     piece_moved: Piece,
 }
 pub struct SearchRefs<'a> {
-    killer_moves: KillerMoves,
+    pub killer_moves: KillerMoves,
     nodes_evaluated: u64,
     start_time: Option<Instant>,
     history_table: [[[i16; 64]; 64]; 2],
@@ -207,7 +207,8 @@ impl SearchRefs<'_> {
     pub fn store_killers(&mut self, mv: MoveData, ply: usize) {
         let first_killer = self.killer_moves[ply][0];
 
-        // First killer must not be the same as the move being stored.
+        // First killer must not be the same as the move being stored. (this condition is enough to
+        // prevent duplicate killer moves)
         if first_killer != Some(mv) {
             // Shift all the moves one index upward...
             for i in (1..2).rev() {
@@ -217,13 +218,5 @@ impl SearchRefs<'_> {
             // and add the new killer move in the first spot.
             self.killer_moves[ply][0] = Some(mv);
         }
-    }
-    pub fn return_killer_move_score(&self, ply: i32, mv: MoveData) -> Option<i32> {
-        for i in 0..2 {
-            if self.killer_moves[ply as usize][i] == Some(mv) {
-                return Some(BASE_KILLER - (i as i32));
-            }
-        }
-        None
     }
 }
