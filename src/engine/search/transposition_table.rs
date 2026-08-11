@@ -1,5 +1,4 @@
 use crate::engine::movegen::movedata::MoveData;
-use crate::engine::search::constants::MATE_VALUE;
 
 #[derive(Clone, Copy, Eq, PartialEq)]
 pub enum EntryType {

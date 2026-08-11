@@ -5,13 +5,10 @@ use super::{
 };
 use crate::engine::board::piece::PieceType;
 use crate::engine::board::piece::PieceType::{BISHOP, KING, KNIGHT, PAWN, QUEEN, ROOK};
-use crate::engine::board::{
-    self,
-    castling::constants::{
+use crate::engine::board::castling::constants::{
         BLACK_KINGSIDE_ROOK_START, BLACK_QUEENSIDE_ROOK_START, WHITE_KINGSIDE_ROOK_START,
         WHITE_QUEENSIDE_ROOK_START,
-    },
-};
+    };
 use crate::engine::datagen::format::Array32U4;
 use crate::engine::movegen::constants::KNIGHT_MOVES;
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
@@ -20,7 +17,6 @@ use crate::engine::search::nnue::NNUE_NETWORK;
 use crate::engine::search::nnue::types::{Accumulator, get_feature_indices};
 use crate::engine::search::psqt::constants::GAMEPHASE_INC;
 use crate::engine::search::psqt::function::get_psqt;
-use crate::engine::search::psqt::weight::W;
 use crate::engine::search::zobrist::constants::{
     ZOBRIST_CASTLING, ZOBRIST_EN_PASSANT, ZOBRIST_KEYS, ZOBRIST_SIDE_TO_MOVE,
 };
@@ -36,7 +32,6 @@ use crate::engine::{
     board::piece::PieceColor::{BLACK, WHITE},
     movegen::generate::in_check_after_en_passant,
 };
-use std::thread::AccessError;
 
 #[derive(Clone)]
 pub struct Board {
@@ -358,7 +353,7 @@ impl Board {
         fen
     }
     pub fn make_move(&mut self, mv: MoveData) {
-        let mut old_game_state = self.game_state;
+        let old_game_state = self.game_state;
         NNUE_NETWORK.handle_mv_nnue(self, mv);
         let moved_piece = self.game_state.squares[mv.from() as usize].unwrap();
         if mv.is_capture() {
@@ -564,8 +559,8 @@ impl Board {
 
         true
     }
-    pub fn unmake_move(&mut self, mv: MoveData) {
-        let mut old_state = self.history.pop().unwrap();
+    pub fn unmake_move(&mut self, _mv: MoveData) {
+        let old_state = self.history.pop().unwrap();
 
         self.game_state = old_state;
         self.repetition_table.pop();

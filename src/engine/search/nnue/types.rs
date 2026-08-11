@@ -1,6 +1,6 @@
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor::WHITE;
-use crate::engine::board::piece::{Piece, PieceColor};
+use crate::engine::board::piece::Piece;
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::constants::MATE_VALUE;
 use crate::engine::search::nnue::simd;
@@ -12,7 +12,7 @@ const QA: i16 = 255;
 const QB: i16 = 64;
 const HL: usize = 256;
 pub fn get_feature_indices(piece: Piece, sq: usize) -> (usize, usize) {
-    let pc = piece.piece_color;
+    let _pc = piece.piece_color;
     let pt = piece.piece_type as usize;
 
     let is_piece_white = piece.piece_color == WHITE;

@@ -113,7 +113,6 @@ pub fn perft_with_timing(fen: &str, depth: u32) -> String {
         duration, depth, move_count
     )
 }
-use crate::engine::board;
 use crate::engine::board::board::Board;
 use crate::engine::movegen::generate::{GENTYPE, generate_moves, update_check};
 use crate::engine::movegen::movedata::MoveData;

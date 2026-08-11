@@ -3,7 +3,7 @@ use std::fmt;
 use crate::engine::{
     board::{
         board::Board,
-        see::{get_piece_value, static_exchange_evaluation},
+        see::static_exchange_evaluation,
     },
     movegen::{
         generate::{GENTYPE, generate_moves},

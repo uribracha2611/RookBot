@@ -5,7 +5,7 @@ pub fn reduce_depth(depth: i32, moves_played: i32, improving: bool, hist: i32) -
     let move_index = moves_played.min(63);
     let lmr_num = unsafe { LMR_TABLE[depth as usize][move_index as usize] };
     let mut base = lmr_num + !improving as i32;
-    base -= (hist / 6000);
+    base -= hist / 6000 ;
     base.clamp(1, depth)
 }
 

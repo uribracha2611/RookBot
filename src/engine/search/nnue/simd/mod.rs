@@ -8,7 +8,7 @@ pub unsafe fn add_1_sub_1(
     size: usize,
 ) {
     for i in 0..size {
-        unsafe { *acc.add(i) += (*weights_add.add(i) - *weights_sub.add(i)) };
+        unsafe { *acc.add(i) += *weights_add.add(i) - *weights_sub.add(i)  };
     }
 }
 pub unsafe fn add(acc: *mut i16, weights: *const i16, size: usize) {
@@ -31,7 +31,7 @@ pub unsafe fn add_1_sub_2(
 ) {
     for i in 0..size {
         unsafe {
-            *acc.add(i) += (*weights_add.add(i) - *weights_sub_1.add(i) - *weights_sub_2.add(i))
+            *acc.add(i) += *weights_add.add(i) - *weights_sub_1.add(i) - *weights_sub_2.add(i) 
         };
     }
 }
@@ -45,9 +45,9 @@ pub unsafe fn add_2_sub_2(
 ) {
     for i in 0..size {
         unsafe {
-            *acc.add(i) += (*weights_add_1.add(i) + *weights_add_2.add(i)
+            *acc.add(i) += *weights_add_1.add(i) + *weights_add_2.add(i)
                 - *weights_sub_1.add(i)
-                - *weights_sub_2.add(i))
+                - *weights_sub_2.add(i) 
         };
     }
 }

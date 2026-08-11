@@ -1,6 +1,6 @@
 use crate::engine::board::board::Board;
 use std::io::Write;
-use std::num::{NonZeroI16, NonZeroU16};
+use std::num::NonZeroU16;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 #[repr(C)]

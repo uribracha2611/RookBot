@@ -1,11 +1,9 @@
 use crate::engine::board::board::Board;
 use crate::engine::board::castling::types::CastlingSide;
-use crate::engine::board::piece::PieceColor::WHITE;
 use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::board::position::Position;
 use std::fmt;
-use std::hint::unreachable_unchecked;
-use std::num::{NonZeroI16, NonZeroU16};
+use std::num::NonZeroU16;
 
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub struct MoveData {

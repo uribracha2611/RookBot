@@ -1,7 +1,7 @@
 use crate::engine::board::bitboard::Bitboard;
 use crate::engine::board::board::Board;
 use crate::engine::board::castling::types::CastlingSide;
-use crate::engine::board::piece::PieceType::{BISHOP, KING, PAWN, QUEEN, ROOK};
+use crate::engine::board::piece::PieceType::{BISHOP, PAWN, QUEEN, ROOK};
 use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::board::position::Position;
 use crate::engine::board::see::get_piece_value;
@@ -515,7 +515,7 @@ pub fn generate_pawn_moves(board: &Board, move_list: &mut MoveList, gen_type: GE
     }
 }
 pub fn generate_promote(
-    board: &Board,
+    _board: &Board,
     start_square: u8,
     end_square: u8,
     move_list: &mut MoveList,

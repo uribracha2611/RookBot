@@ -1,4 +1,3 @@
-use clap::Subcommand;
 
 use crate::constants::FENS_FOR_BENCH;
 use crate::engine::board::board::Board;
@@ -6,10 +5,9 @@ use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
 use crate::engine::movegen::movedata::MoveData;
 
 use crate::engine::perft::perft_bulk;
-use crate::engine::search::clock::{self, ClockOption, DYNAMICTIME, TimeManager};
+use crate::engine::search::clock::{ClockOption, DYNAMICTIME, TimeManager};
 use crate::engine::search::search::{eval, search};
 use crate::engine::search::transposition_table::TranspositionTable;
-use crate::engine::search::types::SearchInput;
 use std::default::Default;
 use std::time::{Duration, Instant};
 

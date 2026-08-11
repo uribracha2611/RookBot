@@ -1,17 +1,14 @@
-use RookBot::engine::board;
 use RookBot::engine::board::board::Board;
-use RookBot::engine::board::piece::PieceColor::{BLACK, WHITE};
 use RookBot::engine::datagen::functions::run_game;
 use RookBot::engine::movegen::generate::{generate_moves, update_check};
 use RookBot::engine::movegen::movelist::MoveList;
 use RookBot::engine::search::clock::{ClockOption, TimeManager};
 use RookBot::engine::search::search::search;
 use RookBot::engine::search::transposition_table::TranspositionTable;
-use RookBot::engine::search::types::SearchInput;
 use clap::Parser;
 use rand::prelude::*;
 use std::fs::{self, File, OpenOptions};
-use std::io::{BufRead, BufReader, BufWriter, Error, Read, Seek, SeekFrom, Write};
+use std::io::{BufRead, BufReader, BufWriter, Error, Write};
 use std::sync::{Arc, Mutex};
 use std::thread;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};

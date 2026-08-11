@@ -1,6 +1,5 @@
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor;
-use crate::engine::board::piece::PieceType::KING;
 use crate::engine::board::see::static_exchange_evaluation;
 use crate::engine::movegen::constants::MAX_MOVES;
 use crate::engine::movegen::generate::{generate_moves, update_check};
@@ -13,14 +12,12 @@ use crate::engine::search::constants::{
 };
 use crate::engine::search::functions::{is_allowed_reverse_futility_pruning, is_improving};
 use crate::engine::search::late_move_reduction::{reduce_depth, should_movecount_based_pruning};
-use crate::engine::search::move_ordering::{BASE_CAPTURE, capture_formula, get_moves_score};
+use crate::engine::search::move_ordering::get_moves_score;
 use crate::engine::search::nnue::NNUE_NETWORK;
 use crate::engine::search::transposition_table::EntryType::UpperBound;
-use crate::engine::search::transposition_table::{self, EntryType, TranspositionTable};
-use crate::engine::search::types::{SearchInput, SearchOutput, SearchRefs};
-use num_traits::bounds::LowerBounded;
+use crate::engine::search::transposition_table::{EntryType, TranspositionTable};
+use crate::engine::search::types::{SearchOutput, SearchRefs};
 use num_traits::real::Real;
-use std::time::Duration;
 
 pub fn quiescence_search(
     board: &mut Board,
