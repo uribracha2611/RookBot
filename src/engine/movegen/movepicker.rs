@@ -1,15 +1,11 @@
-use std::{ffi::os_str::Display, fmt};
-
-use arrayvec::ArrayVec;
+use std::fmt;
 
 use crate::engine::{
     board::{
         board::Board,
-        piece::PieceType,
         see::{get_piece_value, static_exchange_evaluation},
     },
     movegen::{
-        constants::MAX_MOVES,
         generate::{GENTYPE, generate_moves},
         movedata::MoveData,
         movelist::{MoveList, MoveListItem},
@@ -57,7 +53,6 @@ pub struct MovePicker {
     moves: MoveList,
     pub stage: MovegenStages,
     tt_move: Option<MoveData>,
-    seen_moves: ArrayVec<MoveData, MAX_MOVES>,
     killer_index: usize,
 }
 fn select_move(moves: &[MoveListItem]) -> Option<usize> {
@@ -100,16 +95,6 @@ impl MovePicker {
             }
         };
 
-        debug_assert!(
-            !self.seen_moves.contains(&self.moves[index].get_mv()),
-            "mv from is {} mv to is {} is it a capture {} stage is {} score is {}",
-            self.moves[index].get_mv().from(),
-            self.moves[index].get_mv().to(),
-            self.moves[index].get_mv().is_capture(),
-            self.stage,
-            self.moves[index].get_score()
-        );
-
         Some(&self.moves[index])
     }
 
@@ -118,7 +103,6 @@ impl MovePicker {
             moves: MoveList::default(),
             index: 0,
             ply,
-            seen_moves: ArrayVec::new(),
             skip_quiets,
             stage: MovegenStages::TtMove,
             tt_move,
@@ -129,9 +113,9 @@ impl MovePicker {
         if self.stage == MovegenStages::TtMove {
             self.stage = MovegenStages::GenerateCaptures;
             if let Some(tt_move) = self.tt_move
+                && (!self.skip_quiets || tt_move.is_capture())
                 && board.is_move_legal(tt_move)
             {
-                self.seen_moves.push(tt_move);
                 #[cfg(debug_assertions)]
                 {
                     let mut temp_moves = MoveList::new();
@@ -197,9 +181,6 @@ impl MovePicker {
                 let score = mv_data.get_score();
 
                 if score >= BASE_CAPTURE {
-                    #[cfg(debug_assertions)]
-                    self.seen_moves.push(mv);
-
                     return Some(mv);
                 }
                 self.index -= 1;
@@ -221,8 +202,6 @@ impl MovePicker {
                         && Some(curr_killer) != self.tt_move
                         && board.is_move_legal(curr_killer)
                     {
-                        debug_assert!(!self.seen_moves.contains(&curr_killer));
-                        self.seen_moves.push(curr_killer);
                         self.killer_index += 1;
                         return Some(curr_killer);
                     }
@@ -275,37 +254,28 @@ impl MovePicker {
         if self.stage == MovegenStages::QuietMoves {
             if !self.skip_quiets
                 && let Some(mv_data) = self.get_move(board, refs)
-                && mv_data.get_score() > MIN_BAD_CAP_VALUE
             {
                 let mv = mv_data.get_mv();
                 let score = mv_data.get_score();
-                #[cfg(debug_assertions)]
-                if mv.is_capture() {
-                    eprintln!(
-                        "Unexpected capture: from={:?}, to={:?}, score={} board fen={}",
-                        mv.from(),
-                        mv.to(),
-                        score,
-                        board.to_fen()
-                    );
+                if score > MIN_BAD_CAP_VALUE {
+                    #[cfg(debug_assertions)]
+                    debug_assert!(!mv.is_capture());
 
-                    debug_assert!(false);
+                    return Some(mv);
                 }
-
-                self.seen_moves.push(mv);
-                return Some(mv);
-            }
-            self.stage = if self.skip_quiets {
-                MovegenStages::Done
-            } else {
-                MovegenStages::BadCap
+                self.index -= 1;
             }
         }
+        self.stage = if self.skip_quiets {
+            MovegenStages::Done
+        } else {
+            MovegenStages::BadCap
+        };
+
         if self.stage == MovegenStages::BadCap {
             if let Some(mv_data) = self.get_move(board, refs) {
                 let mv = mv_data.get_mv();
 
-                self.seen_moves.push(mv);
                 debug_assert!(mv.is_capture());
                 return Some(mv);
             }

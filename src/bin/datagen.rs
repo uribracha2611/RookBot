@@ -3,6 +3,7 @@ use RookBot::engine::board::board::Board;
 use RookBot::engine::board::piece::PieceColor::{BLACK, WHITE};
 use RookBot::engine::datagen::functions::run_game;
 use RookBot::engine::movegen::generate::{generate_moves, update_check};
+use RookBot::engine::movegen::movelist::MoveList;
 use RookBot::engine::search::clock::{ClockOption, TimeManager};
 use RookBot::engine::search::search::search;
 use RookBot::engine::search::transposition_table::TranspositionTable;
@@ -199,7 +200,12 @@ pub fn choose_random_opening(fens: &[String], random_move_count: i32, node_limit
 
         for _ in 0..random_move_count {
             update_check(&mut board);
-            let moves = generate_moves(&mut board, false);
+            let mut moves = MoveList::new();
+            generate_moves(
+                &mut board,
+                RookBot::engine::movegen::generate::GENTYPE::AllMoves,
+                &mut moves,
+            );
 
             if moves.is_empty() {
                 failed = true;
@@ -207,7 +213,7 @@ pub fn choose_random_opening(fens: &[String], random_move_count: i32, node_limit
             }
 
             let random_move = match moves.into_iter().choose(&mut rng) {
-                Some(m) => m,
+                Some(m) => m.get_mv(),
                 None => {
                     failed = true;
                     break;
@@ -218,7 +224,12 @@ pub fn choose_random_opening(fens: &[String], random_move_count: i32, node_limit
         }
 
         update_check(&mut board);
-        let moves = generate_moves(&mut board, false);
+        let mut moves = MoveList::new();
+        generate_moves(
+            &mut board,
+            RookBot::engine::movegen::generate::GENTYPE::AllMoves,
+            &mut moves,
+        );
 
         if moves.is_empty() {
             failed = true;
