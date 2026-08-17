@@ -1,10 +1,7 @@
 use std::fmt;
 
 use crate::engine::{
-    board::{
-        board::Board,
-        see::static_exchange_evaluation,
-    },
+    board::{board::Board, see::static_exchange_evaluation},
     movegen::{
         generate::{GENTYPE, generate_moves},
         movedata::MoveData,
@@ -136,16 +133,19 @@ impl MovePicker {
             }
             #[cfg(debug_assertions)]
             {
-                if let Some(tt_move) = self.tt_move {
+                if let Some(tt_move) = self.tt_move
+                    && !board.is_move_legal(tt_move)
+                {
                     let mut temp_moves = MoveList::new();
                     generate_moves(board, GENTYPE::AllMoves, &mut temp_moves);
                     if temp_moves.contains(&MoveListItem::from_mv(tt_move)) {
                         eprintln!(
-                            "is legal thinks tt_move is ilegal when it's legal from: {},to: {}, is_capture: {},board fen: {}",
+                            "is legal thinks tt_move is ilegal when it's legal from: {},to: {}, is_capture: {},board fen: {} flag {}",
                             tt_move.from(),
                             tt_move.to(),
+                            tt_move.is_capture(),
                             board.to_fen(),
-                            tt_move.is_capture()
+                            tt_move.flags()
                         );
                         debug_assert!(false)
                     }
