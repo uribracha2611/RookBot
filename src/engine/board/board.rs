@@ -3,12 +3,12 @@ use super::{
     gamestate::GameState,
     piece::{Piece, PieceColor},
 };
+use crate::engine::board::castling::constants::{
+    BLACK_KINGSIDE_ROOK_START, BLACK_QUEENSIDE_ROOK_START, WHITE_KINGSIDE_ROOK_START,
+    WHITE_QUEENSIDE_ROOK_START,
+};
 use crate::engine::board::piece::PieceType;
 use crate::engine::board::piece::PieceType::{BISHOP, KING, KNIGHT, PAWN, QUEEN, ROOK};
-use crate::engine::board::castling::constants::{
-        BLACK_KINGSIDE_ROOK_START, BLACK_QUEENSIDE_ROOK_START, WHITE_KINGSIDE_ROOK_START,
-        WHITE_QUEENSIDE_ROOK_START,
-    };
 use crate::engine::datagen::format::Array32U4;
 use crate::engine::movegen::constants::KNIGHT_MOVES;
 use crate::engine::movegen::magic::functions::{get_bishop_attacks, get_rook_attacks};
@@ -106,14 +106,33 @@ impl Board {
                 .contains_square(square)
         );
     }
+    pub fn does_king_flip(&self, mv: MoveData) -> bool {
+        let from = mv.from() as usize;
+        let to = mv.to() as usize;
 
+        if let Some(piece_from) = self.game_state.squares[from]
+            && piece_from.piece_type == KING
+        {
+            return ((from % 8) > 3) != ((to % 8) > 3);
+        }
+
+        false
+    }
     pub fn rebuild_acc(&self) -> (Accumulator, Accumulator) {
         let mut acc_white = Accumulator::new(&NNUE_NETWORK);
         let mut acc_black = Accumulator::new(&NNUE_NETWORK);
+        let white_king = self
+            .get_piece_bitboard(WHITE, PieceType::KING)
+            .get_single_set_bit() as usize;
 
+        let black_king = self
+            .get_piece_bitboard(PieceColor::BLACK, PieceType::KING)
+            .get_single_set_bit() as usize;
         for (sq, piece_opt) in self.game_state.squares.iter().enumerate() {
             if let Some(piece) = piece_opt {
-                let (white_idx, black_idx) = get_feature_indices(*piece, sq);
+                let (white_idx, black_idx) =
+                    get_feature_indices(*piece, sq, white_king, black_king);
+
                 acc_white.add_feature(white_idx, &NNUE_NETWORK);
                 acc_black.add_feature(black_idx, &NNUE_NETWORK);
             }
@@ -354,7 +373,10 @@ impl Board {
     }
     pub fn make_move(&mut self, mv: MoveData) {
         let old_game_state = self.game_state;
-        NNUE_NETWORK.handle_mv_nnue(self, mv);
+        let is_flip = self.does_king_flip(mv);
+        if !is_flip {
+            NNUE_NETWORK.handle_mv_nnue(self, mv);
+        }
         let moved_piece = self.game_state.squares[mv.from() as usize].unwrap();
         if mv.is_capture() {
             let captured_piece = self.game_state.squares[mv.get_capture_square() as usize].unwrap();
@@ -391,6 +413,9 @@ impl Board {
             self.game_state.halfmove_clock = 0;
         } else {
             self.game_state.halfmove_clock += 1;
+        }
+        if is_flip {
+            (self.game_state.acc_white, self.game_state.acc_black) = self.rebuild_acc();
         }
         self.history.push(old_game_state);
         self.repetition_table.push(self.game_state.zobrist_hash);

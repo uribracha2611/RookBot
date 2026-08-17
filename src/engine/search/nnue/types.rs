@@ -1,6 +1,6 @@
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor::WHITE;
-use crate::engine::board::piece::Piece;
+use crate::engine::board::piece::{Piece, PieceColor, PieceType};
 use crate::engine::movegen::movedata::MoveData;
 use crate::engine::search::constants::MATE_VALUE;
 use crate::engine::search::nnue::simd;
@@ -11,15 +11,25 @@ const SCALE: i32 = 400;
 const QA: i16 = 255;
 const QB: i16 = 64;
 const HL: usize = 256;
-pub fn get_feature_indices(piece: Piece, sq: usize) -> (usize, usize) {
+pub fn get_feature_indices(
+    piece: Piece,
+    sq: usize,
+    white_king: usize,
+    black_king: usize,
+) -> (usize, usize) {
     let _pc = piece.piece_color;
     let pt = piece.piece_type as usize;
+    let white_sq = if (white_king % 8) > 3 { sq ^ 7 } else { sq };
+    let black_sq = if (black_king % 8) > 3 {
+        sq ^ 63
+    } else {
+        sq ^ 56
+    };
 
     let is_piece_white = piece.piece_color == WHITE;
     let white_pt = if is_piece_white { pt } else { pt + 6 };
     let black_pt = if !is_piece_white { pt } else { pt + 6 };
-    let sq_flipped = sq ^ 56;
-    (white_pt * 64 + sq, black_pt * 64 + sq_flipped)
+    (white_pt * 64 + white_sq, black_pt * 64 + black_sq)
 }
 #[repr(C, align(64))]
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -49,10 +59,18 @@ impl Network {
     }
     //assumes the move hasn't been made on the board yet
     pub fn handle_mv_nnue(&self, board: &mut Board, mv: MoveData) {
+        let white_king = board
+            .get_piece_bitboard(WHITE, PieceType::KING)
+            .get_single_set_bit() as usize;
+
+        let black_king = board
+            .get_piece_bitboard(PieceColor::BLACK, PieceType::KING)
+            .get_single_set_bit() as usize;
         let from = mv.from() as usize;
         let to = mv.to() as usize;
         let moved_piece = board.game_state.squares[from].unwrap();
-        let (from_white_index, from_black_index) = get_feature_indices(moved_piece, from);
+        let (from_white_index, from_black_index) =
+            get_feature_indices(moved_piece, from, white_king, black_king);
 
         let (from_white_weights, from_black_weights) = (
             self.feature_weights[from_white_index].vals.as_ptr(),
@@ -60,9 +78,14 @@ impl Network {
         );
 
         let (to_white_index, to_black_index) = if mv.is_promotion() {
-            get_feature_indices(mv.get_promotion_piece(board.turn), to)
+            get_feature_indices(
+                mv.get_promotion_piece(board.turn),
+                to,
+                white_king,
+                black_king,
+            )
         } else {
-            get_feature_indices(moved_piece, to)
+            get_feature_indices(moved_piece, to, white_king, black_king)
         };
 
         let (to_white_weights, to_black_weights) = (
@@ -73,7 +96,7 @@ impl Network {
             let capture_square = mv.get_capture_square() as usize;
             let captured_piece = board.game_state.squares[capture_square].unwrap();
             let (capture_white_index, capture_black_index) =
-                get_feature_indices(captured_piece, capture_square);
+                get_feature_indices(captured_piece, capture_square, white_king, black_king);
             let (capture_white_weights, capture_black_weights) = (
                 self.feature_weights[capture_white_index].vals.as_ptr(),
                 self.feature_weights[capture_black_index].vals.as_ptr(),
@@ -101,13 +124,13 @@ impl Network {
                 let rook_end = mv.get_rook_end(board.turn) as usize;
                 let piece_rook = board.game_state.squares[rook_start].unwrap();
                 let (rook_start_white_index, rook_start_black_index) =
-                    get_feature_indices(piece_rook, rook_start);
+                    get_feature_indices(piece_rook, rook_start, white_king, black_king);
                 let (rook_start_white_weights, rook_start_black_weights) = (
                     self.feature_weights[rook_start_white_index].vals.as_ptr(),
                     self.feature_weights[rook_start_black_index].vals.as_ptr(),
                 );
                 let (rook_end_white_index, rook_end_black_index) =
-                    get_feature_indices(piece_rook, rook_end);
+                    get_feature_indices(piece_rook, rook_end, white_king, black_king);
                 let (rook_end_white_weights, rook_end_black_weights) = (
                     self.feature_weights[rook_end_white_index].vals.as_ptr(),
                     self.feature_weights[rook_end_black_index].vals.as_ptr(),
