@@ -479,10 +479,11 @@ impl Board {
             }
         }
 
-        let diff_to_from = (mv.to() as i8) - (mv.from() as i8);
-        let abs_diff_to_from = diff_to_from.abs();
         match from_piece.piece_type {
             PAWN => {
+                let diff_to_from = (mv.to() as i8) - (mv.from() as i8);
+                let abs_diff_to_from = diff_to_from.abs();
+
                 if mv.is_capture() {
                     if abs_diff_to_from != 7 && abs_diff_to_from != 9 {
                         return false;
@@ -503,6 +504,9 @@ impl Board {
                     if abs_diff_to_from != 8 {
                         return false;
                     }
+                }
+                if !mv.is_promotion() && (mv.to() / 8 == 0 || mv.to() / 8 == 7) {
+                    return false;
                 }
 
                 if self.turn == PieceColor::WHITE && diff_to_from < 0 {
