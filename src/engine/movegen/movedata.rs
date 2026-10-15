@@ -146,7 +146,6 @@ impl MoveData {
 
     pub fn from_algebraic(algebraic: &str, board: &Board) -> Self {
         let notation = algebraic.to_lowercase(); // UCI is usually lowercase
-
         let from_sq = Position::from_chess_notation(&notation[0..2])
             .unwrap()
             .to_sqr()
@@ -258,9 +257,9 @@ impl MoveData {
 
         if self.is_promotion() {
             let promo_char = match self.flags() {
-                Self::PROMO_KNIGHT => 'n',
-                Self::PROMO_BISHOP => 'b',
-                Self::PROMO_ROOK => 'r',
+                Self::PROMO_KNIGHT | Self::PROMO_KNIGHT_CAP => 'n',
+                Self::PROMO_BISHOP | Self::PROMO_BISHOP_CAP => 'b',
+                Self::PROMO_ROOK | Self::PROMO_ROOK_CAP => 'r',
                 _ => 'q',
             };
             result.push(promo_char);

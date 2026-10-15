@@ -69,8 +69,8 @@ impl TimeManager {
     pub fn start(&mut self) {
         self.start_time = Instant::now();
     }
-    pub fn elapsed(&self) {
-        self.start_time.elapsed();
+    pub fn elapsed(&self) -> Duration {
+        self.start_time.elapsed()
     }
     pub fn check_if_only_nodes_done(&self, nodes_count: u64) -> bool {
         if let ClockOption::NODES(nodes) = self.clock {

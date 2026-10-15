@@ -106,6 +106,7 @@ impl SearchRefs<'_> {
     pub fn increment_nodes_evaluated(&mut self) {
         self.nodes_evaluated += 1;
     }
+
     #[inline(always)]
     pub fn add_history(&mut self, color: PieceColor, mv: MoveData, depth: i32, is_malus: bool) {
         let sign = if is_malus { -1 } else { 1 };
@@ -186,22 +187,24 @@ impl SearchRefs<'_> {
     }
 
     pub fn get_cont_history(&self, board: &Board, ply: i32, mv: MoveData) -> i32 {
-        let mut cont = 0;
+        let mut cont = 0 as i32;
         let piece_1 = board.game_state.squares[mv.from() as usize].unwrap();
 
         if ply >= 1
             && let Some(stack_mv) = self.move_stack[(ply - 1) as usize]
         {
             cont += self.continuation_history[0]
-                [Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)];
+                [Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)]
+                as i32;
         }
         if ply >= 2
             && let Some(stack_mv) = self.move_stack[(ply - 2) as usize]
         {
             cont += self.continuation_history[1]
-                [Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)];
+                [Self::cont_hist_index(mv, stack_mv.mv, piece_1, stack_mv.piece_moved)]
+                as i32;
         }
-        cont as i32
+        cont
     }
 
     pub fn store_killers(&mut self, mv: MoveData, ply: usize) {

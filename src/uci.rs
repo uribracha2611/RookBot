@@ -1,4 +1,3 @@
-
 use crate::constants::FENS_FOR_BENCH;
 use crate::engine::board::board::Board;
 use crate::engine::board::piece::PieceColor::{BLACK, WHITE};
@@ -106,6 +105,7 @@ pub fn handle_command(
         "d" => {
             println!("{}", board.to_stockfish_string());
         }
+
         "position" => {
             let remaining_string = command.split(" ").collect::<Vec<&str>>()[1..].join(" ");
             handle_position(remaining_string, board)

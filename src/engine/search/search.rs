@@ -235,9 +235,23 @@ pub fn search(
             );
             best_eval = eval;
         }
+        println!(
+            "info depth {} nodes {} score cp {} pv {} time {}",
+            current_depth,
+            refs.get_nodes_evaluated(),
+            best_eval,
+            principal_variation
+                .iter()
+                .map(|x| x.to_algebraic())
+                .collect::<Vec<String>>()
+                .join(" "),
+            time_manager.elapsed().as_millis()
+        );
+
         current_depth += 1;
     }
     if principal_variation.is_empty() {
+        update_check(board);
         let tt_mv = refs
             .get_transposition_table()
             .get_tt_move(board.game_state.zobrist_hash);
@@ -429,8 +443,11 @@ fn search_common(
         refs.set_move_ply(ply, curr_move, board);
         let (curr_white_acc, curr_black_acc) =
             (board.game_state.acc_white, board.game_state.acc_black);
-        board.make_move(curr_move);
 
+        #[cfg(debug_assertions)]
+        let board_before_move = board.clone();
+
+        board.make_move(curr_move);
         let mut score_mv = 0;
         if depth >= 3 && !curr_move.is_capture() && !curr_move.is_promotion() && is_pvs {
             let new_depth =
@@ -446,7 +463,9 @@ fn search_common(
                 refs,
                 time_manager,
             );
+
             if score_mv > alpha {
+                node_pv.clear();
                 score_mv = -search_common(
                     board,
                     depth - 1,
@@ -459,6 +478,7 @@ fn search_common(
                 );
             }
         } else if is_pvs {
+            node_pv.clear();
             score_mv = -search_common(
                 board,
                 depth - 1,
@@ -471,6 +491,8 @@ fn search_common(
             );
         }
         if !is_pvs || score_mv > alpha {
+            node_pv.clear();
+            debug_assert!(node_pv.is_empty());
             score_mv = -search_common(
                 board,
                 depth - 1,
@@ -484,6 +506,24 @@ fn search_common(
         }
 
         board.unmake_move(curr_move);
+        #[cfg(debug_assertions)]
+        if board.game_state != board_before_move.game_state {
+            eprintln!(
+                "MAKE/UNMAKE CORRUPTION!\n\
+            ply: {}\n\
+            depth: {}\n\
+            move: {}\n\
+            before: {}\n\
+            after:  {}\n",
+                ply,
+                depth,
+                curr_move,
+                board_before_move.to_fen(),
+                board.to_fen(),
+            );
+
+            debug_assert!(false);
+        }
         debug_assert!(
             curr_white_acc == board.game_state.acc_white
                 && curr_black_acc == board.game_state.acc_black
@@ -520,6 +560,43 @@ fn search_common(
                 alpha = score_mv;
                 best_move = Some(curr_move);
                 entry_type = EntryType::Exact;
+                #[cfg(debug_assertions)]
+                {
+                    let mut pv_board = board.clone();
+                    pv_board.make_move(curr_move);
+                    update_check(&mut pv_board);
+
+                    for (i, &pv_move) in node_pv.iter().enumerate() {
+                        update_check(&mut pv_board);
+                        if !pv_board.is_move_legal(pv_move) {
+                            eprintln!(
+                                "ILLEGAL NODE PV\n\
+                             parent ply={}\n\
+                             pv index={}\n\
+                             move={}\n\
+                             board fen={}\n\
+                             node pv={:?}\n\
+                             original board fen={}\n\
+                             curr_move is {:?}\n\
+                             depth={}\n\
+                            amount of moves played={}",
+                                ply,
+                                i,
+                                pv_move,
+                                pv_board.to_fen(),
+                                node_pv,
+                                board.to_fen(),
+                                curr_move,
+                                depth,
+                                legal_move_count
+                            );
+
+                            debug_assert!(false);
+                        }
+
+                        pv_board.make_move(pv_move);
+                    }
+                }
                 // Update PV
                 pv.clear();
                 pv.push(curr_move);
